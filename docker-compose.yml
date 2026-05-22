@@ -74,8 +74,44 @@ services:
     container_name: order-generator
     depends_on:
       - engine
+      - engine-ada
     env_file:
       - .env.dev
+    environment:
+      - ADA_COMMAND_PORT=9997
+      - ADA_ENGINE_HOST=engine-ada
+    restart: on-failure
+
+  engine-ada:
+    build:
+      context: .
+      dockerfile: engine-core/Dockerfile
+    container_name: matching-engine-ada
+    environment:
+      - SYMBOL=ADA-KRW
+      - COMMAND_PORT=9997
+      - ENGINE_PORT=9996
+    ports:
+      - "9997:9997"
+      - "9996:9996"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 2g
+
+  kafka-adapter-ada:
+    build:
+      context: .
+      dockerfile: adapter-kafka/Dockerfile
+    container_name: kafka-adapter-ada
+    depends_on:
+      - engine-ada
+      - kafka
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - ENGINE_HOST=engine-ada
+      - ENGINE_PORT=9996
     restart: on-failure
 
   audit-volume:

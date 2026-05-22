@@ -13,16 +13,19 @@ import java.io.PrintWriter;
 public final class WsHandler extends SimpleChannelInboundHandler<Object> {
     private final ChannelGroup clients;
     private final String engineHost;
-    private final int enginePort;
+    private final int btcPort;
+    private final int adaPort;
     
-    private Socket engineSocket;
-    private PrintWriter engineWriter;
+    private Socket btcSocket;
+    private PrintWriter btcWriter;
+    private Socket adaSocket;
+    private PrintWriter adaWriter;
 
     public WsHandler(ChannelGroup clients) {
         this.clients = clients;
         this.engineHost = ConfigLoader.get("ENGINE_HOST", "localhost");
-        this.enginePort = ConfigLoader.getInt("ENGINE_PORT", 9999);
-
+        this.btcPort = ConfigLoader.getInt("COMMAND_PORT", 9999);
+        this.adaPort = ConfigLoader.getInt("ADA_COMMAND_PORT", 9997);
     }
 
     @Override
@@ -34,13 +37,12 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
     public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
         System.out.println("Client disconnected: " + ctx.channel().remoteAddress());
         clients.remove(ctx.channel());
-        closeEngineSocket();
+        closeAllSockets();
     }
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         if (evt instanceof WebSocketServerProtocolHandler.HandshakeComplete) {
-            // WebSocket connection fully established, add to broadcaster list
             clients.add(ctx.channel());
             System.out.println("WebSocket connection established with: " + ctx.channel().remoteAddress());
         } else {
@@ -57,6 +59,7 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
                 JsonNode node = mapper.readTree(text);
                 
                 String action = node.has("action") ? node.get("action").asText() : "";
+                String symbol = node.has("symbol") ? node.get("symbol").asText() : "BTC-USD";
                 
                 if ("NEW".equalsIgnoreCase(action)) {
                     String side = node.has("side") ? node.get("side").asText() : "";
@@ -65,13 +68,13 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
                     
                     if (!side.isEmpty() && price > 0 && qty > 0) {
                         String cmd = String.format("NEW,%s,%d,%d", side.toUpperCase(), price, qty);
-                        sendToEngine(cmd);
+                        sendToEngine(symbol, cmd);
                     }
                 } else if ("CANCEL".equalsIgnoreCase(action)) {
                     long orderId = node.has("orderId") ? node.get("orderId").asLong() : 0;
                     if (orderId > 0) {
                         String cmd = String.format("CANCEL,%d", orderId);
-                        sendToEngine(cmd);
+                        sendToEngine(symbol, cmd);
                     }
                 }
             } catch (Exception e) {
@@ -86,32 +89,52 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
         ctx.close();
     }
 
-    private synchronized void sendToEngine(String cmd) {
+    private synchronized void sendToEngine(String symbol, String cmd) {
+        boolean isAda = "ADA-KRW".equalsIgnoreCase(symbol);
+        int targetPort = isAda ? adaPort : btcPort;
+        Socket targetSocket = isAda ? adaSocket : btcSocket;
+        PrintWriter targetWriter = isAda ? adaWriter : btcWriter;
+
         try {
-            if (engineSocket == null || engineSocket.isClosed() || !engineSocket.isConnected()) {
-                System.out.println("Connecting to Matching Engine command port at " + engineHost + ":" + enginePort);
-                engineSocket = new Socket(engineHost, enginePort);
-                engineWriter = new PrintWriter(engineSocket.getOutputStream(), true);
+            if (targetSocket == null || targetSocket.isClosed() || !targetSocket.isConnected()) {
+                System.out.println("Connecting to Matching Engine command port (" + symbol + ") at " + engineHost + ":" + targetPort);
+                targetSocket = new Socket(engineHost, targetPort);
+                targetWriter = new PrintWriter(targetSocket.getOutputStream(), true);
+                
+                if (isAda) {
+                    adaSocket = targetSocket;
+                    adaWriter = targetWriter;
+                } else {
+                    btcSocket = targetSocket;
+                    btcWriter = targetWriter;
+                }
             }
-            engineWriter.println(cmd);
-            engineWriter.flush();
+            targetWriter.println(cmd);
+            targetWriter.flush();
         } catch (Exception e) {
-            System.err.println("Error sending command to Matching Engine: " + e.getMessage());
-            closeEngineSocket();
+            System.err.println("Error sending command to Matching Engine (" + symbol + "): " + e.getMessage());
+            closeSocket(isAda);
         }
     }
     
-    private void closeEngineSocket() {
+    private void closeSocket(boolean isAda) {
         try {
-            if (engineWriter != null) {
-                engineWriter.close();
-            }
-            if (engineSocket != null) {
-                engineSocket.close();
+            if (isAda) {
+                if (adaWriter != null) adaWriter.close();
+                if (adaSocket != null) adaSocket.close();
+                adaSocket = null;
+                adaWriter = null;
+            } else {
+                if (btcWriter != null) btcWriter.close();
+                if (btcSocket != null) btcSocket.close();
+                btcSocket = null;
+                btcWriter = null;
             }
         } catch (Exception ignored) {}
-        engineSocket = null;
-        engineWriter = null;
+    }
+
+    private void closeAllSockets() {
+        closeSocket(true);
+        closeSocket(false);
     }
 }
-

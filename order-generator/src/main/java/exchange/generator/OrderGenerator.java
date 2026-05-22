@@ -6,56 +6,85 @@ import java.util.Random;
 
 public final class OrderGenerator {
     public static void main(String[] args) {
-        String engineHost = ConfigLoader.get("ENGINE_HOST", "localhost");
-        int enginePort = ConfigLoader.getInt("COMMAND_PORT", ConfigLoader.getInt("ENGINE_PORT", 9999));
+        String btcHost = ConfigLoader.get("ENGINE_HOST", "localhost");
+        String adaHost = ConfigLoader.get("ADA_ENGINE_HOST", btcHost);
+        int btcPort = ConfigLoader.getInt("COMMAND_PORT", 9999);
+        int adaPort = ConfigLoader.getInt("ADA_COMMAND_PORT", 9997);
 
-        System.out.println("Starting Order Generator...");
-        System.out.println("Target Matching Engine: " + engineHost + ":" + enginePort);
+        System.out.println("Starting Multi-Symbol Order Generator...");
+        System.out.println("Target Matching Engines:");
+        System.out.println(" - BTC-USD command port: " + btcHost + ":" + btcPort);
+        System.out.println(" - ADA-KRW command port: " + adaHost + ":" + adaPort);
 
-        Random rand = new Random();
-        long referencePrice = 65000; // Reference price of 650.00 (scaled by 100) or 65000 directly
+        // Start BTC-USD generator thread
+        Thread btcThread = new Thread(new GeneratorTask(btcHost, btcPort, 65000, "BTC-USD"), "generator-btc");
+        // Start ADA-KRW generator thread
+        Thread adaThread = new Thread(new GeneratorTask(adaHost, adaPort, 50000, "ADA-KRW"), "generator-ada");
 
-        long retryDelay = 1000;
-        while (true) {
+        btcThread.start();
+        adaThread.start();
 
-            try (Socket socket = new Socket(engineHost, enginePort);
-                    PrintWriter writer = new PrintWriter(socket.getOutputStream(), true)) {
+        try {
+            btcThread.join();
+            adaThread.join();
+        } catch (InterruptedException e) {
+            System.err.println("Main thread interrupted.");
+        }
+    }
 
-                System.out.println("Connected to Matching Engine command port! Generating trades...");
-                retryDelay = 1000;
+    private static class GeneratorTask implements Runnable {
+        private final String host;
+        private final int port;
+        private long referencePrice;
+        private final String symbol;
 
-                while (true) {
-                    // 1. Generate randomized order features
-                    String side = rand.nextBoolean() ? "BUY" : "SELL";
+        public GeneratorTask(String host, int port, long referencePrice, String symbol) {
+            this.host = host;
+            this.port = port;
+            this.referencePrice = referencePrice;
+            this.symbol = symbol;
+        }
 
-                    // Spread prices dynamically around reference price to trigger matching matches
-                    long priceOffset = rand.nextInt(100) - 50; // -50 to +49
-                    long price = referencePrice + priceOffset;
-                    long qty = rand.nextInt(15) + 1; // 1 to 15
+        @Override
+        public void run() {
+            Random rand = new Random();
+            long retryDelay = 1000;
+            while (true) {
+                try (Socket socket = new Socket(host, port);
+                     PrintWriter writer = new PrintWriter(socket.getOutputStream(), true)) {
 
-                    // 2. Transmit through command protocol: NEW,BUY/SELL,price,qty
-                    writer.println(String.format("NEW,%s,%d,%d", side, price, qty));
-                    writer.flush();
+                    System.out.println("[" + symbol + "] Connected to matching engine command port! Generating trades...");
+                    retryDelay = 1000;
 
-                    // Dynamically shift reference price slightly to simulate market volatility
-                    if (rand.nextInt(100) < 5) {
-                        referencePrice += rand.nextInt(10) - 5;
+                    while (true) {
+                        String side = rand.nextBoolean() ? "BUY" : "SELL";
+                        
+                        long priceOffset = rand.nextInt(100) - 50; // -50 to +49
+                        long price = referencePrice + priceOffset;
+                        long qty = rand.nextInt(15) + 1; // 1 to 15
+
+                        writer.println(String.format("NEW,%s,%d,%d", side, price, qty));
+                        writer.flush();
+
+                        if (rand.nextInt(100) < 5) {
+                            referencePrice += rand.nextInt(10) - 5;
+                        }
+
+                        // Places orders at a high throughput rate
+                        Thread.sleep(rand.nextInt(200) + 50);
                     }
 
-                    // Sleep between orders (simulates high throughput - doubled speed)
-                    Thread.sleep(rand.nextInt(200) + 50); // places orders every 50ms - 250ms
+                } catch (Exception e) {
+                    System.err.println("[" + symbol + "] Lost connection: " + e.getMessage());
+                    System.err.println("[" + symbol + "] Reconnecting in " + retryDelay + "ms...");
+                    try {
+                        Thread.sleep(retryDelay);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                    retryDelay = Math.min(retryDelay * 2, 30000);
                 }
-
-            } catch (Exception e) {
-                System.err.println("Lost connection to Matching Engine command port: " + e.getMessage());
-                System.err.println("Reconnecting in " + retryDelay + "ms...");
-                try {
-                    Thread.sleep(retryDelay);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-                retryDelay = Math.min(retryDelay * 2, 30000);
             }
         }
     }

@@ -1,4 +1,4 @@
-# 🌌 Quantum Exchange (HF-X)
+# 🌌 JavaF Exchange (HF-X)
 
 초저지연(Ultra-Low Latency) 인메모리 가격-시간 우선(FIFO) 매칭 엔진, 실시간 시세 분배 웹소켓 게이트웨이, 초고속 오프라인 백테스팅 프레임워크를 갖춘 차세대 암호화폐/증권 거래소 백엔드 플랫폼.
 

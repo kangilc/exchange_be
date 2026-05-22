@@ -864,8 +864,11 @@
 
         <div class="connection-status">
             <div class="stat-item">
-                <span class="stat-label">종목:</span>
-                <span class="stat-value" style="color: #00f2fe;">BTC-USD</span>
+                <span class="stat-label">거래 종목:</span>
+                <div class="symbol-selector" style="display: flex; gap: 0.35rem; background: rgba(255, 255, 255, 0.03); padding: 0.2rem; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.06); height: 26px; align-items: center;">
+                    <button id="symbol-btn-btc" class="side-btn buy active" style="padding: 0.2rem 0.65rem; font-size: 0.7rem; border-radius: 4px; line-height: 1; height: 100%; border: none;" onclick="switchSymbol('BTC-USD')">BTC-USD</button>
+                    <button id="symbol-btn-ada" class="side-btn buy" style="padding: 0.2rem 0.65rem; font-size: 0.7rem; border-radius: 4px; line-height: 1; height: 100%; border: none;" onclick="switchSymbol('ADA-KRW')">ADA-KRW</button>
+                </div>
             </div>
             <div class="stat-item">
                 <span class="stat-label">초당 처리량:</span>
@@ -1141,22 +1144,49 @@
     <script>
         let ws;
         let selectedSide = 'BUY';
+        let currentSymbol = 'BTC-USD';
 
-        // Local Order Book Maps (Price -> Qty)
-        const bids = new Map();
-        const asks = new Map();
+        // Java String.hashCode() mapping in JS to match symbolId
+        function getHashCode(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = (hash << 5) - hash + char;
+                hash |= 0;
+            }
+            return Math.abs(hash);
+        }
+
+        const BTC_SYMBOL_ID = getHashCode("BTC-USD");
+        const ADA_SYMBOL_ID = getHashCode("ADA-KRW");
+
+        // Local Order Book and Chart Data per Symbol
+        const books = {
+            'BTC-USD': {
+                bids: new Map(),
+                asks: new Map(),
+                lastRenderedAsks: new Array(10).fill(null),
+                lastRenderedBids: new Array(10).fill(null),
+                priceHistory: [],
+                tradeHistory: []
+            },
+            'ADA-KRW': {
+                bids: new Map(),
+                asks: new Map(),
+                lastRenderedAsks: new Array(10).fill(null),
+                lastRenderedBids: new Array(10).fill(null),
+                priceHistory: [],
+                tradeHistory: []
+            }
+        };
+
         const priceFlashStates = new Map(); // 가격별 개별 플래시 상태 (Price -> 'inc'/'dec')
 
         // Speed tracking
         let msgCount = 0;
         let lastSpeedTime = Date.now();
 
-        // Cached orderbook rows to prevent unnecessary updates and trigger flashes
-        const lastRenderedAsks = new Array(10).fill(null);
-        const lastRenderedBids = new Array(10).fill(null);
-
-        // Chart history variables
-        const priceHistory = [];
+        // Chart configuration
         const maxHistoryPoints = 65;
         const chartCanvas = document.getElementById('priceCanvas');
         const chartCtx = chartCanvas.getContext('2d');
@@ -1179,25 +1209,84 @@
             const sellBtn = document.getElementById('side-sell');
             const submitBtn = document.getElementById('submit-order-btn');
 
+            const isBtc = currentSymbol === 'BTC-USD';
+            const actionKo = side === 'BUY' ? '매수' : '매도';
+
             if (side === 'BUY') {
                 buyBtn.classList.add('active');
                 sellBtn.classList.remove('active');
                 submitBtn.className = 'btn-submit buy';
-                submitBtn.innerText = '매수 주문 전송';
+                submitBtn.innerText = `${actionKo} 주문 전송`;
             } else {
                 buyBtn.classList.remove('active');
                 sellBtn.classList.add('active');
                 submitBtn.className = 'btn-submit sell';
-                submitBtn.innerText = '매도 주문 전송';
+                submitBtn.innerText = `${actionKo} 주문 전송`;
             }
             updateTotalAmount();
+        }
+
+        // Switch trading Symbol / Pair
+        function switchSymbol(symbol) {
+            if (currentSymbol === symbol) return;
+            currentSymbol = symbol;
+
+            const btcBtn = document.getElementById('symbol-btn-btc');
+            const adaBtn = document.getElementById('symbol-btn-ada');
+
+            if (symbol === 'BTC-USD') {
+                btcBtn.classList.add('active');
+                adaBtn.classList.remove('active');
+            } else {
+                btcBtn.classList.remove('active');
+                adaBtn.classList.add('active');
+            }
+
+            const priceLabel = document.querySelector('#order-price').parentNode.querySelector('.input-suffix');
+            const qtyLabel = document.querySelector('#order-qty').parentNode.querySelector('.input-suffix');
+            
+            if (symbol === 'BTC-USD') {
+                priceLabel.innerText = 'USD';
+                qtyLabel.innerText = 'BTC';
+                document.getElementById('order-price').value = 65000;
+                document.getElementById('order-qty').value = 5;
+                
+                const presets = document.querySelectorAll('.preset-btn');
+                presets[0].innerText = '1 BTC'; presets[0].setAttribute('onclick', 'setQtyPreset(1)');
+                presets[1].innerText = '5 BTC'; presets[1].setAttribute('onclick', 'setQtyPreset(5)');
+                presets[2].innerText = '10 BTC'; presets[2].setAttribute('onclick', 'setQtyPreset(10)');
+                presets[3].innerText = '50 BTC'; presets[3].setAttribute('onclick', 'setQtyPreset(50)');
+            } else {
+                priceLabel.innerText = 'KRW';
+                qtyLabel.innerText = 'ADA';
+                document.getElementById('order-price').value = 500;
+                document.getElementById('order-qty').value = 1000;
+
+                const presets = document.querySelectorAll('.preset-btn');
+                presets[0].innerText = '100 ADA'; presets[0].setAttribute('onclick', 'setQtyPreset(100)');
+                presets[1].innerText = '500 ADA'; presets[1].setAttribute('onclick', 'setQtyPreset(500)');
+                presets[2].innerText = '1000 ADA'; presets[2].setAttribute('onclick', 'setQtyPreset(1000)');
+                presets[3].innerText = '5000 ADA'; presets[3].setAttribute('onclick', 'setQtyPreset(5000)');
+            }
+
+            setSide(selectedSide);
+            updateTotalAmount();
+            
+            // Redraw everything for the newly selected symbol
+            updateOrderbookUI();
+            renderTradeHistoryUI();
+            drawPriceChart();
+            
+            log('system', `거래 종목 전환 완료: ${symbol}`);
         }
 
         // Adjust input price or quantity with incremental buttons
         function adjustInput(id, delta) {
             const input = document.getElementById(id);
             let val = parseFloat(input.value) || 0;
-            val = Math.max(1, val + delta);
+            const step = currentSymbol === 'BTC-USD' ? 1 : 10; // ADA price shifts by 10 KRW increments for comfort
+            const actualDelta = id === 'order-price' ? (delta * step) : delta;
+            val = Math.max(1, val + actualDelta);
             input.value = val;
             updateTotalAmount();
         }
@@ -1213,7 +1302,8 @@
             const price = parseFloat(document.getElementById('order-price').value) || 0;
             const qty = parseFloat(document.getElementById('order-qty').value) || 0;
             const total = price * qty;
-            document.getElementById('total-amount').innerText = '$' + total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const unit = currentSymbol === 'BTC-USD' ? '$' : '₩';
+            document.getElementById('total-amount').innerText = unit + total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
         // Connect WebSocket Stream
@@ -1229,7 +1319,7 @@
                 document.getElementById('connection-dot').className = 'status-dot connected';
                 document.getElementById('connection-text').innerText = '연결됨';
                 document.getElementById('connection-text').style.color = '#10b981';
-                log('system', '연결 성공! 실시간 바이너리 스트림 구독 시작.');
+                log('system', '연결 성공! 실시간 바이너리 멀티 심볼 스트림 구독 시작.');
             };
 
             ws.onclose = () => {
@@ -1265,40 +1355,54 @@
                 const priceNum = Number(price);
                 const qtyNum = Number(deltaQty);
 
+                let msgSymbol = null;
+                if (symbolId === BTC_SYMBOL_ID) {
+                    msgSymbol = 'BTC-USD';
+                } else if (symbolId === ADA_SYMBOL_ID) {
+                    msgSymbol = 'ADA-KRW';
+                } else {
+                    return; // Ignore unknown symbolId
+                }
+
+                const targetBook = books[msgSymbol];
+
                 // 실시간 체결 내역 기록
-                // 델타 수량이 감소(deltaQty < 0)했다는 것은 매칭이 체결되었음을 의미함
                 if (qtyNum < 0) {
-                    addTradeHistory(priceNum, Math.abs(qtyNum), side);
+                    addTradeHistory(msgSymbol, priceNum, Math.abs(qtyNum), side);
                 }
 
                 // 가격별 플래시 상태 저장 (증가 'inc', 감소 'dec')
-                priceFlashStates.set(priceNum, qtyNum > 0 ? 'inc' : 'dec');
+                if (msgSymbol === currentSymbol) {
+                    priceFlashStates.set(priceNum, qtyNum > 0 ? 'inc' : 'dec');
+                }
 
                 // 로컬 호가 장부 업데이트
                 if (side === 0) { // BUY (Bid)
-                    const current = bids.get(priceNum) || 0;
+                    const current = targetBook.bids.get(priceNum) || 0;
                     const next = current + qtyNum;
                     if (next <= 0) {
-                        bids.delete(priceNum);
+                        targetBook.bids.delete(priceNum);
                     } else {
-                        bids.set(priceNum, next);
+                        targetBook.bids.set(priceNum, next);
                     }
                 } else { // SELL (Ask)
-                    const current = asks.get(priceNum) || 0;
+                    const current = targetBook.asks.get(priceNum) || 0;
                     const next = current + qtyNum;
                     if (next <= 0) {
-                        asks.delete(priceNum);
+                        targetBook.asks.delete(priceNum);
                     } else {
-                        asks.set(priceNum, next);
+                        targetBook.asks.set(priceNum, next);
                     }
                 }
 
-                // 렌더링 갱신
-                updateOrderbookUI();
+                // 현재 활성화된 심볼의 데이터인 경우에만 실시간 UI 드로잉 실행
+                if (msgSymbol === currentSymbol) {
+                    updateOrderbookUI();
+                }
             };
         }
 
-        // Throughput metrics & artificial connection latency
+        // Throughput metrics
         setInterval(() => {
             const now = Date.now();
             const elapsed = (now - lastSpeedTime) / 1000;
@@ -1318,14 +1422,16 @@
 
         // Update asymmetric high-contrast orderbook UI
         function updateOrderbookUI() {
+            const book = books[currentSymbol];
+
             // 매도 호가 오름차순 (가장 싼 가격부터 위로 쌓음)
-            const sortedAsks = Array.from(asks.entries())
+            const sortedAsks = Array.from(book.asks.entries())
                 .filter(([_, qty]) => qty > 0)
                 .sort((a, b) => a[0] - b[0])
                 .slice(0, 10);
 
             // 매수 호가 내림차순 (가장 비싼 가격부터 아래로 쌓음)
-            const sortedBids = Array.from(bids.entries())
+            const sortedBids = Array.from(book.bids.entries())
                 .filter(([_, qty]) => qty > 0)
                 .sort((a, b) => b[0] - a[0])
                 .slice(0, 10);
@@ -1339,7 +1445,7 @@
 
             // 1. 매도 호가 렌더링 (Ask rows, i = 0~9, index 9가 최상단, index 0이 최하단 베스트 매도호가)
             for (let i = 0; i < 10; i++) {
-                const askIdx = 9 - i; // 인덱스 역순 매핑
+                const askIdx = 9 - i;
                 const askData = sortedAsks[askIdx];
                 const rowEl = document.getElementById(`ask-row-${i}`);
                 const priceCell = rowEl.querySelector('.price');
@@ -1349,7 +1455,7 @@
 
                 if (askData) {
                     const [price, qty] = askData;
-                    const prev = lastRenderedAsks[i];
+                    const prev = book.lastRenderedAsks[i];
 
                     priceCell.innerText = (price / 100).toFixed(2);
                     qtyVal.innerText = qty.toLocaleString();
@@ -1370,13 +1476,13 @@
                         qtyCell.classList.add(qty > prev.qty ? 'flash-ask-inc' : 'flash-dec');
                     }
 
-                    lastRenderedAsks[i] = { price, qty };
+                    book.lastRenderedAsks[i] = { price, qty };
                 } else {
                     priceCell.innerText = '--';
                     qtyVal.innerText = '--';
                     depthBar.style.width = '0%';
                     rowEl.onclick = null;
-                    lastRenderedAsks[i] = null;
+                    book.lastRenderedAsks[i] = null;
                 }
             }
 
@@ -1391,7 +1497,7 @@
 
                 if (bidData) {
                     const [price, qty] = bidData;
-                    const prev = lastRenderedBids[i];
+                    const prev = book.lastRenderedBids[i];
 
                     priceCell.innerText = (price / 100).toFixed(2);
                     qtyVal.innerText = qty.toLocaleString();
@@ -1412,13 +1518,13 @@
                         qtyCell.classList.add(qty > prev.qty ? 'flash-bid-inc' : 'flash-dec');
                     }
 
-                    lastRenderedBids[i] = { price, qty };
+                    book.lastRenderedBids[i] = { price, qty };
                 } else {
                     priceCell.innerText = '--';
                     qtyVal.innerText = '--';
                     depthBar.style.width = '0%';
                     rowEl.onclick = null;
-                    lastRenderedBids[i] = null;
+                    book.lastRenderedBids[i] = null;
                 }
             }
 
@@ -1434,16 +1540,16 @@
                 const gap = bestAsk - bestBid;
                 const gapPercent = (gap / mid) * 100;
 
-                const midUsd = mid / 100;
-                midPriceEl.innerText = `$${midUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                const midVal = mid / 100;
+                const unit = currentSymbol === 'BTC-USD' ? '$' : '₩';
+                midPriceEl.innerText = `${unit}${midVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                 
-                // 스프레드 갭 출력 및 전일대비 가상 시각화색 지정
-                const isPriceUp = gapPercent > 0.02; // 가상 변동 구분선
-                spreadGapEl.innerText = `스프레드 갭: $${(gap / 100).toFixed(2)} (${gapPercent.toFixed(3)}%)`;
+                const isPriceUp = gapPercent > 0.02;
+                spreadGapEl.innerText = `스프레드 갭: ${unit}${(gap / 100).toFixed(2)} (${gapPercent.toFixed(3)}%)`;
                 spreadGapEl.className = isPriceUp ? 'spread-change up' : 'spread-change down';
 
                 // 차트 데이터에 새로운 시세 포인트 삽입
-                addPriceTick(midUsd);
+                addPriceTick(midVal);
             } else {
                 midPriceEl.innerText = '--';
                 spreadGapEl.innerText = '--';
@@ -1455,11 +1561,12 @@
 
         // Track & add price to charts
         function addPriceTick(price) {
-            const last = priceHistory[priceHistory.length - 1];
+            const history = books[currentSymbol].priceHistory;
+            const last = history[history.length - 1];
             if (last === price) return;
-            priceHistory.push(price);
-            if (priceHistory.length > maxHistoryPoints) {
-                priceHistory.shift();
+            history.push(price);
+            if (history.length > maxHistoryPoints) {
+                history.shift();
             }
             drawPriceChart();
         }
@@ -1471,7 +1578,9 @@
 
             chartCtx.clearRect(0, 0, w, h);
 
-            if (priceHistory.length === 0) {
+            const history = books[currentSymbol].priceHistory;
+
+            if (history.length === 0) {
                 chartCtx.fillStyle = '#94a3b8';
                 chartCtx.font = '13px Noto Sans KR';
                 chartCtx.textAlign = 'center';
@@ -1482,7 +1591,7 @@
             // 차트 최대/최소 범위 계산
             let maxPrice = -Infinity;
             let minPrice = Infinity;
-            priceHistory.forEach(p => {
+            history.forEach(p => {
                 if (p > maxPrice) maxPrice = p;
                 if (p < minPrice) minPrice = p;
             });
@@ -1515,10 +1624,10 @@
             // 1. 차트 하단 그라디언트 영역 채우기
             chartCtx.beginPath();
             chartCtx.moveTo(getX(0), h);
-            priceHistory.forEach((pt, i) => {
+            history.forEach((pt, i) => {
                 chartCtx.lineTo(getX(i), getY(pt));
             });
-            chartCtx.lineTo(getX(priceHistory.length - 1), h);
+            chartCtx.lineTo(getX(history.length - 1), h);
             chartCtx.closePath();
 
             const areaGrd = chartCtx.createLinearGradient(0, 0, 0, h);
@@ -1529,7 +1638,7 @@
 
             // 2. 실시간 네온 실선 그리기
             chartCtx.beginPath();
-            priceHistory.forEach((pt, i) => {
+            history.forEach((pt, i) => {
                 if (i === 0) chartCtx.moveTo(getX(i), getY(pt));
                 else chartCtx.lineTo(getX(i), getY(pt));
             });
@@ -1545,8 +1654,8 @@
             chartCtx.shadowBlur = 0; // 초기화
 
             // 3. 최신 가격 포인터 깜빡임 원형
-            const lastIdx = priceHistory.length - 1;
-            const lastPrice = priceHistory[lastIdx];
+            const lastIdx = history.length - 1;
+            const lastPrice = history[lastIdx];
             const px = getX(lastIdx);
             const py = getY(lastPrice);
 
@@ -1565,7 +1674,8 @@
             chartCtx.fillStyle = '#fff';
             chartCtx.font = 'bold 11px Fira Code';
             chartCtx.textAlign = 'left';
-            chartCtx.fillText(`$${lastPrice.toFixed(2)}`, px - 75, py - 12);
+            const unit = currentSymbol === 'BTC-USD' ? '$' : '₩';
+            chartCtx.fillText(`${unit}${lastPrice.toFixed(2)}`, px - 75, py - 12);
         }
 
         // Fill Price input from clicking Orderbook price cell
@@ -1573,36 +1683,51 @@
             const realPrice = scaledPrice / 100;
             document.getElementById('order-price').value = realPrice;
             updateTotalAmount();
-            log('system', `선택한 호가 가격 입력 완료: $${realPrice.toFixed(2)}`);
+            const unit = currentSymbol === 'BTC-USD' ? '$' : '₩';
+            log('system', `선택한 호가 가격 입력 완료: ${unit}${realPrice.toFixed(2)}`);
         }
 
         // Add Real-time simulated execution lists (체결 내역)
-        function addTradeHistory(price, qty, side) {
-            const tbody = document.getElementById('trades-tbody');
-            const row = document.createElement('tr');
-            
-            // side === 0 인 경우: 매수 주문 소화(매도체결: 파랑), side === 1 인 경우: 매도 주문 소화(매수체결: 빨강)
-            const isBuyExecution = (side === 1);
-            row.className = isBuyExecution ? 'buy' : 'sell';
+        function addTradeHistory(symbol, price, qty, side) {
+            const targetBook = books[symbol];
 
             const now = new Date();
             const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
             const priceVal = (price / 100).toFixed(2);
             const totalVal = ((price / 100) * qty).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            
+            const isBuyExecution = (side === 1);
+            const rowClass = isBuyExecution ? 'buy' : 'sell';
 
-            row.innerHTML = `
-                <td class="time-cell">${timeStr}</td>
-                <td>${priceVal}</td>
-                <td class="qty-cell-history">${qty}</td>
-                <td>${totalVal}</td>
-            `;
+            const tradeItem = { timeStr, priceVal, qty, totalVal, rowClass };
+            targetBook.tradeHistory.unshift(tradeItem);
 
-            tbody.insertBefore(row, tbody.firstChild);
-
-            // DOM 성능 조절을 위한 초과 로우 제거 (최대 50개 유지)
-            if (tbody.children.length > 50) {
-                tbody.removeChild(tbody.lastChild);
+            if (targetBook.tradeHistory.length > 50) {
+                targetBook.tradeHistory.pop();
             }
+
+            if (symbol === currentSymbol) {
+                renderTradeHistoryUI();
+            }
+        }
+
+        // Render current active trade history
+        function renderTradeHistoryUI() {
+            const tbody = document.getElementById('trades-tbody');
+            tbody.innerHTML = '';
+
+            const history = books[currentSymbol].tradeHistory;
+            history.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = item.rowClass;
+                row.innerHTML = `
+                    <td class="time-cell">${item.timeStr}</td>
+                    <td>${item.priceVal}</td>
+                    <td class="qty-cell-history">${item.qty}</td>
+                    <td>${item.totalVal}</td>
+                `;
+                tbody.appendChild(row);
+            });
         }
 
         // Submit Order command to Netty websocket handler
@@ -1625,13 +1750,16 @@
 
             const payload = {
                 action: 'NEW',
+                symbol: currentSymbol, // 라우팅을 위한 심볼 파라미터 추가
                 side: selectedSide,
                 price: scaledPrice,
                 qty: qtyInput
             };
 
             ws.send(JSON.stringify(payload));
-            log(selectedSide.toLowerCase(), `주문 전송: ${qtyInput} BTC @ $${priceInput.toFixed(2)}`);
+            const symbolUnit = currentSymbol === 'BTC-USD' ? 'BTC' : 'ADA';
+            const priceUnit = currentSymbol === 'BTC-USD' ? '$' : '₩';
+            log(selectedSide.toLowerCase(), `주문 전송 [${currentSymbol}]: ${qtyInput} ${symbolUnit} @ ${priceUnit}${priceInput.toFixed(2)}`);
             alertBubble(`${selectedSide === 'BUY' ? '매수' : '매도'} 주문이 접수되었다.`);
         }
 
