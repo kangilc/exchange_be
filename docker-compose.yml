@@ -26,11 +26,11 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
-  engine:
+  engine-btc:
     build:
       context: .
       dockerfile: engine-core/Dockerfile
-    container_name: matching-engine
+    container_name: matching-engine-btc
     env_file:
       - .env.dev
     ports:
@@ -42,16 +42,18 @@ services:
           cpus: "2"
           memory: 4g
 
-  kafka-adapter:
+  kafka-adapter-btc:
     build:
       context: .
       dockerfile: adapter-kafka/Dockerfile
-    container_name: kafka-adapter
+    container_name: kafka-adapter-btc
     depends_on:
-      - engine
+      - engine-btc
       - kafka
-    env_file:
-      - .env.dev
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - ENGINE_HOST=engine-btc
+      - ENGINE_PORT=9998
     restart: on-failure
 
   ws-gateway:
@@ -73,7 +75,7 @@ services:
       dockerfile: order-generator/Dockerfile
     container_name: order-generator
     depends_on:
-      - engine
+      - engine-btc
       - engine-ada
     env_file:
       - .env.dev
