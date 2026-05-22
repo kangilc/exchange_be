@@ -3,10 +3,10 @@ FROM gradle:7.6.0-jdk17 AS build
 WORKDIR /home/gradle/project
 COPY build.gradle settings.gradle ./
 COPY adapter-kafka ./adapter-kafka
-RUN gradle :adapter-kafka:build -x test --no-daemon
+RUN gradle :adapter-kafka:installDist -x test --no-daemon
 
 # Stage 2: Run in minimal JVM runtime
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-COPY --from=build /home/gradle/project/adapter-kafka/build/libs/*.jar app.jar
-ENTRYPOINT ["sh", "-c", "java -jar app.jar"]
+COPY --from=build /home/gradle/project/adapter-kafka/build/install/adapter-kafka ./
+ENTRYPOINT ["./bin/adapter-kafka"]
