@@ -1763,11 +1763,26 @@
             }
 
             if (symbol === currentSymbol) {
-                renderTradeHistoryUI();
+                // tbody를 파괴하지 않고 최상단에 로우를 한 줄만 삽입(Prepend)하여 깜빡임 제거
+                const tbody = document.getElementById('trades-tbody');
+                const row = document.createElement('tr');
+                row.className = rowClass;
+                row.innerHTML = `
+                    <td class="time-cell">${timeStr}</td>
+                    <td>${priceVal}</td>
+                    <td class="qty-cell-history">${qty}</td>
+                    <td>${totalVal}</td>
+                `;
+                tbody.insertBefore(row, tbody.firstChild);
+
+                // 최대 50개 유지 (넘어가면 맨 밑에 로우를 안전하게 제거)
+                while (tbody.children.length > 50) {
+                    tbody.removeChild(tbody.lastChild);
+                }
             }
         }
 
-        // Render current active trade history
+        // Render current active trade history (마켓 심볼 전환 시에만 일괄 재드로잉)
         function renderTradeHistoryUI() {
             const tbody = document.getElementById('trades-tbody');
             tbody.innerHTML = '';
