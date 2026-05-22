@@ -56,6 +56,9 @@ public final class OrderGenerator {
                     System.out.println("[" + symbol + "] Connected to matching engine command port! Generating trades...");
                     retryDelay = 1000;
 
+                    // 커넥션 성공 즉시 촘촘한 20레벨 호가 시드 데이터(Seed Book) 인젝션 수행
+                    generateInitialSeedBook(writer);
+
                     while (true) {
                         String side = rand.nextBoolean() ? "BUY" : "SELL";
                         
@@ -86,6 +89,24 @@ public final class OrderGenerator {
                     retryDelay = Math.min(retryDelay * 2, 30000);
                 }
             }
+        }
+
+        private void generateInitialSeedBook(PrintWriter writer) {
+            System.out.println("[" + symbol + "] Generating initial 20-level thick seed book...");
+            // Ask Side (SELL) - referencePrice + 1 to +10
+            for (int i = 1; i <= 10; i++) {
+                long price = referencePrice + i;
+                long qty = 20 + new Random().nextInt(50); // 20~70 random quantity
+                writer.println(String.format("NEW,SELL,%d,%d", price, qty));
+            }
+            // Bid Side (BUY) - referencePrice - 1 to -10
+            for (int i = 1; i <= 10; i++) {
+                long price = referencePrice - i;
+                long qty = 20 + new Random().nextInt(50);
+                writer.println(String.format("NEW,BUY,%d,%d", price, qty));
+            }
+            writer.flush();
+            System.out.println("[" + symbol + "] Seed book injection completed successfully for " + symbol);
         }
     }
 }
