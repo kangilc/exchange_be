@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaF - 실시간 고대비 거래 터미널</title>
+    <!-- Modern Premium Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Outfit:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-base: #090e1a;
+            --bg-surface: rgba(15, 23, 42, 0.8);
+            --bg-card: rgba(30, 41, 59, 0.45);
+            --border-glow: rgba(0, 82, 196, 0.2);
+            --border-glow-hover: rgba(0, 242, 254, 0.3);
+            
+            /* 업비트 스타일 매도/매수 대비 컬러 */
+            --color-ask: #0052c4; /* 매도 블루 */
+            --color-ask-glow: rgba(0, 82, 196, 0.4);
+            --color-ask-bg: rgba(18, 97, 196, 0.08); /* 매도 호가 칸 기본 연한 배경 */
+            
+            --color-bid: #c84a31; /* 매수 레드 */
+            --color-bid-glow: rgba(200, 74, 49, 0.4);
+            --color-bid-bg: rgba(200, 74, 49, 0.08); /* 매수 호가 칸 기본 연한 배경 */
+            
+            --color-accent: #8a2be2;
+            --color-text-primary: #f8fafc;
+            --color-text-secondary: #94a3b8;
+            --font-main: 'Noto Sans KR', 'Outfit', sans-serif;
+            --font-mono: 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            background-image:
+                radial-gradient(circle at 5% 10%, rgba(18, 97, 196, 0.15) 0%, transparent 35%),
+                radial-gradient(circle at 95% 85%, rgba(200, 74, 49, 0.1) 0%, transparent 40%);
+            background-attachment: fixed;
+            color: var(--color-text-primary);
+            font-family: var(--font-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Ambient glowing headers */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 2rem;
+            background: rgba(9, 14, 26, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 100;
+            position: sticky;
+            top: 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-glow {
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, var(--color-ask), var(--color-bid));
+            border-radius: 50%;
+            box-shadow: 0 0 12px var(--color-ask);
+            animation: pulse-logo 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-logo {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 12px var(--color-ask);
+            }
+            50% {
+                transform: scale(1.2);
+                box-shadow: 0 0 20px var(--color-bid);
+            }
+        }
+
+        .logo-title {
+            font-weight: 900;
+            font-size: 1.6rem;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #ffffff 30%, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-sub {
+            font-size: 0.7rem;
+            color: #00f2fe;
+            border: 1px solid rgba(0, 242, 254, 0.4);
+            background: rgba(0, 242, 254, 0.05);
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 0.5rem 1.25rem;
+            border-radius: 30px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .stat-label {
+            color: var(--color-text-secondary);
+        }
+
+        .stat-value {
+            font-family: var(--font-mono);
+            color: var(--color-text-primary);
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #ef4444;
+        }
+
+        .status-dot.connected {
+            background-color: #10b981;
+            box-shadow: 0 0 10px #10b981;
+            animation: pulse-green 1.5s infinite;
+        }
+
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* Layout Grid */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 1.8fr 1.3fr 1.1fr;
+            gap: 1.25rem;
+            padding: 1.25rem;
+            flex-grow: 1;
+            max-width: 1920px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        @media (max-width: 1400px) {
+            .dashboard-container {
+                grid-template-columns: 1.5fr 1.3fr;
+            }
+            .right-column {
+                grid-column: span 2;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+            }
+            .right-column, .middle-column {
+                grid-column: span 1;
+            }
+        }
+
+        /* Column Structure */
+        .left-column, .middle-column, .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        /* Panels */
+        .panel {
+            background: var(--bg-surface);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+
+        .panel:hover {
+            border-color: var(--border-glow-hover);
+            box-shadow: 0 8px 32px 0 rgba(0, 242, 254, 0.05);
+        }
+
+        .panel-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(30, 41, 59, 0.2);
+        }
+
+        .panel-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: var(--color-text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .panel-title::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 14px;
+            background: var(--color-ask);
+            border-radius: 2px;
+        }
+
+        .panel-title.bid::before {
+            background: var(--color-bid);
+        }
+
+        .panel-body {
+            padding: 1.25rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Asymmetric Orderbook Layout */
+        .orderbook-panel {
+            min-height: 720px;
+        }
+
+        .orderbook-ladder {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            user-select: none;
+        }
+
+        .ladder-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--color-text-secondary);
+            background: rgba(30, 41, 59, 0.15);
+            text-align: center;
+        }
+
+        .ladder-header div:first-child {
+            text-align: right;
+            padding-right: 1.5rem;
+        }
+
+        .ladder-header div:last-child {
+            text-align: left;
+            padding-left: 1.5rem;
+        }
+
+        .ladder-rows {
+            display: flex;
+            flex-direction: column;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+        }
+
+        .ladder-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            height: 34px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.015);
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+
+        .ladder-row:hover {
+            background-color: rgba(255, 255, 255, 0.04) !important;
+        }
+
+        /* Ask Row (매도) */
+        .ladder-row.ask {
+            background-color: var(--color-ask-bg);
+        }
+
+        /* Bid Row (매수) */
+        .ladder-row.bid {
+            background-color: var(--color-bid-bg);
+        }
+
+        .ladder-cell {
+            display: flex;
+            align-items: center;
+            position: relative;
+            height: 100%;
+        }
+
+        /* 가격 열 (중앙) */
+        .ladder-cell.price {
+            justify-content: center;
+            font-weight: 700;
+            border-left: 1px solid rgba(255, 255, 255, 0.02);
+            border-right: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .ladder-row.ask .ladder-cell.price {
+            color: #3b82f6; /* 밝은 매도 블루 */
+        }
+
+        .ladder-row.bid .ladder-cell.price {
+            color: #ef4444; /* 밝은 매수 레드 */
+        }
+
+        /* 수량 공통 */
+        .qty-cell {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            transition: background-color 0.4s ease;
+        }
+
+        .qty-value {
+            z-index: 3;
+            font-weight: 500;
+            color: var(--color-text-primary);
+        }
+
+        .depth-bar {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            height: calc(100% - 8px);
+            z-index: 1;
+            pointer-events: none;
+            border-radius: 2px;
+            transition: width 0.25s cubic-bezier(0.1, 0.8, 0.3, 1);
+        }
+
+        /* 매도 수량 (좌측) */
+        .ask-qty {
+            justify-content: flex-end;
+            padding-right: 1.25rem;
+        }
+
+        .ask-qty .depth-bar {
+            right: 0;
+            background-color: rgba(59, 130, 246, 0.16);
+            border-right: 2px solid rgba(59, 130, 246, 0.45);
+        }
+
+        /* 매수 수량 (우측) */
+        .bid-qty {
+            justify-content: flex-start;
+            padding-left: 1.25rem;
+        }
+
+        .bid-qty .depth-bar {
+            left: 0;
+            background-color: rgba(239, 68, 68, 0.16);
+            border-left: 2px solid rgba(239, 68, 68, 0.45);
+        }
+
+        /* ========================================= */
+        /* 초강력 네온 플래시 효과 (Blinking Highlights) */
+        /* ========================================= */
+        @keyframes ask-flash-inc {
+            0% { background-color: rgba(59, 130, 246, 0.65); box-shadow: inset 0 0 10px rgba(59, 130, 246, 0.9); }
+            100% { background-color: transparent; }
+        }
+
+        @keyframes bid-flash-inc {
+            0% { background-color: rgba(239, 68, 68, 0.65); box-shadow: inset 0 0 10px rgba(239, 68, 68, 0.9); }
+            100% { background-color: transparent; }
+        }
+
+        @keyframes flash-dec {
+            0% { background-color: rgba(248, 250, 252, 0.35); box-shadow: inset 0 0 8px rgba(248, 250, 252, 0.5); }
+            100% { background-color: transparent; }
+        }
+
+        .flash-ask-inc {
+            animation: ask-flash-inc 0.45s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+
+        .flash-bid-inc {
+            animation: bid-flash-inc 0.45s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+
+        .flash-dec {
+            animation: flash-dec 0.45s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+
+        /* ========================================= */
+
+        /* 중앙 스프레드 디바이더 */
+        .spread-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            height: 48px;
+            align-items: center;
+            background: rgba(30, 41, 59, 0.35);
+            border-top: 2px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+            padding: 0 1rem;
+            z-index: 5;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .spread-col-left {
+            text-align: right;
+            padding-right: 1.5rem;
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+            font-weight: 500;
+        }
+
+        .spread-price-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .spread-value {
+            font-family: var(--font-mono);
+            font-size: 1.15rem;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+
+        .spread-change {
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-top: 1px;
+        }
+
+        .spread-change.up { color: #ef4444; }
+        .spread-change.down { color: #3b82f6; }
+
+        .spread-col-right {
+            text-align: left;
+            padding-left: 1.5rem;
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+            font-weight: 500;
+            font-family: var(--font-mono);
+        }
+
+        /* Canvas Chart Panel */
+        .canvas-container {
+            flex-grow: 1;
+            position: relative;
+            background: rgba(9, 14, 26, 0.45);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+            min-height: 280px;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Order Terminal Form */
+        .order-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .side-toggle {
+            display: flex;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0.25rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .side-btn {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: var(--color-text-secondary);
+            font-family: var(--font-main);
+            font-weight: 700;
+            padding: 0.65rem 0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.85rem;
+        }
+
+        .side-btn.buy.active {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.1);
+        }
+
+        .side-btn.sell.active {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.1);
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .input-label {
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+            font-weight: 700;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            padding: 0.75rem 3.5rem 0.75rem 0.75rem;
+            color: var(--color-text-primary);
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .input-wrapper input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.04);
+            border-color: #00f2fe;
+            box-shadow: 0 0 8px rgba(0, 242, 254, 0.2);
+        }
+
+        .input-adjust-btn {
+            position: absolute;
+            right: 2.2rem;
+            width: 24px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .input-adjust-btn.plus {
+            right: 0.6rem;
+        }
+
+        .input-adjust-btn:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .input-suffix {
+            position: absolute;
+            right: 4.2rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--color-text-secondary);
+        }
+
+        /* 수량 프리셋 버튼 */
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.35rem;
+            margin-top: 0.25rem;
+        }
+
+        .preset-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--color-text-secondary);
+            font-size: 0.7rem;
+            padding: 0.4rem 0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.15s;
+        }
+
+        .preset-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .total-amount-box {
+            background: rgba(255, 255, 255, 0.015);
+            border: 1px dashed rgba(255, 255, 255, 0.05);
+            padding: 0.85rem;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .total-label {
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+            font-weight: 700;
+        }
+
+        .total-value {
+            font-family: var(--font-mono);
+            font-size: 1.1rem;
+            font-weight: 900;
+            color: #00f2fe;
+            text-shadow: 0 0 10px rgba(0, 242, 254, 0.1);
+        }
+
+        .btn-submit {
+            width: 100%;
+            border: none;
+            padding: 0.9rem;
+            border-radius: 6px;
+            font-family: var(--font-main);
+            font-weight: 900;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.25s;
+            margin-top: 0.25rem;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .btn-submit.buy {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: #ffffff;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-submit.buy:hover {
+            transform: translateY(-1.5px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.45);
+            filter: brightness(1.1);
+        }
+
+        .btn-submit.sell {
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: #ffffff;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-submit.sell:hover {
+            transform: translateY(-1.5px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.45);
+            filter: brightness(1.1);
+        }
+
+        .btn-submit:active {
+            transform: translateY(0.5px);
+        }
+
+        /* Real-Time Trades List (체결 내역) */
+        .trades-panel {
+            flex-grow: 1;
+            min-height: 250px;
+        }
+
+        .trades-table-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            max-height: 320px;
+        }
+
+        .trades-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+        }
+
+        .trades-table th {
+            position: sticky;
+            top: 0;
+            background: rgba(15, 23, 42, 0.95);
+            padding: 0.5rem 0.75rem;
+            text-align: right;
+            color: var(--color-text-secondary);
+            font-weight: 700;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 10;
+        }
+
+        .trades-table th:first-child, .trades-table td:first-child {
+            text-align: left;
+        }
+
+        .trades-table td {
+            padding: 0.45rem 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.01);
+            text-align: right;
+            font-weight: 500;
+            animation: rowFadeIn 0.2s ease-out;
+        }
+
+        @keyframes rowFadeIn {
+            from { opacity: 0; transform: translateY(-3px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .trades-table tr.buy td {
+            color: #ef4444; /* 매수체결 (레드) */
+        }
+
+        .trades-table tr.sell td {
+            color: #3b82f6; /* 매도체결 (블루) */
+        }
+
+        .trades-table tr td.time-cell {
+            color: var(--color-text-secondary);
+        }
+
+        .trades-table tr td.qty-cell-history {
+            color: #fff;
+        }
+
+        /* Expandable Console Logger */
+        .event-log-panel {
+            min-height: 180px;
+        }
+
+        .event-log-body {
+            flex-grow: 1;
+            padding: 0.75rem 1.25rem;
+            background: rgba(9, 14, 26, 0.85);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+            overflow-y: auto;
+            max-height: 200px;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+            border-radius: 6px;
+        }
+
+        .log-entry {
+            display: grid;
+            grid-template-columns: 85px 85px 1fr;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+            padding: 2px 0;
+            animation: fadeIn 0.15s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-2px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .log-time {
+            color: var(--color-text-secondary);
+        }
+
+        .log-tag {
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .log-tag.system { color: #f59e0b; }
+        .log-tag.buy { color: #ef4444; }
+        .log-tag.sell { color: #3b82f6; }
+
+        .log-msg {
+            color: var(--color-text-primary);
+        }
+
+        /* Success alerts */
+        .alert-bubble {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            background: rgba(0, 242, 254, 0.95);
+            color: #06070d;
+            font-weight: 800;
+            padding: 0.85rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 242, 254, 0.45);
+            animation: slideUp 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+            pointer-events: none;
+            z-index: 1000;
+            font-size: 0.85rem;
+            border-left: 5px solid #0052c4;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(50px) scale(0.85); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Header Section -->
+    <header>
+        <div class="logo-section">
+            <div class="logo-glow"></div>
+            <span class="logo-title">JavaF</span>
+            <span class="logo-sub">초고속 거래 엔진 v1.0</span>
+        </div>
+
+        <div class="connection-status">
+            <div class="stat-item">
+                <span class="stat-label">종목:</span>
+                <span class="stat-value" style="color: #00f2fe;">BTC-USD</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">초당 처리량:</span>
+                <span id="throughput-display" class="stat-value">0 msgs/s</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">네트워크 지연:</span>
+                <span id="latency-display" class="stat-value">-- ms</span>
+            </div>
+            <div class="stat-item" style="border-left: 1px solid rgba(255,255,255,0.08); padding-left: 1rem;">
+                <div id="connection-dot" class="status-dot"></div>
+                <span id="connection-text" class="stat-value" style="font-size: 0.75rem;">연결 끊김</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Grid Layout -->
+    <div class="dashboard-container">
+
+        <!-- Left Column: Chart & Execution history -->
+        <div class="left-column">
+            <!-- Price Chart -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">실시간 시세 차트</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="canvas-container">
+                        <canvas id="priceCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Trades (체결 내역) -->
+            <div class="panel trades-panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">실시간 체결 내역</h3>
+                </div>
+                <div class="panel-body" style="padding: 0;">
+                    <div class="trades-table-container">
+                        <table class="trades-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 25%;">체결 시간</th>
+                                    <th style="width: 25%;">체결 가격 (USD)</th>
+                                    <th style="width: 25%;">체결 수량 (BTC)</th>
+                                    <th style="width: 25%;">체결 금액 (USD)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trades-tbody">
+                                <!-- 실시간으로 채워짐 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Middle Column: Asymmetric Orderbook -->
+        <div class="panel orderbook-panel middle-column">
+            <div class="panel-header">
+                <h3 class="panel-title">실시간 호가</h3>
+            </div>
+            <div class="panel-body" style="padding: 0;">
+                <div class="orderbook-ladder">
+                    <!-- Column Header -->
+                    <div class="ladder-header">
+                        <div>매도 잔량 (BTC)</div>
+                        <div>호가 (USD)</div>
+                        <div>매수 잔량 (BTC)</div>
+                    </div>
+
+                    <!-- Ask Side (Sell) - Top portion of book -->
+                    <div class="ladder-rows" id="ask-rows">
+                        <!-- 10 Ask Rows pre-rendered from high to low price -->
+                        <div class="ladder-row ask" id="ask-row-0">
+                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty"></div>
+                        </div>
+                        <div class="ladder-row ask" id="ask-row-1">
+                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty"></div>
+                        </div>
+                        <div class="ladder-row ask" id="ask-row-2">
+                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty"></div>
+                        </div>
+                        <div class="ladder-row ask" id="ask-row-3">
+                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty"></div>
+                        </div>
+                        <div class="ladder-row ask" id="ask-row-4">
+                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty"></div>
+                        </div>
+                        <div class="ladder-row ask" id="ask-row-5">
+                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty"></div>
+                        </div>
+                        <div class="ladder-row ask" id="ask-row-6">
+                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty"></div>
+                        </div>
+                        <div class="ladder-row ask" id="ask-row-7">
+                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty"></div>
+                        </div>
+                        <div class="ladder-row ask" id="ask-row-8">
+                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty"></div>
+                        </div>
+                        <div class="ladder-row ask" id="ask-row-9">
+                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty"></div>
+                        </div>
+                    </div>
+
+                    <!-- Spread Indicator Bar (Center) -->
+                    <div class="spread-bar">
+                        <div class="spread-col-left">매도 스프레드</div>
+                        <div class="spread-price-container">
+                            <span id="mid-price" class="spread-value">--</span>
+                            <span id="spread-gap" class="spread-change">--</span>
+                        </div>
+                        <div class="spread-col-right">매수 스프레드</div>
+                    </div>
+
+                    <!-- Bid Side (Buy) - Bottom portion of book -->
+                    <div class="ladder-rows" id="bid-rows">
+                        <!-- 10 Bid Rows pre-rendered from high to low price -->
+                        <div class="ladder-row bid" id="bid-row-0">
+                            <div class="ladder-cell ask-qty"></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                        </div>
+                        <div class="ladder-row bid" id="bid-row-1">
+                            <div class="ladder-cell ask-qty"></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                        </div>
+                        <div class="ladder-row bid" id="bid-row-2">
+                            <div class="ladder-cell ask-qty"></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                        </div>
+                        <div class="ladder-row bid" id="bid-row-3">
+                            <div class="ladder-cell ask-qty"></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                        </div>
+                        <div class="ladder-row bid" id="bid-row-4">
+                            <div class="ladder-cell ask-qty"></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                        </div>
+                        <div class="ladder-row bid" id="bid-row-5">
+                            <div class="ladder-cell ask-qty"></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                        </div>
+                        <div class="ladder-row bid" id="bid-row-6">
+                            <div class="ladder-cell ask-qty"></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                        </div>
+                        <div class="ladder-row bid" id="bid-row-7">
+                            <div class="ladder-cell ask-qty"></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                        </div>
+                        <div class="ladder-row bid" id="bid-row-8">
+                            <div class="ladder-cell ask-qty"></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                        </div>
+                        <div class="ladder-row bid" id="bid-row-9">
+                            <div class="ladder-cell ask-qty"></div>
+                            <div class="ladder-cell price">--</div>
+                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Interactive Order Terminal & Logs -->
+        <div class="right-column">
+            <!-- Order Terminal -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">주문 터미널</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="order-form">
+                        <div class="side-toggle">
+                            <button id="side-buy" class="side-btn buy active" onclick="setSide('BUY')">매수 (BUY)</button>
+                            <button id="side-sell" class="side-btn sell" onclick="setSide('SELL')">매도 (SELL)</button>
+                        </div>
+
+                        <div class="input-group">
+                            <label class="input-label">주문 구분</label>
+                            <div class="side-toggle" style="background: rgba(255,255,255,0.015);">
+                                <button class="side-btn active" style="background: rgba(255,255,255,0.04); color: #fff; cursor: default;">지정가 (LIMIT)</button>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label class="input-label">주문 가격</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="order-price" value="65000" min="1" step="1" oninput="updateTotalAmount()">
+                                <button class="input-adjust-btn minus" onclick="adjustInput('order-price', -1)">-</button>
+                                <button class="input-adjust-btn plus" onclick="adjustInput('order-price', 1)">+</button>
+                                <span class="input-suffix">USD</span>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label class="input-label">주문 수량</label>
+                            <div class="input-wrapper">
+                                <input type="number" id="order-qty" value="5" min="1" step="1" oninput="updateTotalAmount()">
+                                <button class="input-adjust-btn minus" onclick="adjustInput('order-qty', -1)">-</button>
+                                <button class="input-adjust-btn plus" onclick="adjustInput('order-qty', 1)">+</button>
+                                <span class="input-suffix">BTC</span>
+                            </div>
+                            <div class="preset-buttons">
+                                <button class="preset-btn" onclick="setQtyPreset(1)">1 BTC</button>
+                                <button class="preset-btn" onclick="setQtyPreset(5)">5 BTC</button>
+                                <button class="preset-btn" onclick="setQtyPreset(10)">10 BTC</button>
+                                <button class="preset-btn" onclick="setQtyPreset(50)">50 BTC</button>
+                            </div>
+                        </div>
+
+                        <div class="total-amount-box">
+                            <span class="total-label">주문 총액</span>
+                            <span id="total-amount" class="total-value">$325,000.00</span>
+                        </div>
+
+                        <button id="submit-order-btn" class="btn-submit buy" onclick="submitOrder()">매수 주문 전송</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Logs -->
+            <div class="panel event-log-panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">시스템 이벤트 로그</h3>
+                </div>
+                <div class="panel-body" style="padding: 0.75rem;">
+                    <div id="event-logs" class="event-log-body">
+                        <div class="log-entry">
+                            <span class="log-time">[초기화]</span>
+                            <span class="log-tag system">System</span>
+                            <span class="log-msg">실시간 고성능 매칭 엔진에 연결을 시도한다...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Binary Decoding and Upbit Simulation logic -->
+    <script>
+        let ws;
+        let selectedSide = 'BUY';
+
+        // Local Order Book Maps (Price -> Qty)
+        const bids = new Map();
+        const asks = new Map();
+
+        // Speed tracking
+        let msgCount = 0;
+        let lastSpeedTime = Date.now();
+
+        // Cached orderbook rows to prevent unnecessary updates and trigger flashes
+        const lastRenderedAsks = new Array(10).fill(null);
+        const lastRenderedBids = new Array(10).fill(null);
+
+        // Chart history variables
+        const priceHistory = [];
+        const maxHistoryPoints = 65;
+        const chartCanvas = document.getElementById('priceCanvas');
+        const chartCtx = chartCanvas.getContext('2d');
+
+        function resizeCanvas() {
+            const rect = chartCanvas.parentElement.getBoundingClientRect();
+            chartCanvas.width = rect.width * window.devicePixelRatio;
+            chartCanvas.height = rect.height * window.devicePixelRatio;
+            chartCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawPriceChart();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 300);
+
+        // Toggle Buy/Sell Action tab
+        function setSide(side) {
+            selectedSide = side;
+            const buyBtn = document.getElementById('side-buy');
+            const sellBtn = document.getElementById('side-sell');
+            const submitBtn = document.getElementById('submit-order-btn');
+
+            if (side === 'BUY') {
+                buyBtn.classList.add('active');
+                sellBtn.classList.remove('active');
+                submitBtn.className = 'btn-submit buy';
+                submitBtn.innerText = '매수 주문 전송';
+            } else {
+                buyBtn.classList.remove('active');
+                sellBtn.classList.add('active');
+                submitBtn.className = 'btn-submit sell';
+                submitBtn.innerText = '매도 주문 전송';
+            }
+            updateTotalAmount();
+        }
+
+        // Adjust input price or quantity with incremental buttons
+        function adjustInput(id, delta) {
+            const input = document.getElementById(id);
+            let val = parseFloat(input.value) || 0;
+            val = Math.max(1, val + delta);
+            input.value = val;
+            updateTotalAmount();
+        }
+
+        // Set quantity preset buttons
+        function setQtyPreset(qty) {
+            document.getElementById('order-qty').value = qty;
+            updateTotalAmount();
+        }
+
+        // Update Total calculated order price in real-time
+        function updateTotalAmount() {
+            const price = parseFloat(document.getElementById('order-price').value) || 0;
+            const qty = parseFloat(document.getElementById('order-qty').value) || 0;
+            const total = price * qty;
+            document.getElementById('total-amount').innerText = '$' + total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // Connect WebSocket Stream
+        function connect() {
+            const host = window.location.hostname || 'localhost';
+            const wsUrl = `ws://${host}:8080/ws`;
+
+            log('system', `웹소켓 게이트웨이에 연결 중: ${wsUrl}`);
+            ws = new WebSocket(wsUrl);
+            ws.binaryType = 'arraybuffer';
+
+            ws.onopen = () => {
+                document.getElementById('connection-dot').className = 'status-dot connected';
+                document.getElementById('connection-text').innerText = '연결됨';
+                document.getElementById('connection-text').style.color = '#10b981';
+                log('system', '연결 성공! 실시간 바이너리 스트림 구독 시작.');
+            };
+
+            ws.onclose = () => {
+                document.getElementById('connection-dot').className = 'status-dot';
+                document.getElementById('connection-text').innerText = '연결 끊김';
+                document.getElementById('connection-text').style.color = '#ef4444';
+                log('system', '연결 끊김. 3초 후 재연결 시도.');
+                setTimeout(connect, 3000);
+            };
+
+            ws.onerror = (err) => {
+                log('system', `웹소켓 통신 에러 발생`);
+            };
+
+            ws.onmessage = (event) => {
+                msgCount++;
+                const buffer = event.data;
+
+                if (buffer.byteLength !== 32) {
+                    log('system', `비정상적인 크기의 바이너리 수신: ${buffer.byteLength} 바이트`);
+                    return;
+                }
+
+                // Decode Compact Binary Layout:
+                // [SymbolId(4 바이트)][Seq(8 바이트)][Price(8 바이트)][Qty(8 바이트)][Side(4 바이트)]
+                const view = new DataView(buffer);
+                const symbolId = view.getInt32(0, false);
+                const seq = view.getBigInt64(4, false);
+                const price = view.getBigInt64(12, false);
+                const deltaQty = view.getBigInt64(20, false);
+                const side = view.getInt32(28, false);
+
+                const priceNum = Number(price);
+                const qtyNum = Number(deltaQty);
+
+                // 실시간 체결 내역 기록
+                // 델타 수량이 감소(deltaQty < 0)했다는 것은 매칭이 체결되었음을 의미함
+                if (qtyNum < 0) {
+                    addTradeHistory(priceNum, Math.abs(qtyNum), side);
+                }
+
+                // 로컬 호가 장부 업데이트
+                if (side === 0) { // BUY (Bid)
+                    const current = bids.get(priceNum) || 0;
+                    const next = current + qtyNum;
+                    if (next <= 0) {
+                        bids.delete(priceNum);
+                    } else {
+                        bids.set(priceNum, next);
+                    }
+                } else { // SELL (Ask)
+                    const current = asks.get(priceNum) || 0;
+                    const next = current + qtyNum;
+                    if (next <= 0) {
+                        asks.delete(priceNum);
+                    } else {
+                        asks.set(priceNum, next);
+                    }
+                }
+
+                // 렌더링 갱신
+                updateOrderbookUI();
+            };
+        }
+
+        // Throughput metrics & artificial connection latency
+        setInterval(() => {
+            const now = Date.now();
+            const elapsed = (now - lastSpeedTime) / 1000;
+            const tps = Math.round(msgCount / elapsed);
+            document.getElementById('throughput-display').innerText = `${tps} msgs/s`;
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const simulatedLatency = Math.floor(Math.random() * 3) + 1; // 1-3ms
+                document.getElementById('latency-display').innerText = `${simulatedLatency} ms`;
+            } else {
+                document.getElementById('latency-display').innerText = `-- ms`;
+            }
+
+            msgCount = 0;
+            lastSpeedTime = now;
+        }, 1000);
+
+        // Update asymmetric high-contrast orderbook UI
+        function updateOrderbookUI() {
+            // 매도 호가 오름차순 (가장 싼 가격부터 위로 쌓음)
+            const sortedAsks = Array.from(asks.entries())
+                .filter(([_, qty]) => qty > 0)
+                .sort((a, b) => a[0] - b[0])
+                .slice(0, 10);
+
+            // 매수 호가 내림차순 (가장 비싼 가격부터 아래로 쌓음)
+            const sortedBids = Array.from(bids.entries())
+                .filter(([_, qty]) => qty > 0)
+                .sort((a, b) => b[0] - a[0])
+                .slice(0, 10);
+
+            // 게이지 바 렌더링용 최대 누적잔량 계산
+            let bidTotal = 0;
+            let askTotal = 0;
+            sortedBids.forEach(([_, qty]) => bidTotal += qty);
+            sortedAsks.forEach(([_, qty]) => askTotal += qty);
+            const maxDepth = Math.max(bidTotal, askTotal) || 1;
+
+            // 1. 매도 호가 렌더링 (Ask rows, i = 0~9, index 9가 최상단, index 0이 최하단 베스트 매도호가)
+            for (let i = 0; i < 10; i++) {
+                const askIdx = 9 - i; // 인덱스 역순 매핑
+                const askData = sortedAsks[askIdx];
+                const rowEl = document.getElementById(`ask-row-${i}`);
+                const priceCell = rowEl.querySelector('.price');
+                const qtyCell = rowEl.querySelector('.ask-qty');
+                const qtyVal = qtyCell.querySelector('.qty-value');
+                const depthBar = qtyCell.querySelector('.depth-bar');
+
+                if (askData) {
+                    const [price, qty] = askData;
+                    const prev = lastRenderedAsks[i];
+
+                    priceCell.innerText = (price / 100).toFixed(2);
+                    qtyVal.innerText = qty.toLocaleString();
+                    rowEl.onclick = () => fillPriceInput(price);
+
+                    const widthPercent = Math.min((qty / maxDepth) * 100, 100);
+                    depthBar.style.width = `${widthPercent}%`;
+
+                    // 수량 변동 감지 및 플래시 애니메이션 적용
+                    if (prev && prev.price === price && prev.qty !== qty) {
+                        qtyCell.classList.remove('flash-ask-inc', 'flash-dec');
+                        void qtyCell.offsetWidth; // Reflow 발생
+                        qtyCell.classList.add(qty > prev.qty ? 'flash-ask-inc' : 'flash-dec');
+                    }
+
+                    lastRenderedAsks[i] = { price, qty };
+                } else {
+                    priceCell.innerText = '--';
+                    qtyVal.innerText = '--';
+                    depthBar.style.width = '0%';
+                    rowEl.onclick = null;
+                    lastRenderedAsks[i] = null;
+                }
+            }
+
+            // 2. 매수 호가 렌더링 (Bid rows, i = 0~9, index 0이 최상단 베스트 매수호가)
+            for (let i = 0; i < 10; i++) {
+                const bidData = sortedBids[i];
+                const rowEl = document.getElementById(`bid-row-${i}`);
+                const priceCell = rowEl.querySelector('.price');
+                const qtyCell = rowEl.querySelector('.bid-qty');
+                const qtyVal = qtyCell.querySelector('.qty-value');
+                const depthBar = qtyCell.querySelector('.depth-bar');
+
+                if (bidData) {
+                    const [price, qty] = bidData;
+                    const prev = lastRenderedBids[i];
+
+                    priceCell.innerText = (price / 100).toFixed(2);
+                    qtyVal.innerText = qty.toLocaleString();
+                    rowEl.onclick = () => fillPriceInput(price);
+
+                    const widthPercent = Math.min((qty / maxDepth) * 100, 100);
+                    depthBar.style.width = `${widthPercent}%`;
+
+                    // 수량 변동 감지 및 플래시 애니메이션 적용
+                    if (prev && prev.price === price && prev.qty !== qty) {
+                        qtyCell.classList.remove('flash-bid-inc', 'flash-dec');
+                        void qtyCell.offsetWidth; // Reflow 발생
+                        qtyCell.classList.add(qty > prev.qty ? 'flash-bid-inc' : 'flash-dec');
+                    }
+
+                    lastRenderedBids[i] = { price, qty };
+                } else {
+                    priceCell.innerText = '--';
+                    qtyVal.innerText = '--';
+                    depthBar.style.width = '0%';
+                    rowEl.onclick = null;
+                    lastRenderedBids[i] = null;
+                }
+            }
+
+            // 3. 중앙 스프레드 연산 및 가격 정보 바 렌더링
+            const bestBid = sortedBids.length > 0 ? sortedBids[0][0] : null;
+            const bestAsk = sortedAsks.length > 0 ? sortedAsks[0][0] : null;
+
+            const midPriceEl = document.getElementById('mid-price');
+            const spreadGapEl = document.getElementById('spread-gap');
+
+            if (bestBid && bestAsk) {
+                const mid = (bestBid + bestAsk) / 2;
+                const gap = bestAsk - bestBid;
+                const gapPercent = (gap / mid) * 100;
+
+                const midUsd = mid / 100;
+                midPriceEl.innerText = `$${midUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                
+                // 스프레드 갭 출력 및 전일대비 가상 시각화색 지정
+                const isPriceUp = gapPercent > 0.02; // 가상 변동 구분선
+                spreadGapEl.innerText = `스프레드 갭: $${(gap / 100).toFixed(2)} (${gapPercent.toFixed(3)}%)`;
+                spreadGapEl.className = isPriceUp ? 'spread-change up' : 'spread-change down';
+
+                // 차트 데이터에 새로운 시세 포인트 삽입
+                addPriceTick(midUsd);
+            } else {
+                midPriceEl.innerText = '--';
+                spreadGapEl.innerText = '--';
+            }
+        }
+
+        // Track & add price to charts
+        function addPriceTick(price) {
+            const last = priceHistory[priceHistory.length - 1];
+            if (last === price) return;
+            priceHistory.push(price);
+            if (priceHistory.length > maxHistoryPoints) {
+                priceHistory.shift();
+            }
+            drawPriceChart();
+        }
+
+        // Draw dynamic tick chart on Canvas
+        function drawPriceChart() {
+            const w = chartCanvas.width / window.devicePixelRatio;
+            const h = chartCanvas.height / window.devicePixelRatio;
+
+            chartCtx.clearRect(0, 0, w, h);
+
+            if (priceHistory.length === 0) {
+                chartCtx.fillStyle = '#94a3b8';
+                chartCtx.font = '13px Noto Sans KR';
+                chartCtx.textAlign = 'center';
+                chartCtx.fillText('엔진으로부터 실시간 호가 데이터를 수신 대기 중...', w / 2, h / 2);
+                return;
+            }
+
+            // 차트 최대/최소 범위 계산
+            let maxPrice = -Infinity;
+            let minPrice = Infinity;
+            priceHistory.forEach(p => {
+                if (p > maxPrice) maxPrice = p;
+                if (p < minPrice) minPrice = p;
+            });
+
+            // 위아래 미세 마진 설정
+            const range = maxPrice - minPrice || 10;
+            const paddedMin = minPrice - (range * 0.15);
+            const paddedMax = maxPrice + (range * 0.15);
+            const rangeScale = paddedMax - paddedMin;
+
+            function getX(index) {
+                return (index / (maxHistoryPoints - 1)) * (w - 20) + 10;
+            }
+
+            function getY(val) {
+                return h - ((val - paddedMin) / rangeScale) * (h - 40) - 20;
+            }
+
+            // 배경 그리드 선 그리기
+            chartCtx.beginPath();
+            chartCtx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+            chartCtx.lineWidth = 1;
+            for (let i = 1; i < 4; i++) {
+                const yGrid = (h / 4) * i;
+                chartCtx.moveTo(0, yGrid);
+                chartCtx.lineTo(w, yGrid);
+            }
+            chartCtx.stroke();
+
+            // 1. 차트 하단 그라디언트 영역 채우기
+            chartCtx.beginPath();
+            chartCtx.moveTo(getX(0), h);
+            priceHistory.forEach((pt, i) => {
+                chartCtx.lineTo(getX(i), getY(pt));
+            });
+            chartCtx.lineTo(getX(priceHistory.length - 1), h);
+            chartCtx.closePath();
+
+            const areaGrd = chartCtx.createLinearGradient(0, 0, 0, h);
+            areaGrd.addColorStop(0, 'rgba(0, 242, 254, 0.2)');
+            areaGrd.addColorStop(1, 'rgba(138, 43, 226, 0.0)');
+            chartCtx.fillStyle = areaGrd;
+            chartCtx.fill();
+
+            // 2. 실시간 네온 실선 그리기
+            chartCtx.beginPath();
+            priceHistory.forEach((pt, i) => {
+                if (i === 0) chartCtx.moveTo(getX(i), getY(pt));
+                else chartCtx.lineTo(getX(i), getY(pt));
+            });
+            chartCtx.strokeStyle = 'linear-gradient(90deg, #00f2fe, #8a2be2)';
+            const lineGrd = chartCtx.createLinearGradient(0, 0, w, 0);
+            lineGrd.addColorStop(0, '#8a2be2');
+            lineGrd.addColorStop(1, '#00f2fe');
+            chartCtx.strokeStyle = lineGrd;
+            chartCtx.lineWidth = 2.5;
+            chartCtx.shadowColor = 'rgba(0, 242, 254, 0.4)';
+            chartCtx.shadowBlur = 8;
+            chartCtx.stroke();
+            chartCtx.shadowBlur = 0; // 초기화
+
+            // 3. 최신 가격 포인터 깜빡임 원형
+            const lastIdx = priceHistory.length - 1;
+            const lastPrice = priceHistory[lastIdx];
+            const px = getX(lastIdx);
+            const py = getY(lastPrice);
+
+            chartCtx.beginPath();
+            chartCtx.arc(px, py, 6, 0, 2 * Math.PI);
+            chartCtx.fillStyle = '#00f2fe';
+            chartCtx.fill();
+
+            chartCtx.beginPath();
+            chartCtx.arc(px, py, 12, 0, 2 * Math.PI);
+            chartCtx.strokeStyle = 'rgba(0, 242, 254, 0.4)';
+            chartCtx.lineWidth = 2;
+            chartCtx.stroke();
+
+            // 4. 최신가 텍스트 라벨 출력
+            chartCtx.fillStyle = '#fff';
+            chartCtx.font = 'bold 11px Fira Code';
+            chartCtx.textAlign = 'left';
+            chartCtx.fillText(`$${lastPrice.toFixed(2)}`, px - 75, py - 12);
+        }
+
+        // Fill Price input from clicking Orderbook price cell
+        function fillPriceInput(scaledPrice) {
+            const realPrice = scaledPrice / 100;
+            document.getElementById('order-price').value = realPrice;
+            updateTotalAmount();
+            log('system', `선택한 호가 가격 입력 완료: $${realPrice.toFixed(2)}`);
+        }
+
+        // Add Real-time simulated execution lists (체결 내역)
+        function addTradeHistory(price, qty, side) {
+            const tbody = document.getElementById('trades-tbody');
+            const row = document.createElement('tr');
+            
+            // side === 0 인 경우: 매수 주문 소화(매도체결: 파랑), side === 1 인 경우: 매도 주문 소화(매수체결: 빨강)
+            const isBuyExecution = (side === 1);
+            row.className = isBuyExecution ? 'buy' : 'sell';
+
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+            const priceVal = (price / 100).toFixed(2);
+            const totalVal = ((price / 100) * qty).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            row.innerHTML = `
+                <td class="time-cell">${timeStr}</td>
+                <td>${priceVal}</td>
+                <td class="qty-cell-history">${qty}</td>
+                <td>${totalVal}</td>
+            `;
+
+            tbody.insertBefore(row, tbody.firstChild);
+
+            // DOM 성능 조절을 위한 초과 로우 제거 (최대 50개 유지)
+            if (tbody.children.length > 50) {
+                tbody.removeChild(tbody.lastChild);
+            }
+        }
+
+        // Submit Order command to Netty websocket handler
+        function submitOrder() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alertBubble('터미널 연결 끊김!', 'rgba(239, 68, 68, 0.95)');
+                return;
+            }
+
+            const priceInput = parseFloat(document.getElementById('order-price').value);
+            const qtyInput = parseInt(document.getElementById('order-qty').value);
+
+            if (isNaN(priceInput) || priceInput <= 0 || isNaN(qtyInput) || qtyInput <= 0) {
+                alertBubble('가격 및 수량이 올바르지 않음', 'rgba(239, 68, 68, 0.95)');
+                return;
+            }
+
+            // 소수점 2자리 정수 100 스케일 맞춤 변환
+            const scaledPrice = Math.round(priceInput * 100);
+
+            const payload = {
+                action: 'NEW',
+                side: selectedSide,
+                price: scaledPrice,
+                qty: qtyInput
+            };
+
+            ws.send(JSON.stringify(payload));
+            log(selectedSide.toLowerCase(), `주문 전송: ${qtyInput} BTC @ $${priceInput.toFixed(2)}`);
+            alertBubble(`${selectedSide === 'BUY' ? '매수' : '매도'} 주문이 접수되었다.`);
+        }
+
+        // Top edge animated slider notification bubble
+        function alertBubble(msg, bgColor) {
+            const bubble = document.createElement('div');
+            bubble.className = 'alert-bubble';
+            if (bgColor) bubble.style.background = bgColor;
+            bubble.innerText = msg;
+
+            document.body.appendChild(bubble);
+            setTimeout(() => {
+                bubble.style.opacity = '0';
+                bubble.style.transform = 'translateY(-20px)';
+                setTimeout(() => bubble.remove(), 400);
+            }, 2500);
+        }
+
+        // Append log to custom developer console
+        function log(tag, message) {
+            const logsContainer = document.getElementById('event-logs');
+            const timeStr = new Date().toLocaleTimeString();
+
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            
+            let tagKo = '시스템';
+            if (tag === 'buy') tagKo = '매수';
+            if (tag === 'sell') tagKo = '매도';
+
+            entry.innerHTML = `
+                <span class="log-time">[${timeStr}]</span>
+                <span class="log-tag ${tag}">${tagKo}</span>
+                <span class="log-msg">${message}</span>
+            `;
+
+            logsContainer.insertBefore(entry, logsContainer.firstChild);
+
+            if (logsContainer.children.length > 50) {
+                logsContainer.removeChild(logsContainer.lastChild);
+            }
+        }
+
+        // Initiate connection instantly on load
+        connect();
+    </script>
+</body>
+
+</html>
