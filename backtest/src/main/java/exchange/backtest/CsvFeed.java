@@ -26,9 +26,9 @@ public final class CsvFeed {
                 System.out.println("Using existing local orders.csv file: " + localFile.getAbsolutePath());
                 is = new FileInputStream(localFile);
             } else {
-                // Procedurally generate a highly realistic 10,000 order book dataset
-                System.out.println("No pre-existing orders.csv detected. Procedurally generating 10,000 order HFT dataset...");
-                generateRealisticCsv("orders.csv", 10000);
+                // Procedurally generate a highly realistic 50,000 order book dataset
+                System.out.println("No pre-existing orders.csv detected. Procedurally generating 50,000 order HFT dataset...");
+                generateRealisticCsv("orders.csv", 50000);
                 is = new FileInputStream(localFile);
             }
         }

@@ -23,7 +23,7 @@
             --color-ask-glow: rgba(0, 82, 196, 0.4);
             --color-ask-bg: rgba(18, 97, 196, 0.08); /* 매도 호가 칸 기본 연한 배경 */
             
-            --color-bid: #c84a31; /* 매수 레드 */
+            --color-bid: #c84a31; /* 매수  레드 */
             --color-bid-glow: rgba(200, 74, 49, 0.4);
             --color-bid-bg: rgba(200, 74, 49, 0.08); /* 매수 호가 칸 기본 연한 배경 */
             
@@ -1145,6 +1145,7 @@
         // Local Order Book Maps (Price -> Qty)
         const bids = new Map();
         const asks = new Map();
+        const priceFlashStates = new Map(); // 가격별 개별 플래시 상태 (Price -> 'inc'/'dec')
 
         // Speed tracking
         let msgCount = 0;
@@ -1270,6 +1271,9 @@
                     addTradeHistory(priceNum, Math.abs(qtyNum), side);
                 }
 
+                // 가격별 플래시 상태 저장 (증가 'inc', 감소 'dec')
+                priceFlashStates.set(priceNum, qtyNum > 0 ? 'inc' : 'dec');
+
                 // 로컬 호가 장부 업데이트
                 if (side === 0) { // BUY (Bid)
                     const current = bids.get(priceNum) || 0;
@@ -1355,7 +1359,12 @@
                     depthBar.style.width = `${widthPercent}%`;
 
                     // 수량 변동 감지 및 플래시 애니메이션 적용
-                    if (prev && prev.price === price && prev.qty !== qty) {
+                    const flashState = priceFlashStates.get(price);
+                    if (flashState) {
+                        qtyCell.classList.remove('flash-ask-inc', 'flash-dec');
+                        void qtyCell.offsetWidth; // Reflow 발생
+                        qtyCell.classList.add(flashState === 'inc' ? 'flash-ask-inc' : 'flash-dec');
+                    } else if (prev && prev.price === price && prev.qty !== qty) {
                         qtyCell.classList.remove('flash-ask-inc', 'flash-dec');
                         void qtyCell.offsetWidth; // Reflow 발생
                         qtyCell.classList.add(qty > prev.qty ? 'flash-ask-inc' : 'flash-dec');
@@ -1392,7 +1401,12 @@
                     depthBar.style.width = `${widthPercent}%`;
 
                     // 수량 변동 감지 및 플래시 애니메이션 적용
-                    if (prev && prev.price === price && prev.qty !== qty) {
+                    const flashState = priceFlashStates.get(price);
+                    if (flashState) {
+                        qtyCell.classList.remove('flash-bid-inc', 'flash-dec');
+                        void qtyCell.offsetWidth; // Reflow 발생
+                        qtyCell.classList.add(flashState === 'inc' ? 'flash-bid-inc' : 'flash-dec');
+                    } else if (prev && prev.price === price && prev.qty !== qty) {
                         qtyCell.classList.remove('flash-bid-inc', 'flash-dec');
                         void qtyCell.offsetWidth; // Reflow 발생
                         qtyCell.classList.add(qty > prev.qty ? 'flash-bid-inc' : 'flash-dec');
@@ -1434,6 +1448,9 @@
                 midPriceEl.innerText = '--';
                 spreadGapEl.innerText = '--';
             }
+
+            // 대기 중인 모든 개별 가격 플래시 버퍼 초기화 (메모리 누수 방지)
+            priceFlashStates.clear();
         }
 
         // Track & add price to charts

@@ -9,7 +9,6 @@ public final class OrderGenerator {
         String engineHost = ConfigLoader.get("ENGINE_HOST", "localhost");
         int enginePort = ConfigLoader.getInt("COMMAND_PORT", ConfigLoader.getInt("ENGINE_PORT", 9999));
 
-
         System.out.println("Starting Order Generator...");
         System.out.println("Target Matching Engine: " + engineHost + ":" + enginePort);
 
@@ -18,8 +17,9 @@ public final class OrderGenerator {
 
         long retryDelay = 1000;
         while (true) {
+
             try (Socket socket = new Socket(engineHost, enginePort);
-                 PrintWriter writer = new PrintWriter(socket.getOutputStream(), true)) {
+                    PrintWriter writer = new PrintWriter(socket.getOutputStream(), true)) {
 
                 System.out.println("Connected to Matching Engine command port! Generating trades...");
                 retryDelay = 1000;
@@ -27,7 +27,7 @@ public final class OrderGenerator {
                 while (true) {
                     // 1. Generate randomized order features
                     String side = rand.nextBoolean() ? "BUY" : "SELL";
-                    
+
                     // Spread prices dynamically around reference price to trigger matching matches
                     long priceOffset = rand.nextInt(100) - 50; // -50 to +49
                     long price = referencePrice + priceOffset;
@@ -42,8 +42,8 @@ public final class OrderGenerator {
                         referencePrice += rand.nextInt(10) - 5;
                     }
 
-                    // Sleep between orders (simulates high throughput)
-                    Thread.sleep(rand.nextInt(400) + 100); // places orders every 100ms - 500ms
+                    // Sleep between orders (simulates high throughput - doubled speed)
+                    Thread.sleep(rand.nextInt(200) + 50); // places orders every 50ms - 250ms
                 }
 
             } catch (Exception e) {
