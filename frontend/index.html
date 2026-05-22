@@ -1,14 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quantum Exchange - High-Frequency Trading Terminal</title>
+    <title>JavaF(v0.1) Exchange - High-Frequency Trading Terminal</title>
     <!-- Modern Premium Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Outfit:wght@300;400;600;800&display=swap"
+        rel="stylesheet">
+
     <style>
         :root {
             --bg-base: #06070d;
@@ -36,7 +39,7 @@
 
         body {
             background-color: var(--bg-base);
-            background-image: 
+            background-image:
                 radial-gradient(circle at 10% 20%, rgba(138, 43, 226, 0.12) 0%, transparent 40%),
                 radial-gradient(circle at 90% 80%, rgba(0, 242, 254, 0.08) 0%, transparent 45%);
             background-attachment: fixed;
@@ -78,8 +81,17 @@
         }
 
         @keyframes pulse-logo {
-            0%, 100% { transform: scale(1); box-shadow: 0 0 12px var(--color-bid); }
-            50% { transform: scale(1.2); box-shadow: 0 0 20px var(--color-accent); }
+
+            0%,
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 12px var(--color-bid);
+            }
+
+            50% {
+                transform: scale(1.2);
+                box-shadow: 0 0 20px var(--color-accent);
+            }
         }
 
         .logo-title {
@@ -144,9 +156,17 @@
         }
 
         @keyframes pulse-green {
-            0% { box-shadow: 0 0 0 0 rgba(0, 255, 102, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(0, 255, 102, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(0, 255, 102, 0); }
+            0% {
+                box-shadow: 0 0 0 0 rgba(0, 255, 102, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(0, 255, 102, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(0, 255, 102, 0);
+            }
         }
 
         /* Layout Grid */
@@ -516,8 +536,15 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-3px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(-3px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .log-time {
@@ -529,9 +556,17 @@
             text-transform: uppercase;
         }
 
-        .log-tag.system { color: #ffe600; }
-        .log-tag.buy { color: var(--color-bid); }
-        .log-tag.sell { color: var(--color-ask); }
+        .log-tag.system {
+            color: #ffe600;
+        }
+
+        .log-tag.buy {
+            color: var(--color-bid);
+        }
+
+        .log-tag.sell {
+            color: var(--color-ask);
+        }
 
         .log-msg {
             color: var(--color-text-primary);
@@ -555,21 +590,29 @@
         }
 
         @keyframes slideUp {
-            from { transform: translateY(50px) scale(0.8); opacity: 0; }
-            to { transform: translateY(0) scale(1); opacity: 1; }
+            from {
+                transform: translateY(50px) scale(0.8);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
         }
     </style>
 </head>
+
 <body>
 
     <!-- Header Section -->
     <header>
         <div class="logo-section">
             <div class="logo-glow"></div>
-            <span class="logo-title">QUANTUM</span>
-            <span class="logo-sub">Engine Core v1.0</span>
+            <span class="logo-title">JavaF(v0.1)</span>
+            <span class="logo-sub">Engine Core v0.1</span>
         </div>
-        
+
         <div class="connection-status">
             <div class="stat-item">
                 <span class="stat-label">SYMBOL:</span>
@@ -585,14 +628,15 @@
             </div>
             <div class="stat-item" style="border-left: 1px solid rgba(255,255,255,0.08); padding-left: 1rem;">
                 <div id="connection-dot" class="status-dot"></div>
-                <span id="connection-text" class="stat-value" style="font-size: 0.75rem; text-transform: uppercase;">DISCONNECTED</span>
+                <span id="connection-text" class="stat-value"
+                    style="font-size: 0.75rem; text-transform: uppercase;">DISCONNECTED</span>
             </div>
         </div>
     </header>
 
     <!-- Main Grid -->
     <div class="dashboard-container">
-        
+
         <!-- Left Panel: Interactive Order Terminal -->
         <div class="panel">
             <div class="panel-header">
@@ -608,7 +652,8 @@
                     <div class="input-group">
                         <label class="input-label">Order Type</label>
                         <div class="side-toggle" style="background: rgba(255,255,255,0.01);">
-                            <button class="side-btn active" style="background: rgba(255,255,255,0.05); color: #fff; cursor: default;">LIMIT</button>
+                            <button class="side-btn active"
+                                style="background: rgba(255,255,255,0.05); color: #fff; cursor: default;">LIMIT</button>
                         </div>
                     </div>
 
@@ -628,7 +673,8 @@
                         </div>
                     </div>
 
-                    <button id="submit-order-btn" class="btn-submit buy" onclick="submitOrder()">Submit BUY Order</button>
+                    <button id="submit-order-btn" class="btn-submit buy" onclick="submitOrder()">Submit BUY
+                        Order</button>
                 </div>
             </div>
         </div>
@@ -649,7 +695,8 @@
                     <div class="spread-bar">
                         <span class="spread-label">MID SPREAD</span>
                         <span id="mid-price" class="spread-value" style="font-size: 1.1rem; color: #fff;">--</span>
-                        <span id="spread-gap" class="spread-value" style="font-size: 0.8rem; color: var(--color-text-secondary);">--</span>
+                        <span id="spread-gap" class="spread-value"
+                            style="font-size: 0.8rem; color: var(--color-text-secondary);">--</span>
                     </div>
 
                     <!-- Bid Side (Buy) - Bottom portion of book -->
@@ -693,7 +740,7 @@
     <script>
         let ws;
         let selectedSide = 'BUY';
-        
+
         // Local Order Book Maps (Price -> Qty)
         const bids = new Map();
         const asks = new Map();
@@ -723,7 +770,7 @@
             const buyBtn = document.getElementById('side-buy');
             const sellBtn = document.getElementById('side-sell');
             const submitBtn = document.getElementById('submit-order-btn');
-            
+
             if (side === 'BUY') {
                 buyBtn.classList.add('active');
                 sellBtn.classList.remove('active');
@@ -741,7 +788,7 @@
         function connect() {
             const host = window.location.hostname || 'localhost';
             const wsUrl = `ws://${host}:8080/ws`;
-            
+
             log('system', `Connecting to WebSocket Gateway: ${wsUrl}`);
             ws = new WebSocket(wsUrl);
             ws.binaryType = 'arraybuffer';
@@ -768,7 +815,7 @@
             ws.onmessage = (event) => {
                 msgCount++;
                 const buffer = event.data;
-                
+
                 // Assert 32-byte size
                 if (buffer.byteLength !== 32) {
                     log('system', `Invalid binary size received: ${buffer.byteLength} bytes`);
@@ -820,7 +867,7 @@
             const elapsed = (now - lastSpeedTime) / 1000;
             const tps = Math.round(msgCount / elapsed);
             document.getElementById('throughput-display').innerText = `${tps} msgs/s`;
-            
+
             // Generate simulated connection latency slightly for mock feedback
             if (ws && ws.readyState === WebSocket.OPEN) {
                 const simulatedRTT = Math.floor(Math.random() * 3) + 1; // 1-3ms RTT
@@ -828,7 +875,7 @@
             } else {
                 document.getElementById('latency-display').innerText = `-- ms`;
             }
-            
+
             msgCount = 0;
             lastSpeedTime = now;
         }, 1000);
@@ -862,7 +909,7 @@
             sortedAsks.forEach(([price, qty]) => {
                 cumulativeAsk += qty;
                 const widthPercent = Math.min((cumulativeAsk / maxDepth) * 100, 100);
-                
+
                 const row = document.createElement('div');
                 row.className = 'ladder-row ask';
                 row.onclick = () => fillPriceInput(price);
@@ -882,7 +929,7 @@
             sortedBids.forEach(([price, qty]) => {
                 cumulativeBid += qty;
                 const widthPercent = Math.min((cumulativeBid / maxDepth) * 100, 100);
-                
+
                 const row = document.createElement('div');
                 row.className = 'ladder-row bid';
                 row.onclick = () => fillPriceInput(price);
@@ -906,7 +953,7 @@
                 const mid = (bestBid + bestAsk) / 2;
                 const gap = bestAsk - bestBid;
                 const gapPercent = (gap / mid) * 100;
-                
+
                 midPriceEl.innerText = `$${(mid / 100).toFixed(2)}`;
                 spreadGapEl.innerText = `Spread: $${(gap / 100).toFixed(2)} (${gapPercent.toFixed(3)}%)`;
             } else {
@@ -919,7 +966,7 @@
         function drawDepthChart() {
             const w = canvas.width / window.devicePixelRatio;
             const h = canvas.height / window.devicePixelRatio;
-            
+
             ctx.clearRect(0, 0, w, h);
 
             // Fetch and sort active values
@@ -976,14 +1023,14 @@
             if (bidsDepth.length > 0) {
                 ctx.beginPath();
                 ctx.moveTo(getX(bidsDepth[0].price), h);
-                
+
                 bidsDepth.forEach(pt => {
                     ctx.lineTo(getX(pt.price), getY(pt.volume));
                 });
-                
+
                 ctx.lineTo(getX(minPrice), h);
                 ctx.closePath();
-                
+
                 // Color Gradient
                 const bidGrd = ctx.createLinearGradient(0, 0, 0, h);
                 bidGrd.addColorStop(0, 'rgba(0, 242, 254, 0.25)');
@@ -1006,11 +1053,11 @@
             if (asksDepth.length > 0) {
                 ctx.beginPath();
                 ctx.moveTo(getX(asksDepth[0].price), h);
-                
+
                 asksDepth.forEach(pt => {
                     ctx.lineTo(getX(pt.price), getY(pt.volume));
                 });
-                
+
                 ctx.lineTo(getX(maxPrice), h);
                 ctx.closePath();
 
@@ -1056,7 +1103,7 @@
 
             // Scaled integer representation (matching scale of 100 used by generator)
             const price = Math.round(rawPrice * 100);
-            
+
             const payload = {
                 action: 'NEW',
                 side: selectedSide,
@@ -1075,7 +1122,7 @@
             bubble.className = 'alert-bubble';
             if (bgColor) bubble.style.background = bgColor;
             bubble.innerText = msg;
-            
+
             document.body.appendChild(bubble);
             setTimeout(() => {
                 bubble.style.opacity = '0';
@@ -1088,7 +1135,7 @@
         function log(tag, message) {
             const logsContainer = document.getElementById('event-logs');
             const timeStr = new Date().toLocaleTimeString();
-            
+
             const entry = document.createElement('div');
             entry.className = 'log-entry';
             entry.innerHTML = `
@@ -1098,7 +1145,7 @@
             `;
 
             logsContainer.insertBefore(entry, logsContainer.firstChild);
-            
+
             // Truncate historic logs to preserve DOM performance
             if (logsContainer.children.length > 50) {
                 logsContainer.removeChild(logsContainer.lastChild);
@@ -1109,4 +1156,5 @@
         connect();
     </script>
 </body>
+
 </html>
