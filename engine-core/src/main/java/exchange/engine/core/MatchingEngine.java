@@ -43,11 +43,15 @@ public final class MatchingEngine implements Runnable {
     }
 
     public void process(Command cmd) {
+        long startTime = System.nanoTime();
         if (cmd instanceof NewOrderCmd newOrderCmd) {
+            MetricsServer.getInstance().incrementOrders();
             processNewOrder(newOrderCmd.order());
         } else if (cmd instanceof CancelOrderCmd cancelOrderCmd) {
             processCancelOrder(cancelOrderCmd.orderId());
         }
+        long durationNs = System.nanoTime() - startTime;
+        MetricsServer.getInstance().recordMatch(durationNs / 1000);
     }
 
     private void processNewOrder(Order order) {

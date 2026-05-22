@@ -58,6 +58,7 @@ public final class WsBroadcaster implements Runnable {
                         
                         ByteBuffer buffer = BinaryCodec.encodeDelta(symbolId, seq, price, deltaQty, side);
                         clients.writeAndFlush(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(buffer)));
+                        WsMetricsServer.getInstance().incrementMessages();
                     } catch (Exception e) {
                         System.err.println("Failed to parse or broadcast event: " + e.getMessage());
                     }

@@ -33,9 +33,13 @@ services:
     container_name: matching-engine-btc
     env_file:
       - .env.dev
+    environment:
+      - METRICS_ENABLED=true
+      - METRICS_PORT=9100
     ports:
       - "9999:9999"
       - "9998:9998"
+      - "9100:9100"
     deploy:
       resources:
         limits:
@@ -65,8 +69,12 @@ services:
       - kafka
     ports:
       - "8080:8080"
+      - "9102:9102"
     env_file:
       - .env.dev
+    environment:
+      - METRICS_ENABLED=true
+      - METRICS_PORT=9102
     restart: on-failure
 
   order-generator:
@@ -93,9 +101,12 @@ services:
       - SYMBOL=ADA-KRW
       - COMMAND_PORT=9997
       - ENGINE_PORT=9996
+      - METRICS_ENABLED=true
+      - METRICS_PORT=9101
     ports:
       - "9997:9997"
       - "9996:9996"
+      - "9101:9101"
     deploy:
       resources:
         limits:
@@ -115,6 +126,36 @@ services:
       - ENGINE_HOST=engine-ada
       - ENGINE_PORT=9996
     restart: on-failure
+
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    depends_on:
+      - engine-btc
+      - engine-ada
+      - ws-gateway
+    restart: always
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/etc/grafana/dashboards
+    depends_on:
+      - prometheus
+    restart: always
 
   audit-volume:
     image: busybox:latest

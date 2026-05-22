@@ -37,6 +37,7 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
     public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
         System.out.println("Client disconnected: " + ctx.channel().remoteAddress());
         clients.remove(ctx.channel());
+        WsMetricsServer.getInstance().decrementConnections();
         closeAllSockets();
     }
 
@@ -44,6 +45,7 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         if (evt instanceof WebSocketServerProtocolHandler.HandshakeComplete) {
             clients.add(ctx.channel());
+            WsMetricsServer.getInstance().incrementConnections();
             System.out.println("WebSocket connection established with: " + ctx.channel().remoteAddress());
         } else {
             super.userEventTriggered(ctx, evt);
@@ -61,6 +63,14 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
                 String action = node.has("action") ? node.get("action").asText() : "";
                 String symbol = node.has("symbol") ? node.get("symbol").asText() : "BTC-USD";
                 
+                if ("PING".equalsIgnoreCase(action)) {
+                    long timestamp = node.has("timestamp") ? node.get("timestamp").asLong() : 0;
+                    String pong = String.format("{\"action\":\"PONG\",\"timestamp\":%d}", timestamp);
+                    ctx.channel().writeAndFlush(new TextWebSocketFrame(pong));
+                    WsMetricsServer.getInstance().incrementMessages();
+                    return;
+                }
+                
                 if ("NEW".equalsIgnoreCase(action)) {
                     String side = node.has("side") ? node.get("side").asText() : "";
                     long price = node.has("price") ? node.get("price").asLong() : 0;
@@ -69,12 +79,14 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
                     if (!side.isEmpty() && price > 0 && qty > 0) {
                         String cmd = String.format("NEW,%s,%d,%d", side.toUpperCase(), price, qty);
                         sendToEngine(symbol, cmd);
+                        WsMetricsServer.getInstance().incrementMessages();
                     }
                 } else if ("CANCEL".equalsIgnoreCase(action)) {
                     long orderId = node.has("orderId") ? node.get("orderId").asLong() : 0;
                     if (orderId > 0) {
                         String cmd = String.format("CANCEL,%d", orderId);
                         sendToEngine(symbol, cmd);
+                        WsMetricsServer.getInstance().incrementMessages();
                     }
                 }
             } catch (Exception e) {

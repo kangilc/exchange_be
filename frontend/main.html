@@ -1145,6 +1145,9 @@
         let ws;
         let selectedSide = 'BUY';
         let currentSymbol = 'BTC-USD';
+        let backoffDelay = 1000;
+        let pingIntervalId = null;
+        let needsRender = false;
 
         // Java String.hashCode() mapping in JS to match symbolId
         function getHashCode(str) {
@@ -1316,18 +1319,51 @@
             ws.binaryType = 'arraybuffer';
 
             ws.onopen = () => {
-                document.getElementById('connection-dot').className = 'status-dot connected';
+                const dot = document.getElementById('connection-dot');
+                dot.className = 'status-dot connected';
+                dot.style.backgroundColor = '';
+                dot.style.boxShadow = '';
+                
                 document.getElementById('connection-text').innerText = '연결됨';
                 document.getElementById('connection-text').style.color = '#10b981';
                 log('system', '연결 성공! 실시간 바이너리 멀티 심볼 스트림 구독 시작.');
+                
+                backoffDelay = 1000;
+                
+                if (pingIntervalId) clearInterval(pingIntervalId);
+                pingIntervalId = setInterval(() => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ action: 'PING', timestamp: Date.now() }));
+                    }
+                }, 2000);
             };
 
             ws.onclose = () => {
                 document.getElementById('connection-dot').className = 'status-dot';
                 document.getElementById('connection-text').innerText = '연결 끊김';
                 document.getElementById('connection-text').style.color = '#ef4444';
-                log('system', '연결 끊김. 3초 후 재연결 시도.');
-                setTimeout(connect, 3000);
+                
+                if (pingIntervalId) {
+                    clearInterval(pingIntervalId);
+                    pingIntervalId = null;
+                }
+                
+                const nextDelay = backoffDelay + Math.floor(Math.random() * 1000);
+                log('system', `연결 끊김. ${Math.round(nextDelay / 1000)}초 후 재연결 시도.`);
+                
+                setTimeout(() => {
+                    const dot = document.getElementById('connection-dot');
+                    dot.style.backgroundColor = '#f59e0b';
+                    dot.style.boxShadow = '0 0 10px #f59e0b';
+                    
+                    const txt = document.getElementById('connection-text');
+                    txt.innerText = '연결 중...';
+                    txt.style.color = '#f59e0b';
+                    
+                    connect();
+                }, nextDelay);
+                
+                backoffDelay = Math.min(30000, backoffDelay * 2);
             };
 
             ws.onerror = (err) => {
@@ -1336,8 +1372,22 @@
 
             ws.onmessage = (event) => {
                 msgCount++;
-                const buffer = event.data;
+                const data = event.data;
 
+                if (typeof data === 'string') {
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.action === 'PONG') {
+                            const rtt = Date.now() - parsed.timestamp;
+                            document.getElementById('latency-display').innerText = `${rtt} ms`;
+                        }
+                    } catch (e) {
+                        // Ignore
+                    }
+                    return;
+                }
+
+                const buffer = data;
                 if (buffer.byteLength !== 32) {
                     log('system', `비정상적인 크기의 바이너리 수신: ${buffer.byteLength} 바이트`);
                     return;
@@ -1395,9 +1445,8 @@
                     }
                 }
 
-                // 현재 활성화된 심볼의 데이터인 경우에만 실시간 UI 드로잉 실행
                 if (msgSymbol === currentSymbol) {
-                    updateOrderbookUI();
+                    needsRender = true;
                 }
             };
         }
@@ -1409,16 +1458,23 @@
             const tps = Math.round(msgCount / elapsed);
             document.getElementById('throughput-display').innerText = `${tps} msgs/s`;
 
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const simulatedLatency = Math.floor(Math.random() * 3) + 1; // 1-3ms
-                document.getElementById('latency-display').innerText = `${simulatedLatency} ms`;
-            } else {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
                 document.getElementById('latency-display').innerText = `-- ms`;
             }
 
             msgCount = 0;
             lastSpeedTime = now;
         }, 1000);
+
+        // Core animation rendering loop
+        function renderLoop() {
+            if (needsRender) {
+                updateOrderbookUI();
+                needsRender = false;
+            }
+            requestAnimationFrame(renderLoop);
+        }
+        requestAnimationFrame(renderLoop);
 
         // Update asymmetric high-contrast orderbook UI
         function updateOrderbookUI() {

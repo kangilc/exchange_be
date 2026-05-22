@@ -25,6 +25,7 @@ public final class EngineRunner {
     private static final BlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(1_000_000);
 
     public static void main(String[] args) {
+        MetricsServer.getInstance().start();
         String symbol = ConfigLoader.get("SYMBOL", "BTC-USD");
 
         System.out.println("Starting Matching Engine for symbol: " + symbol);
