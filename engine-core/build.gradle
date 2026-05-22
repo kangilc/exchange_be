@@ -1,0 +1,17 @@
+plugins {
+    id 'application'
+}
+
+dependencies {
+    // Only core java, no external dependencies for pure low-latency core
+}
+
+application {
+    mainClass = 'exchange.engine.core.EngineRunner'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'exchange.engine.core.EngineRunner'
+    }
+}

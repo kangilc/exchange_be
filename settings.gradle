@@ -1,0 +1,5 @@
+rootProject.name = 'exchange-be'
+include 'engine-core'
+include 'adapter-kafka'
+include 'adapter-ws'
+include 'order-generator'

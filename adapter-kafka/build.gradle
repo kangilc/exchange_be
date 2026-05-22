@@ -1,0 +1,18 @@
+plugins {
+    id 'application'
+}
+
+dependencies {
+    implementation 'org.apache.kafka:kafka-clients:3.4.0'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.14.2'
+}
+
+application {
+    mainClass = 'exchange.kafka.AdapterKafkaRunner'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'exchange.kafka.AdapterKafkaRunner'
+    }
+}

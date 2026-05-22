@@ -1,0 +1,17 @@
+plugins {
+    id 'application'
+}
+
+dependencies {
+    // Standard JDK dependencies, completely decoupled
+}
+
+application {
+    mainClass = 'exchange.generator.OrderGenerator'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'exchange.generator.OrderGenerator'
+    }
+}

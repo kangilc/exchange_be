@@ -1,0 +1,26 @@
+allprojects {
+    group = 'exchange'
+    version = '1.0.0'
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2'
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}
