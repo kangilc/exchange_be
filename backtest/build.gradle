@@ -1,0 +1,17 @@
+plugins {
+    id 'application'
+}
+
+dependencies {
+    implementation project(':engine-core')
+}
+
+application {
+    mainClass = 'exchange.backtest.BacktestMain'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'exchange.backtest.BacktestMain'
+    }
+}

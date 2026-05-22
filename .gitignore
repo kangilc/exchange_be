@@ -1,0 +1,62 @@
+# ==========================================
+# Gradle & Build Directories
+# ==========================================
+.gradle/
+build/
+**/build/
+build_backtest/
+
+# ==========================================
+# Compiled Java Outputs & Log Files
+# ==========================================
+*.class
+*.log
+*.jar
+*.war
+
+# ==========================================
+# Dynamic simulation & Mock Datasets
+# ==========================================
+orders.csv
+
+# ==========================================
+# IDEs and Editors Settings
+# ==========================================
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.project
+.classpath
+.settings/
+bin/
+
+# Visual Studio Code
+.vscode/
+.history/
+*.code-workspace
+
+# NetBeans
+nbproject/
+private/
+
+# ==========================================
+# Operating System Temporary Files
+# ==========================================
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.tmp
+*.bak
+
+# ==========================================
+# Local Configuration / Environment Secrets
+# ==========================================
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# .env  <- Commented out to permit tracking of local compose configs for now, customize as needed.

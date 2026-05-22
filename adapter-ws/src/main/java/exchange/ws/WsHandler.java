@@ -4,12 +4,26 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.net.Socket;
+import java.io.PrintWriter;
 
 public final class WsHandler extends SimpleChannelInboundHandler<Object> {
     private final ChannelGroup clients;
+    private final String engineHost;
+    private final int enginePort;
+    
+    private Socket engineSocket;
+    private PrintWriter engineWriter;
 
     public WsHandler(ChannelGroup clients) {
         this.clients = clients;
+        String host = System.getenv("ENGINE_HOST");
+        this.engineHost = (host != null && !host.isEmpty()) ? host : "localhost";
+        String portStr = System.getenv("ENGINE_PORT");
+        this.enginePort = (portStr != null && !portStr.isEmpty()) ? Integer.parseInt(portStr) : 9999;
     }
 
     @Override
@@ -21,6 +35,7 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
     public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
         System.out.println("Client disconnected: " + ctx.channel().remoteAddress());
         clients.remove(ctx.channel());
+        closeEngineSocket();
     }
 
     @Override
@@ -36,7 +51,34 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
-        // Read-only server; discard incoming user messages for simplicity
+        if (msg instanceof TextWebSocketFrame) {
+            String text = ((TextWebSocketFrame) msg).text();
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode node = mapper.readTree(text);
+                
+                String action = node.has("action") ? node.get("action").asText() : "";
+                
+                if ("NEW".equalsIgnoreCase(action)) {
+                    String side = node.has("side") ? node.get("side").asText() : "";
+                    long price = node.has("price") ? node.get("price").asLong() : 0;
+                    long qty = node.has("qty") ? node.get("qty").asLong() : 0;
+                    
+                    if (!side.isEmpty() && price > 0 && qty > 0) {
+                        String cmd = String.format("NEW,%s,%d,%d", side.toUpperCase(), price, qty);
+                        sendToEngine(cmd);
+                    }
+                } else if ("CANCEL".equalsIgnoreCase(action)) {
+                    long orderId = node.has("orderId") ? node.get("orderId").asLong() : 0;
+                    if (orderId > 0) {
+                        String cmd = String.format("CANCEL,%d", orderId);
+                        sendToEngine(cmd);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to process incoming WS frame: " + text + ", error: " + e.getMessage());
+            }
+        }
     }
 
     @Override
@@ -44,4 +86,33 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
         System.err.println("WS client exception: " + cause.getMessage());
         ctx.close();
     }
+
+    private synchronized void sendToEngine(String cmd) {
+        try {
+            if (engineSocket == null || engineSocket.isClosed() || !engineSocket.isConnected()) {
+                System.out.println("Connecting to Matching Engine command port at " + engineHost + ":" + enginePort);
+                engineSocket = new Socket(engineHost, enginePort);
+                engineWriter = new PrintWriter(engineSocket.getOutputStream(), true);
+            }
+            engineWriter.println(cmd);
+            engineWriter.flush();
+        } catch (Exception e) {
+            System.err.println("Error sending command to Matching Engine: " + e.getMessage());
+            closeEngineSocket();
+        }
+    }
+    
+    private void closeEngineSocket() {
+        try {
+            if (engineWriter != null) {
+                engineWriter.close();
+            }
+            if (engineSocket != null) {
+                engineSocket.close();
+            }
+        } catch (Exception ignored) {}
+        engineSocket = null;
+        engineWriter = null;
+    }
 }
+
