@@ -7,21 +7,10 @@ import java.util.Properties;
 
 public final class AdapterKafkaRunner {
     public static void main(String[] args) {
-        String broker = System.getenv("KAFKA_BROKER");
-        if (broker == null || broker.isEmpty()) {
-            broker = "localhost:9092";
-        }
+        String broker = ConfigLoader.get("KAFKA_BROKER", "localhost:9092");
+        String engineHost = ConfigLoader.get("ENGINE_HOST", "localhost");
+        int enginePort = ConfigLoader.getInt("ENGINE_PORT", 9998);
 
-        String engineHost = System.getenv("ENGINE_HOST");
-        if (engineHost == null || engineHost.isEmpty()) {
-            engineHost = "localhost";
-        }
-
-        int enginePort = 9998;
-        String enginePortStr = System.getenv("ENGINE_PORT");
-        if (enginePortStr != null && !enginePortStr.isEmpty()) {
-            enginePort = Integer.parseInt(enginePortStr);
-        }
 
         System.out.println("Starting Kafka Adapter...");
         System.out.println("Kafka Broker: " + broker);

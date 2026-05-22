@@ -6,16 +6,9 @@ import java.util.Random;
 
 public final class OrderGenerator {
     public static void main(String[] args) {
-        String engineHost = System.getenv("ENGINE_HOST");
-        if (engineHost == null || engineHost.isEmpty()) {
-            engineHost = "localhost";
-        }
+        String engineHost = ConfigLoader.get("ENGINE_HOST", "localhost");
+        int enginePort = ConfigLoader.getInt("COMMAND_PORT", ConfigLoader.getInt("ENGINE_PORT", 9999));
 
-        int enginePort = 9999;
-        String enginePortStr = System.getenv("ENGINE_PORT");
-        if (enginePortStr != null && !enginePortStr.isEmpty()) {
-            enginePort = Integer.parseInt(enginePortStr);
-        }
 
         System.out.println("Starting Order Generator...");
         System.out.println("Target Matching Engine: " + engineHost + ":" + enginePort);

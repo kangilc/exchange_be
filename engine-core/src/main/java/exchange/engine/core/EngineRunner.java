@@ -18,17 +18,14 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public final class EngineRunner {
-    private static final int COMMAND_PORT = 9999;
-    private static final int EVENT_PORT = 9998;
+    private static final int COMMAND_PORT = ConfigLoader.getInt("COMMAND_PORT", 9999);
+    private static final int EVENT_PORT = ConfigLoader.getInt("ENGINE_PORT", 9998);
 
     private static final List<PrintWriter> eventClients = new CopyOnWriteArrayList<>();
     private static final BlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(1_000_000);
 
     public static void main(String[] args) {
-        String symbol = System.getenv("SYMBOL");
-        if (symbol == null || symbol.isEmpty()) {
-            symbol = "BTC-USD";
-        }
+        String symbol = ConfigLoader.get("SYMBOL", "BTC-USD");
 
         System.out.println("Starting Matching Engine for symbol: " + symbol);
 

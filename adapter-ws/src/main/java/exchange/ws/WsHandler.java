@@ -20,10 +20,9 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
 
     public WsHandler(ChannelGroup clients) {
         this.clients = clients;
-        String host = System.getenv("ENGINE_HOST");
-        this.engineHost = (host != null && !host.isEmpty()) ? host : "localhost";
-        String portStr = System.getenv("ENGINE_PORT");
-        this.enginePort = (portStr != null && !portStr.isEmpty()) ? Integer.parseInt(portStr) : 9999;
+        this.engineHost = ConfigLoader.get("ENGINE_HOST", "localhost");
+        this.enginePort = ConfigLoader.getInt("ENGINE_PORT", 9999);
+
     }
 
     @Override

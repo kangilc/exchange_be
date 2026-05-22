@@ -74,11 +74,31 @@ Netty 웹소켓 게이트웨이는 대역폭 소모 및 가비지 컬렉터(GC) 
 *   **Side**: `0` (매수/Bid), `1` (매도/Ask)
 
 ---
+---
+
+## ⚙️ 다중 프로파일 개발 환경 분리 (Multi-Profile Architecture)
+
+성능 튜닝, 가상 네트워크 격리, 로그 I/O 오버헤드 통제를 위해 별도의 외부 설정 프레임워크(Spring Cloud Config 등) 없이 **순수 Java 설계 기반**의 다중 프로파일 설정 시스템(`ConfigLoader.java`)을 구축하였습니다.
+
+### 🌟 지원 프로파일 종류
+1. **`local` (`.env.local`)**: 로컬 호스트 단독 개발 및 테스트용. 네트워크 주소가 Loopback(`localhost:29092` / `localhost:9998` / `localhost:9999`)으로 정렬되며 최상위 상세 디버그 로그(`LOG_LEVEL=DEBUG`)를 출력합니다.
+2. **`dev` (`.env.dev`)**: 컨테이너 클러스터 기동용. 컨테이너 브릿지 DNS 주소(`kafka:9092` / `engine:9998` / `engine:9999`) 기반으로 상호 연결됩니다.
+3. **`qa` (`.env.qa`)**: 부하 및 한계 성능 테스트 프로파일. 성능 텔레메트리(`TELEMETRY_ENABLED=true` / `HDR_HISTOGRAM_ENABLED=true`)가 활성화됩니다.
+4. **`prd` (`.env.prd`)**: 베어메탈 초저지연 운영 프로파일. 최저 수준의 로깅 수준(`LOG_LEVEL=WARN`)을 적용해 디스크 I/O 병목을 제거하고 최상급 가비지 컬렉터(ZGC) 기동 힌트를 내포합니다.
+
+### ⚙️ 계층식 변수 확인 및 우선순위 (Resolution Precedence)
+`ConfigLoader`는 애플리케이션 기동 시 아래 순서로 환경 설정을 탐색하며 가장 먼저 발견된 값을 채택합니다:
+1. **JVM 시스템 프로퍼티** (예: `-Denv.profile=local` 혹은 `-DCOMMAND_PORT=9999`) [가장 높음]
+2. **OS 시스템 환경 변수** (예: `ENV_PROFILE=local`)
+3. **프로파일별 `.env.<profile>` 설정 파일** [가장 낮음]
+
+---
 
 ## 🛠️ 시작 가이드 (Quick Start)
 
 ### 🚀 1. 분산 마이크로서비스 가동 (Docker Compose)
 시스템 전체(Kafka, Zookeeper, Engine, Adapters, Generator)를 로컬 도커 가상 네트워크 환경에 기동합니다.
+- `docker-compose.yml`은 내부적으로 개발용 `.env.dev` 프로파일 환경 변수를 자동 매핑하여 구동합니다.
 
 1.  **도커 데스크톱(Docker Desktop)** 실행 상태를 확인합니다.
 2.  프로젝트 루트 폴더(`c:\git\exchange_be\`)에서 아래 명령어를 실행합니다:

@@ -31,8 +31,8 @@ services:
       context: .
       dockerfile: engine-core/Dockerfile
     container_name: matching-engine
-    environment:
-      SYMBOL: ${SYMBOL}
+    env_file:
+      - .env.dev
     ports:
       - "9999:9999"
       - "9998:9998"
@@ -50,10 +50,8 @@ services:
     depends_on:
       - engine
       - kafka
-    environment:
-      KAFKA_BROKER: ${KAFKA_BROKER}
-      ENGINE_HOST: ${ENGINE_HOST}
-      ENGINE_PORT: ${ENGINE_PORT}
+    env_file:
+      - .env.dev
     restart: on-failure
 
   ws-gateway:
@@ -65,9 +63,8 @@ services:
       - kafka
     ports:
       - "8080:8080"
-    environment:
-      KAFKA_BROKER: ${KAFKA_BROKER}
-      PORT: ${PORT}
+    env_file:
+      - .env.dev
     restart: on-failure
 
   order-generator:
@@ -77,9 +74,8 @@ services:
     container_name: order-generator
     depends_on:
       - engine
-    environment:
-      ENGINE_HOST: ${ENGINE_HOST}
-      ENGINE_PORT: 9999
+    env_file:
+      - .env.dev
     restart: on-failure
 
   audit-volume:

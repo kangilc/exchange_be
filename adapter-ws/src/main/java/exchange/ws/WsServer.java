@@ -16,16 +16,9 @@ import io.netty.util.concurrent.GlobalEventExecutor;
 
 public final class WsServer {
     public static void main(String[] args) throws Exception {
-        String broker = System.getenv("KAFKA_BROKER");
-        if (broker == null || broker.isEmpty()) {
-            broker = "localhost:9092";
-        }
+        String broker = ConfigLoader.get("KAFKA_BROKER", "localhost:9092");
+        int port = ConfigLoader.getInt("PORT", 8080);
 
-        int port = 8080;
-        String portStr = System.getenv("PORT");
-        if (portStr != null && !portStr.isEmpty()) {
-            port = Integer.parseInt(portStr);
-        }
 
         System.out.println("Starting Netty WebSocket Gateway on port: " + port);
         System.out.println("Consuming from Kafka Broker: " + broker);
