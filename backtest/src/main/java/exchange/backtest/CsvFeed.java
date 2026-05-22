@@ -57,7 +57,7 @@ public final class CsvFeed {
                     ts = Long.parseLong(parts[4].trim());
                 }
                 
-                orders.add(new Order(orderId, side, price, qty, ts));
+                orders.add(new Order(orderId, 1, side, price, qty, ts));
             }
         }
         return orders;

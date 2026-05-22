@@ -33,18 +33,23 @@ public final class EngineRunner {
         // 1. Create event outbox that broadcasts matching events to all connected TCP clients
         EventOutbox TCPBroadcasterOutbox = new EventOutbox() {
             @Override
+            public void accept(String symbol, long seq, Order order) {
+                broadcast(String.format("ACCEPT,%s,%d,%d,%d,%s,%d,%d", symbol, seq, order.orderId, order.userId, order.side.name(), order.price, order.qty));
+            }
+
+            @Override
             public void delta(String symbol, long seq, Side side, long price, long deltaQty) {
                 broadcast(String.format("DELTA,%s,%d,%s,%d,%d", symbol, seq, side.name(), price, deltaQty));
             }
 
             @Override
             public void trade(String symbol, long seq, Order taker, Order maker, long qty) {
-                broadcast(String.format("TRADE,%s,%d,%d,%d,%d,%d", symbol, seq, taker.orderId, maker.orderId, maker.price, qty));
+                broadcast(String.format("TRADE,%s,%d,%d,%d,%d,%d,%d,%d", symbol, seq, taker.orderId, taker.userId, maker.orderId, maker.userId, maker.price, qty));
             }
 
             @Override
             public void cancel(String symbol, long seq, Order order) {
-                broadcast(String.format("CANCEL,%s,%d,%d", symbol, seq, order.orderId));
+                broadcast(String.format("CANCEL,%s,%d,%d,%d", symbol, seq, order.orderId, order.userId));
             }
         };
 
@@ -106,15 +111,16 @@ public final class EngineRunner {
                         while ((line = reader.readLine()) != null) {
                             if (line.isEmpty()) continue;
                             
-                            // Protocol: NEW,BUY/SELL,price,qty  or  CANCEL,orderId
+                            // Protocol: NEW,BUY/SELL,price,qty,userId  or  CANCEL,orderId
                             String[] parts = line.split(",");
                             if (parts[0].equalsIgnoreCase("NEW")) {
                                 Side side = Side.valueOf(parts[1].toUpperCase());
                                 long price = Long.parseLong(parts[2]);
                                 long qty = Long.parseLong(parts[3]);
+                                long userId = parts.length > 4 ? Long.parseLong(parts[4]) : 1;
                                 long orderId = idCounter++;
                                 
-                                Order order = new Order(orderId, side, price, qty, System.currentTimeMillis());
+                                Order order = new Order(orderId, userId, side, price, qty, System.currentTimeMillis());
                                 commandQueue.put(new NewOrderCmd(order));
                             } else if (parts[0].equalsIgnoreCase("CANCEL")) {
                                 long targetOrderId = Long.parseLong(parts[1]);

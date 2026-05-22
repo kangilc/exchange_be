@@ -7,6 +7,7 @@ import java.util.Properties;
 
 public final class KafkaOutbox {
     private final KafkaProducer<String, String> producer;
+    private final String acceptTopic = "accept-events";
     private final String deltaTopic = "orderbook-delta";
     private final String tradeTopic = "trade-events";
     private final String cancelTopic = "cancel-events";
@@ -20,7 +21,21 @@ public final class KafkaOutbox {
         String type = parts[0];
         String symbol = parts[1];
 
-        if (type.equals("DELTA")) {
+        if (type.equals("ACCEPT")) {
+            long seq = Long.parseLong(parts[2]);
+            long orderId = Long.parseLong(parts[3]);
+            long userId = Long.parseLong(parts[4]);
+            String side = parts[5];
+            long price = Long.parseLong(parts[6]);
+            long qty = Long.parseLong(parts[7]);
+
+            String jsonPayload = String.format(
+                    "{\"type\":\"ACCEPT\",\"symbol\":\"%s\",\"seq\":%d,\"orderId\":%d,\"userId\":%d,\"side\":\"%s\",\"price\":%d,\"qty\":%d,\"ts\":%d}",
+                    symbol, seq, orderId, userId, side, price, qty, System.currentTimeMillis()
+            );
+            producer.send(new ProducerRecord<>(acceptTopic, symbol, jsonPayload));
+
+        } else if (type.equals("DELTA")) {
             long seq = Long.parseLong(parts[2]);
             String side = parts[3];
             long price = Long.parseLong(parts[4]);
@@ -35,23 +50,26 @@ public final class KafkaOutbox {
         } else if (type.equals("TRADE")) {
             long seq = Long.parseLong(parts[2]);
             long takerOrderId = Long.parseLong(parts[3]);
-            long makerOrderId = Long.parseLong(parts[4]);
-            long price = Long.parseLong(parts[5]);
-            long qty = Long.parseLong(parts[6]);
+            long takerUserId = Long.parseLong(parts[4]);
+            long makerOrderId = Long.parseLong(parts[5]);
+            long makerUserId = Long.parseLong(parts[6]);
+            long price = Long.parseLong(parts[7]);
+            long qty = Long.parseLong(parts[8]);
 
             String jsonPayload = String.format(
-                    "{\"type\":\"TRADE\",\"symbol\":\"%s\",\"seq\":%d,\"takerOrderId\":%d,\"makerOrderId\":%d,\"price\":%d,\"qty\":%d,\"ts\":%d}",
-                    symbol, seq, takerOrderId, makerOrderId, price, qty, System.currentTimeMillis()
+                    "{\"type\":\"TRADE\",\"symbol\":\"%s\",\"seq\":%d,\"takerOrderId\":%d,\"takerUserId\":%d,\"makerOrderId\":%d,\"makerUserId\":%d,\"price\":%d,\"qty\":%d,\"ts\":%d}",
+                    symbol, seq, takerOrderId, takerUserId, makerOrderId, makerUserId, price, qty, System.currentTimeMillis()
             );
             producer.send(new ProducerRecord<>(tradeTopic, symbol, jsonPayload));
 
         } else if (type.equals("CANCEL")) {
             long seq = Long.parseLong(parts[2]);
             long orderId = Long.parseLong(parts[3]);
+            long userId = Long.parseLong(parts[4]);
 
             String jsonPayload = String.format(
-                    "{\"type\":\"CANCEL\",\"symbol\":\"%s\",\"seq\":%d,\"orderId\":%d,\"ts\":%d}",
-                    symbol, seq, orderId, System.currentTimeMillis()
+                    "{\"type\":\"CANCEL\",\"symbol\":\"%s\",\"seq\":%d,\"orderId\":%d,\"userId\":%d,\"ts\":%d}",
+                    symbol, seq, orderId, userId, System.currentTimeMillis()
             );
             producer.send(new ProducerRecord<>(cancelTopic, symbol, jsonPayload));
         }

@@ -157,6 +157,34 @@ services:
       - prometheus
     restart: always
 
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=exchange
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: always
+
+  db-persister:
+    build:
+      context: .
+      dockerfile: adapter-kafka/DockerfilePersister
+    container_name: db-persister
+    depends_on:
+      - kafka
+      - postgres
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - DB_URL=jdbc:postgresql://postgres:5432/exchange
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+    restart: on-failure
+
   audit-volume:
     image: busybox:latest
     container_name: audit-volume

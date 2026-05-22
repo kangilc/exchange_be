@@ -22,8 +22,13 @@ public final class BacktestMain {
             System.out.println("Loaded " + orders.size() + " orders successfully.");
             
             // 2. Setup metric tracking
-            long[] eventCounts = new long[3]; // 0: delta, 1: trade, 2: cancel
+            long[] eventCounts = new long[4]; // 0: delta, 1: trade, 2: cancel, 3: accept
             EventOutbox outbox = new EventOutbox() {
+                @Override
+                public void accept(String symbol, long seq, Order order) {
+                    eventCounts[3]++;
+                }
+
                 @Override
                 public void delta(String symbol, long seq, Side side, long price, long deltaQty) {
                     eventCounts[0]++;
@@ -44,7 +49,7 @@ public final class BacktestMain {
             System.out.print("Warming up JVM JIT compiler... ");
             MatchingEngine warmupEngine = new MatchingEngine("BTC-USD", new ArrayBlockingQueue<>(1), outbox);
             for (Order o : orders) {
-                Order cloned = new Order(o.orderId, o.side, o.price, o.qty, o.ts);
+                Order cloned = new Order(o.orderId, o.userId, o.side, o.price, o.qty, o.ts);
                 warmupEngine.process(new NewOrderCmd(cloned));
             }
             System.out.println("Warmup completed.");
@@ -53,6 +58,7 @@ public final class BacktestMain {
             eventCounts[0] = 0;
             eventCounts[1] = 0;
             eventCounts[2] = 0;
+            eventCounts[3] = 0;
             
             // 4. Main Benchmark Run
             System.out.println("Executing matching benchmarks in pure CPU/RAM memory pathway...");
@@ -82,9 +88,10 @@ public final class BacktestMain {
             System.out.println("\n--------------------------------------------------");
             System.out.println("               EVENT STATISTICS                   ");
             System.out.println("--------------------------------------------------");
-            System.out.printf("Order Book Delta Events: %,d\n", eventCounts[0]);
-            System.out.printf("Execution Trade Events : %,d\n", eventCounts[1]);
-            System.out.printf("Cancelled Order Events : %,d\n", eventCounts[2]);
+            System.out.printf("Order Book Accept Events: %,d\n", eventCounts[3]);
+            System.out.printf("Order Book Delta Events : %,d\n", eventCounts[0]);
+            System.out.printf("Execution Trade Events  : %,d\n", eventCounts[1]);
+            System.out.printf("Cancelled Order Events  : %,d\n", eventCounts[2]);
             System.out.println("==================================================");
             
         } catch (Exception e) {

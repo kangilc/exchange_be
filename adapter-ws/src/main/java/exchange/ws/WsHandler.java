@@ -75,9 +75,10 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
                     String side = node.has("side") ? node.get("side").asText() : "";
                     long price = node.has("price") ? node.get("price").asLong() : 0;
                     long qty = node.has("qty") ? node.get("qty").asLong() : 0;
+                    long userId = node.has("userId") ? node.get("userId").asLong() : 1;
                     
                     if (!side.isEmpty() && price > 0 && qty > 0) {
-                        String cmd = String.format("NEW,%s,%d,%d", side.toUpperCase(), price, qty);
+                        String cmd = String.format("NEW,%s,%d,%d,%d", side.toUpperCase(), price, qty, userId);
                         sendToEngine(symbol, cmd);
                         WsMetricsServer.getInstance().incrementMessages();
                     }
