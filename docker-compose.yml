@@ -1,108 +1,94 @@
 version: "3.9"
 
 services:
+  # =========================================================================
+  # 1. 메시징 인프라 (Zookeeper & Kafka)
+  # =========================================================================
+  
+  # ZooKeeper: Kafka 브로커의 메타데이터 관리 및 클러스터 조율을 담당합니다.
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_CLIENT_PORT: 2181 # ZooKeeper 클라이언트가 연결할 포트 설정
     ports:
-      - "2181:2181"
+      - "2181:2181" # 내부 포트 2181을 호스트 포트 2181로 바인딩
 
+  # Apache Kafka: 매칭 엔진이 발행하는 체결/주문/취소 이벤트를 수집하고 배포하는 고성능 메시지 브로커입니다.
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
     depends_on:
-      - zookeeper
+      - zookeeper # ZooKeeper가 구동된 후에 카프카가 시작되도록 제어
     ports:
-      - "9092:9092"
-      - "29092:29092"
+      - "9092:9092"   # 컨테이너 네트워크 내부용 포트
+      - "29092:29092" # 외부 호스트(개발자 머신 등)에서 접근 가능한 포트
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_BROKER_ID: 1 # 카프카 브로커의 고유 ID
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181 # ZooKeeper 접속 정보
+      # 내부 및 외부 클라이언트용 리스너 구성 (PLAINTEXT 및 PLAINTEXT_HOST 프로토콜 분리)
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1 # 개발/테스트 환경이므로 복제 계수(Replication Factor)를 1로 지정
 
+  # =========================================================================
+  # 2. 비트코인(BTC-USD) 거래 매칭 엔진 및 어댑터
+  # =========================================================================
+
+  # engine-btc: 초고속 인메모리 FIFO 매칭 엔진 (BTC-USD 마켓 전용 코어)
   engine-btc:
     build:
       context: .
       dockerfile: engine-core/Dockerfile
     container_name: matching-engine-btc
     env_file:
-      - .env.dev
+      - .env.dev # 개발 환경 변수 로드 (.env.dev 파일 기준)
     environment:
-      - METRICS_ENABLED=true
-      - METRICS_PORT=9100
+      - METRICS_ENABLED=true # 프로메테우스 수집용 메트릭 활성화 여부
+      - METRICS_PORT=9100    # 메트릭 노출용 자체 HTTP 서버 포트 설정
     ports:
-      - "9999:9999"
-      - "9998:9998"
-      - "9100:9100"
+      - "9999:9999" # 주문(New/Cancel)을 수신받는 TCP 커맨드 입력 포트
+      - "9998:9998" # 체결/호가 이벤트를 전송(Broadcast)하는 TCP 이벤트 출력 포트
+      - "9100:9100" # Prometheus Scraper가 접근할 메트릭 노출 포트 (/metrics)
     deploy:
       resources:
         limits:
-          cpus: "2"
-          memory: 4g
+          cpus: "1"     # 매칭 엔진의 극단적인 지연(Latency) 방지를 위해 CPU 최대 1코어로 제한
+          memory: 2g    # 인메모리 주문 데이터 저장을 고려하여 최대 메모리 2GB 제한
 
+  # kafka-adapter-btc: 엔진의 실시간 TCP 이벤트를 구독하여 카프카 토픽으로 안전하게 퍼블리싱하는 어댑터
   kafka-adapter-btc:
     build:
       context: .
       dockerfile: adapter-kafka/Dockerfile
     container_name: kafka-adapter-btc
     depends_on:
-      - engine-btc
-      - kafka
+      - engine-btc # 매칭 엔진 구동 후 실행
+      - kafka      # 카프카 브로커 구동 후 실행
     environment:
-      - KAFKA_BROKER=kafka:9092
-      - ENGINE_HOST=engine-btc
-      - ENGINE_PORT=9998
-    restart: on-failure
+      - KAFKA_BROKER=kafka:9092 # 카프카 브로커 주소
+      - ENGINE_HOST=engine-btc   # 통신 대상 비트코인 엔진 호스트명
+      - ENGINE_PORT=9998         # 비트코인 엔진의 TCP 이벤트 출력 포트
+    restart: on-failure # 에러 발생 시 자동으로 어댑터 재시작
 
-  ws-gateway:
-    build:
-      context: .
-      dockerfile: adapter-ws/Dockerfile
-    container_name: ws-gateway
-    depends_on:
-      - kafka
-    ports:
-      - "8080:8080"
-      - "9102:9102"
-    env_file:
-      - .env.dev
-    environment:
-      - METRICS_ENABLED=true
-      - METRICS_PORT=9102
-    restart: on-failure
+  # =========================================================================
+  # 3. 에이다(ADA-KRW) 거래 매칭 엔진 및 어댑터 (멀티 심볼 병렬 확장 구조)
+  # =========================================================================
 
-  order-generator:
-    build:
-      context: .
-      dockerfile: order-generator/Dockerfile
-    container_name: order-generator
-    depends_on:
-      - engine-btc
-      - engine-ada
-    env_file:
-      - .env.dev
-    environment:
-      - ADA_COMMAND_PORT=9997
-      - ADA_ENGINE_HOST=engine-ada
-    restart: on-failure
-
+  # engine-ada: 초고속 인메모리 FIFO 매칭 엔진 (ADA-KRW 마켓 전용 코어)
   engine-ada:
     build:
       context: .
       dockerfile: engine-core/Dockerfile
     container_name: matching-engine-ada
     environment:
-      - SYMBOL=ADA-KRW
-      - COMMAND_PORT=9997
-      - ENGINE_PORT=9996
-      - METRICS_ENABLED=true
-      - METRICS_PORT=9101
+      - SYMBOL=ADA-KRW       # 타겟 마켓 심볼 지정
+      - COMMAND_PORT=9997    # ADA 엔진용 커맨드 입력 포트
+      - ENGINE_PORT=9996     # ADA 엔진용 이벤트 출력 포트
+      - METRICS_ENABLED=true # 메트릭 노출 활성화
+      - METRICS_PORT=9101    # ADA 엔진 전용 메트릭 포트
     ports:
       - "9997:9997"
       - "9996:9996"
@@ -110,9 +96,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1"
-          memory: 2g
+          cpus: "1"     # 에이다 마켓은 CPU 최대 1코어로 자원 제한
+          memory: 2g    # 메모리 한도 2GB 지정
 
+  # kafka-adapter-ada: 에이다 엔진의 실시간 TCP 이벤트를 카프카 토픽으로 중계하는 어댑터
   kafka-adapter-ada:
     build:
       context: .
@@ -124,16 +111,59 @@ services:
     environment:
       - KAFKA_BROKER=kafka:9092
       - ENGINE_HOST=engine-ada
-      - ENGINE_PORT=9996
+      - ENGINE_PORT=9996 # ADA 엔진의 이벤트 출력 포트 지정
     restart: on-failure
 
+  # =========================================================================
+  # 4. 실시간 게이트웨이 및 시뮬레이터
+  # =========================================================================
+
+  # ws-gateway: 클라이언트(프론트엔드 UI)와의 연결을 처리하는 Netty 기반 비동기 웹소켓 게이트웨이
+  ws-gateway:
+    build:
+      context: .
+      dockerfile: adapter-ws/Dockerfile
+    container_name: ws-gateway
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080" # 웹소켓 연결용 실시간 서비스 포트
+      - "9102:9102" # 웹소켓 서버 자체 성능 지표 수집용 포트
+    env_file:
+      - .env.dev
+    environment:
+      - METRICS_ENABLED=true
+      - METRICS_PORT=9102
+    restart: on-failure
+
+  # order-generator: 시스템 부하 테스트 및 활발한 거래 시뮬레이션을 위해 대량의 모의 주문을 자동 생성하는 에이전트
+  order-generator:
+    build:
+      context: .
+      dockerfile: order-generator/Dockerfile
+    container_name: order-generator
+    depends_on:
+      - engine-btc
+      - engine-ada
+    env_file:
+      - .env.dev
+    environment:
+      - ADA_COMMAND_PORT=9997 # ADA 엔진 주문 입력을 위한 타겟 포트
+      - ADA_ENGINE_HOST=engine-ada
+    restart: on-failure
+
+  # =========================================================================
+  # 5. 모니터링 시스템 (Prometheus & Grafana)
+  # =========================================================================
+
+  # Prometheus: 분산된 엔진 및 웹소켓 노드들의 지표(TPS, Latency 등)를 주기적으로 긁어와(Scrape) 저장하는 시계열 DB
   prometheus:
     image: prom/prometheus:v2.47.0
     container_name: prometheus
     ports:
-      - "9090:9090"
+      - "9090:9090" # 프로메테우스 웹 UI 대시보드 포트
     volumes:
-      - ./prometheus:/etc/prometheus
+      - ./prometheus:/etc/prometheus # 설정 파일 로드를 위한 마운트
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
     depends_on:
@@ -142,34 +172,41 @@ services:
       - ws-gateway
     restart: always
 
+  # Grafana: 프로메테우스가 수집한 데이터를 기반으로 초경량 0-의존성 모니터링 대시보드를 시각화하는 도구
   grafana:
     image: grafana/grafana:10.1.0
     container_name: grafana
     ports:
-      - "3000:3000"
+      - "3000:3000" # 그라파나 대시보드 접속 포트 (기본 로그인 계정 - admin / admin)
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SECURITY_ADMIN_PASSWORD=admin # 기본 관리자 비밀번호 강제 설정
+      - GF_USERS_ALLOW_SIGN_UP=false     # 신규 사용자 회원가입 차단
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning
-      - ./grafana/dashboards:/etc/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning # 데이터소스 및 대시보드 자동 연동 설정
+      - ./grafana/dashboards:/etc/grafana/dashboards     # 미리 구성된 대시보드 JSON 템플릿 마운트
     depends_on:
       - prometheus
     restart: always
 
+  # =========================================================================
+  # 6. 영속성 및 정산 시스템 (PostgreSQL & Db Persister)
+  # =========================================================================
+
+  # PostgreSQL: 회원 정보, 자산 지갑, 주문 및 체결 내역의 물리적인 영속성을 보장하는 데이터베이스
   postgres:
     image: postgres:15-alpine
     container_name: postgres
     ports:
-      - "5432:5432"
+      - "5432:5432" # 데이터베이스 접속 포트
     environment:
-      - POSTGRES_DB=exchange
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=exchange       # 데이터베이스 명칭
+      - POSTGRES_USER=postgres     # 데이터베이스 사용자명
+      - POSTGRES_PASSWORD=postgres # 데이터베이스 암호
     volumes:
-      - ./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql # 테이블 스키마 및 초기 가상 자산 데이터 스크립트 마운트
     restart: always
 
+  # db-persister: 매칭 엔진의 쓰기 병목을 제거하기 위해 카프카 이벤트를 비동기로 컨슘하여 DB에 원자적으로 정산(Settle) 처리하는 데몬
   db-persister:
     build:
       context: .
@@ -185,9 +222,14 @@ services:
       - DB_PASSWORD=postgres
     restart: on-failure
 
+  # =========================================================================
+  # 7. 보조 인프라 및 볼륨 관리
+  # =========================================================================
+
+  # audit-volume: 규제 및 감사를 위한 실시간 보고서가 저장되는 파일 시스템 볼륨 격리 컨테이너
   audit-volume:
     image: busybox:latest
     container_name: audit-volume
     volumes:
-      - ./audit/reports:/audit
-    command: ["sh", "-c", "tail -f /dev/null"]
+      - ./audit/reports:/audit # 호스트의 audit/reports 경로를 마운트
+    command: ["sh", "-c", "tail -f /dev/null"] # 컨테이너가 죽지 않고 무한 대기하도록 설정
