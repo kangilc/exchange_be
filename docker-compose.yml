@@ -226,6 +226,22 @@ services:
   # 7. 보조 인프라 및 볼륨 관리
   # =========================================================================
 
+  # admin-api: 스프링 부트 기반의 거래소 통합 관리 시스템 (현황/통계, 회원/자산 CRUD, 지갑 관리 API 제공)
+  admin-api:
+    build:
+      context: .
+      dockerfile: admin-api/Dockerfile
+    container_name: admin-api
+    ports:
+      - "8081:8081" # 관리 시스템 REST API 포트
+    depends_on:
+      - postgres
+    environment:
+      - DB_URL=jdbc:postgresql://postgres:5432/exchange
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+    restart: on-failure
+
   # audit-volume: 규제 및 감사를 위한 실시간 보고서가 저장되는 파일 시스템 볼륨 격리 컨테이너
   audit-volume:
     image: busybox:latest

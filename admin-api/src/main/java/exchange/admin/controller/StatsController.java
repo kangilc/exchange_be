@@ -1,0 +1,31 @@
+package exchange.admin.controller;
+
+import exchange.admin.repository.LedgerJournalRepository;
+import exchange.admin.repository.TradeRepository;
+import exchange.admin.service.StatsService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/admin/stats")
+@CrossOrigin(origins = "*")
+public class StatsController {
+
+    @Autowired
+    private StatsService statsService;
+
+    @GetMapping("/trades")
+    public ResponseEntity<List<TradeRepository.TradeStatsProjection>> getTradeStats(
+            @RequestParam(value = "resolution", defaultValue = "daily") String resolution) {
+        return ResponseEntity.ok(statsService.getTradeStats(resolution));
+    }
+
+    @GetMapping("/assets")
+    public ResponseEntity<List<LedgerJournalRepository.LedgerStatsProjection>> getLedgerStats(
+            @RequestParam(value = "resolution", defaultValue = "daily") String resolution) {
+        return ResponseEntity.ok(statsService.getLedgerStats(resolution));
+    }
+}

@@ -7,4 +7,5 @@ include 'adapter-kafka'
 include 'adapter-ws'
 include 'order-generator'
 include 'backtest'
+include 'admin-api'
 
