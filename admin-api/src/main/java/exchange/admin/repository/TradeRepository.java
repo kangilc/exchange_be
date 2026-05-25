@@ -26,7 +26,15 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
             "CAST(AVG(price) AS double precision) as avgPrice, " +
             "CAST(SUM(qty * (price / 100.0)) AS double precision) as totalVolume " +
             "FROM trades " +
-            "GROUP BY date_trunc(:timeBucket, executed_at) " +
-            "ORDER BY date_trunc(:timeBucket, executed_at) DESC", nativeQuery = true)
+            "GROUP BY 1 " +
+            "ORDER BY 1 DESC", nativeQuery = true)
     List<TradeStatsProjection> getTradeStats(@Param("timeBucket") String timeBucket);
+
+
+    @Query(value = "SELECT COUNT(trade_id) FROM trades", nativeQuery = true)
+    Long getTotalTradeCount();
+
+    @Query(value = "SELECT COALESCE(SUM(qty * (price / 100.0)), 0.0) FROM trades", nativeQuery = true)
+    Double getTotalTradeVolume();
 }
+

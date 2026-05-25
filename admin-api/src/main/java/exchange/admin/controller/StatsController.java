@@ -28,4 +28,16 @@ public class StatsController {
             @RequestParam(value = "resolution", defaultValue = "daily") String resolution) {
         return ResponseEntity.ok(statsService.getLedgerStats(resolution));
     }
+
+    @GetMapping("/users")
+    public ResponseEntity<List<exchange.admin.repository.UserRepository.UserStatsProjection>> getUserStats(
+            @RequestParam(value = "resolution", defaultValue = "daily") String resolution) {
+        return ResponseEntity.ok(statsService.getUserStats(resolution));
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<java.util.Map<String, Object>> getSummaryStats() {
+        return ResponseEntity.ok(statsService.getSummaryStats());
+    }
 }
+

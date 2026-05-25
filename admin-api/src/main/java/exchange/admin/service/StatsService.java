@@ -16,6 +16,12 @@ public class StatsService {
     @Autowired
     private LedgerJournalRepository ledgerJournalRepository;
 
+    @Autowired
+    private exchange.admin.repository.UserRepository userRepository;
+
+    @Autowired
+    private exchange.admin.repository.WalletRepository walletRepository;
+
     public List<TradeRepository.TradeStatsProjection> getTradeStats(String resolution) {
         String timeBucket = mapResolutionToBucket(resolution);
         return tradeRepository.getTradeStats(timeBucket);
@@ -25,6 +31,21 @@ public class StatsService {
         String timeBucket = mapResolutionToBucket(resolution);
         return ledgerJournalRepository.getLedgerStats(timeBucket);
     }
+
+    public List<exchange.admin.repository.UserRepository.UserStatsProjection> getUserStats(String resolution) {
+        String timeBucket = mapResolutionToBucket(resolution);
+        return userRepository.getUserStats(timeBucket);
+    }
+
+    public java.util.Map<String, Object> getSummaryStats() {
+        java.util.Map<String, Object> summary = new java.util.HashMap<>();
+        summary.put("totalUsers", userRepository.count());
+        summary.put("totalTrades", tradeRepository.getTotalTradeCount());
+        summary.put("totalVolume", tradeRepository.getTotalTradeVolume());
+        summary.put("totalWallets", walletRepository.count());
+        return summary;
+    }
+
 
     private String mapResolutionToBucket(String resolution) {
         if (resolution == null) {

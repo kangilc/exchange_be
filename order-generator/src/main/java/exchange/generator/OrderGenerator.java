@@ -65,8 +65,9 @@ public final class OrderGenerator {
                         long priceOffset = rand.nextInt(100) - 50; // -50 to +49
                         long price = referencePrice + priceOffset;
                         long qty = rand.nextInt(15) + 1; // 1 to 15
+                        long userId = rand.nextInt(1000) + 1; // 1000명 회원 중 랜덤 ID (1~1000)
 
-                        writer.println(String.format("NEW,%s,%d,%d", side, price, qty));
+                        writer.println(String.format("NEW,%s,%d,%d,%d", side, price, qty, userId));
                         writer.flush();
 
                         if (rand.nextInt(100) < 5) {
@@ -93,20 +94,24 @@ public final class OrderGenerator {
 
         private void generateInitialSeedBook(PrintWriter writer) {
             System.out.println("[" + symbol + "] Generating initial 20-level thick seed book...");
+            Random r = new Random();
             // Ask Side (SELL) - referencePrice + 1 to +10
             for (int i = 1; i <= 10; i++) {
                 long price = referencePrice + i;
-                long qty = 20 + new Random().nextInt(50); // 20~70 random quantity
-                writer.println(String.format("NEW,SELL,%d,%d", price, qty));
+                long qty = 20 + r.nextInt(50); // 20~70 random quantity
+                long userId = r.nextInt(1000) + 1; // 1000명 회원 중 랜덤 ID (1~1000)
+                writer.println(String.format("NEW,SELL,%d,%d,%d", price, qty, userId));
             }
             // Bid Side (BUY) - referencePrice - 1 to -10
             for (int i = 1; i <= 10; i++) {
                 long price = referencePrice - i;
-                long qty = 20 + new Random().nextInt(50);
-                writer.println(String.format("NEW,BUY,%d,%d", price, qty));
+                long qty = 20 + r.nextInt(50);
+                long userId = r.nextInt(1000) + 1; // 1000명 회원 중 랜덤 ID (1~1000)
+                writer.println(String.format("NEW,BUY,%d,%d,%d", price, qty, userId));
             }
             writer.flush();
             System.out.println("[" + symbol + "] Seed book injection completed successfully for " + symbol);
         }
+
     }
 }

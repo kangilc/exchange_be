@@ -57,11 +57,13 @@ public final class CsvFeed {
                     ts = Long.parseLong(parts[4].trim());
                 }
                 
-                orders.add(new Order(orderId, 1, side, price, qty, ts));
+                long userId = ((orderId - 1) % 1000) + 1; // 1000명 회원 원장 연동 (1~1000)
+                orders.add(new Order(orderId, userId, side, price, qty, ts));
             }
         }
         return orders;
     }
+
     
     private static void generateRealisticCsv(String filename, int count) throws Exception {
         Random rand = new Random(42); // Hardcoded seed for reproducible benchmark metrics

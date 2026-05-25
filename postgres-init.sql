@@ -56,17 +56,19 @@ CREATE TABLE IF NOT EXISTS ledger_journal (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- 초기 시드 데이터 인젝션 (100명의 사용자 자동 생성)
+-- 초기 시드 데이터 인젝션 (1000명의 사용자 자동 생성 및 최근 1년 동안 균등 분산)
 -- 비밀번호 해시는 단순 'password123' 가정
-INSERT INTO users (user_id, email, password_hash)
+INSERT INTO users (user_id, email, password_hash, created_at)
 SELECT 
     i, 
     'user' || i || '@exchange.com', 
-    '$2a$10$eImiTXuWVxfM37uY4JANjO'
-FROM generate_series(1, 100) AS i
-ON CONFLICT (user_id) DO NOTHING;
+    '$2a$10$eImiTXuWVxfM37uY4JANjO',
+    NOW() - (i * (365.0 / 1000.0) * INTERVAL '1 day')
+FROM generate_series(1, 1000) AS i
+ON CONFLICT (user_id) DO UPDATE SET created_at = EXCLUDED.created_at;
 
--- 지갑 잔액 초기화 (100명의 사용자별 10억 KRW, 10 BTC, 10만 ADA 지원)
+
+-- 지갑 잔액 초기화 (1000명의 사용자별 10억 KRW, 10 BTC, 10만 ADA 지원)
 INSERT INTO wallets (user_id, currency, balance, locked_balance)
 SELECT 
     u.user_id, 
@@ -81,4 +83,5 @@ CROSS JOIN (
         ('ADA', 100000.000000000000000000)
 ) AS c(currency, initial_balance)
 ON CONFLICT (user_id, currency) DO NOTHING;
+
 

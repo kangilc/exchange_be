@@ -26,7 +26,8 @@ public interface LedgerJournalRepository extends JpaRepository<LedgerJournal, Lo
             "COUNT(journal_id) as entryCount, " +
             "CAST(SUM(amount) AS double precision) as totalAmount " +
             "FROM ledger_journal " +
-            "GROUP BY date_trunc(:timeBucket, created_at), currency, type " +
-            "ORDER BY date_trunc(:timeBucket, created_at) DESC, currency, type", nativeQuery = true)
+            "GROUP BY 1, 2, 3 " +
+            "ORDER BY 1 DESC, 2, 3", nativeQuery = true)
     List<LedgerStatsProjection> getLedgerStats(@Param("timeBucket") String timeBucket);
 }
+
