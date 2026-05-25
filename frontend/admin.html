@@ -564,6 +564,18 @@
             color: var(--color-up);
         }
 
+        .badge.buy {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            color: #10b981;
+        }
+
+        .badge.sell {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            color: var(--color-up);
+        }
+
         /* Wallet Progress Bars */
         .progress-box {
             display: flex;
@@ -819,6 +831,9 @@
             <div class="nav-item" onclick="switchTab('stats-tab')">
                 <span>📈</span> 현황 및 통계 분석
             </div>
+            <div class="nav-item" onclick="switchTab('ledger-tab')">
+                <span>💸</span> 입출금 통합 관리
+            </div>
         </div>
 
         <!-- Main Dashboard Window Workspace content -->
@@ -1042,6 +1057,86 @@
                 </div>
             </div>
 
+            <!-- ========================================== -->
+            <!-- TAB 5: DEPOSIT / WITHDRAWAL LEDGER (입출금 통합 관리) -->
+            <!-- ========================================== -->
+            <div id="ledger-tab" class="tab-panel">
+                <div class="section-header">
+                    <div class="section-title">거래소 입출금 원장 통합 관리</div>
+                </div>
+
+                <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+                    <!-- Left: Manual Transfer Form -->
+                    <div class="panel" style="flex: 1 1 350px; min-width: 300px; height: fit-content;">
+                        <div class="panel-header">
+                            <div class="panel-title">수동 입출금 즉시 인젝션</div>
+                            <span class="badge vip">Admin Settle</span>
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">수신 회원 UID (User ID)</label>
+                                <input type="number" id="ledgerUserIdInput" placeholder="회원 UID 번호를 입력해 주세요. (예: 1)" style="width: 100%; padding: 0.75rem; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-glow); border-radius: 4px; color: #fff; font-family: var(--font-mono); font-weight: bold;">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">대상 자산 (Asset)</label>
+                                <select id="ledgerCurrencySelect" style="width: 100%; padding: 0.75rem; background: rgba(10, 16, 32, 0.85); border: 1px solid var(--border-glow); border-radius: 4px; color: #fff; font-weight: bold;">
+                                    <option value="KRW">KRW (대한민국 원화)</option>
+                                    <option value="USD">USD (미국 달러)</option>
+                                    <option value="BTC">BTC (비트코인)</option>
+                                    <option value="ADA">ADA (에이다)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">조작 구분 (Type)</label>
+                                <select id="ledgerTypeSelect" style="width: 100%; padding: 0.75rem; background: rgba(10, 16, 32, 0.85); border: 1px solid var(--border-glow); border-radius: 4px; color: #fff; font-weight: bold;">
+                                    <option value="DEPOSIT">DEPOSIT (자산 추가 지급)</option>
+                                    <option value="WITHDRAWAL">WITHDRAWAL (자산 차감/회수)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 1.5rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-secondary);">조작 수량 (Amount)</label>
+                                <input type="number" id="ledgerAmountInput" step="any" placeholder="조작할 수량을 입력해 주세요." style="width: 100%; padding: 0.75rem; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-glow); border-radius: 4px; color: #fff; font-weight: bold;">
+                            </div>
+                            <button class="btn-primary" style="width: 100%; padding: 0.85rem;" onclick="submitExchangeLedgerTransfer()">
+                                💸 입출금 원장 즉시 갱신
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right: Exchange-wide Ledger Table -->
+                    <div class="panel" style="flex: 2 2 600px; min-width: 500px;">
+                        <div class="panel-header">
+                            <div class="panel-title">거래소 전체 입출금 이력 (감사 원장)</div>
+                            <div class="search-wrapper">
+                                <input type="text" id="exchangeLedgerSearchInput" placeholder="이메일 검색..." onkeyup="filterExchangeLedgerTable()">
+                            </div>
+                        </div>
+                        <div class="panel-body" style="padding: 0;">
+                            <div class="table-container" style="max-height: 550px; overflow-y: auto;">
+                                <table id="exchangeLedgerTable">
+                                    <thead>
+                                        <tr style="position: sticky; top: 0; z-index: 10;">
+                                            <th>원장 ID</th>
+                                            <th>UID</th>
+                                            <th>이메일 계정</th>
+                                            <th>통화</th>
+                                            <th>구분</th>
+                                            <th style="text-align: right;">금액</th>
+                                            <th style="text-align: right; padding-right: 2rem;">적용 시각</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="exchangeLedgerTableBody">
+                                        <tr>
+                                            <td colspan="7" style="text-align: center; color: var(--color-text-secondary); padding: 3rem;">데이터를 불러오는 중입니다...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -1148,10 +1243,65 @@
                     <label>조작 금액 (Amount)</label>
                     <input type="number" id="adjustAmount" step="any" placeholder="지급액을 입력해 주세요.">
                 </div>
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label>최근 입출금 감사 이력</label>
+                    <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-glow); border-radius: 4px; background: rgba(0, 0, 0, 0.2);">
+                        <table style="width: 100%; font-size: 0.8rem; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border-glow); background: rgba(255, 255, 255, 0.05); text-align: left;">
+                                    <th style="padding: 0.5rem;">일시</th>
+                                    <th style="padding: 0.5rem;">유형</th>
+                                    <th style="padding: 0.5rem;">통화</th>
+                                    <th style="padding: 0.5rem; text-align: right;">금액</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userLedgerHistoryBody">
+                                <tr>
+                                    <td colspan="4" style="text-align: center; padding: 1rem; color: var(--color-text-secondary);">이력이 존재하지 않습니다.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeAdjustAssetModal()">취소</button>
                 <button class="btn-primary" onclick="submitAdjustAsset()">자산 원장 갱신</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 4: User Trade History (회원 거래 내역 조회) -->
+    <div id="userTradesModal" class="modal-overlay">
+        <div class="modal" style="max-width: 800px; width: 90%;">
+            <div class="modal-header">
+                <span class="modal-title" id="userTradesModalTitle">회원 실시간 거래 체결 내역</span>
+                <button class="modal-close" onclick="closeUserTradesModal()">×</button>
+            </div>
+            <div class="modal-body" style="padding-top: 1rem;">
+                <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-glow); border-radius: 6px; background: rgba(0, 0, 0, 0.2);">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--border-glow); background: rgba(255, 255, 255, 0.05); text-align: left; position: sticky; top: 0; z-index: 10;">
+                                <th style="padding: 0.75rem;">체결 ID</th>
+                                <th style="padding: 0.75rem;">심볼 (Symbol)</th>
+                                <th style="padding: 0.75rem;">구분 (Side)</th>
+                                <th style="padding: 0.75rem; text-align: right;">체결 가격</th>
+                                <th style="padding: 0.75rem; text-align: right;">체결 수량</th>
+                                <th style="padding: 0.75rem; text-align: right;">총 체결 대금</th>
+                                <th style="padding: 0.75rem; padding-right: 1.5rem; text-align: right;">체결 시각</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTradesTableBody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">거래 내역이 존재하지 않습니다.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeUserTradesModal()">닫기</button>
             </div>
         </div>
     </div>
@@ -1201,6 +1351,7 @@
             else if (tabId === 'users-tab') navs[1].classList.add('active');
             else if (tabId === 'wallets-tab') navs[2].classList.add('active');
             else if (tabId === 'stats-tab') navs[3].classList.add('active');
+            else if (tabId === 'ledger-tab') navs[4].classList.add('active');
 
             // Force refresh data of specific tabs
             if (tabId === 'dashboard-tab') {
@@ -1211,6 +1362,8 @@
                 loadWalletsData();
             } else if (tabId === 'stats-tab') {
                 loadStatsData(currentResolution);
+            } else if (tabId === 'ledger-tab') {
+                loadLedgerData();
             }
         }
 
@@ -1338,8 +1491,9 @@
                     <td><span class="badge ${u.status.toLowerCase()}">${u.status}</span></td>
                     <td style="font-size: 0.8rem; color: var(--color-text-secondary);">${formattedDate}</td>
                     <td style="text-align: right;">
-                        <div class="actions-list" style="justify-content: flex-end; padding-right: 1.5rem;">
+                        <div class="actions-list" style="justify-content: flex-end; padding-right: 1.5rem; gap: 0.5rem;">
                             <button class="btn-action-small asset" onclick="openAdjustAssetModal(${u.userId}, '${u.email}')">💸 자산 관리</button>
+                            <button class="btn-action-small" style="background: rgba(147, 51, 234, 0.12); border-color: rgba(147, 51, 234, 0.35); color: #c084fc;" onclick="openUserTradesModal(${u.userId}, '${u.email}')">📈 거래 내역</button>
                             <button class="btn-action-small" onclick="openEditUserModal(${u.userId}, '${u.email}', '${u.status}', '${u.grade}')">⚙️ 정보 수정</button>
                         </div>
                     </td>
@@ -1428,6 +1582,8 @@
             document.getElementById('adjustUserEmail').value = email;
             document.getElementById('adjustAmount').value = '';
             document.getElementById('adjustAssetModal').style.display = 'flex';
+            updateAdjustPlaceholder();
+            loadUserLedgerHistory(userId);
         }
         function closeAdjustAssetModal() { document.getElementById('adjustAssetModal').style.display = 'none'; }
         
@@ -1741,6 +1897,193 @@
 
         function changeResolution(res) {
             loadStatsData(res);
+        }
+
+        // ==========================================
+        // ADDED FEATURES: USER TRADES, PERSONAL LEDGER, EXCHANGE-WIDE LEDGER
+        // ==========================================
+        async function loadUserLedgerHistory(userId) {
+            const tbody = document.getElementById('userLedgerHistoryBody');
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1rem; color: var(--color-text-secondary);">로딩 중...</td></tr>';
+            try {
+                const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/ledgers`);
+                if (res.ok) {
+                    const ledgers = await res.json();
+                    tbody.innerHTML = '';
+                    if (ledgers.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1rem; color: var(--color-text-secondary);">입출금 이력이 존재하지 않습니다.</td></tr>';
+                        return;
+                    }
+                    ledgers.forEach(l => {
+                        const tr = document.createElement('tr');
+                        tr.style.borderBottom = '1px solid rgba(255, 255, 255, 0.05)';
+                        const formattedDate = new Date(l.createdAt).toLocaleString();
+                        const badgeClass = l.type === 'DEPOSIT' ? 'active' : 'suspended';
+                        tr.innerHTML = `
+                            <td style="padding: 0.5rem; color: var(--color-text-secondary); font-size: 0.75rem;">${formattedDate}</td>
+                            <td style="padding: 0.5rem;"><span class="badge ${badgeClass}" style="font-size: 0.7rem; padding: 0.1rem 0.3rem;">${l.type}</span></td>
+                            <td style="padding: 0.5rem; font-weight: bold;">${l.currency}</td>
+                            <td style="padding: 0.5rem; text-align: right; font-weight: bold; color: ${l.amount >= 0 ? '#10b981' : '#ef4444'}">${parseFloat(l.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to load user ledger history", err);
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1rem; color: #ef4444;">이력을 불러오지 못했습니다.</td></tr>';
+            }
+        }
+
+        function openUserTradesModal(userId, email) {
+            document.getElementById('userTradesModalTitle').innerText = `[${email}] 회원 실시간 거래 체결 내역`;
+            document.getElementById('userTradesModal').style.display = 'flex';
+            loadUserTrades(userId);
+        }
+
+        function closeUserTradesModal() {
+            document.getElementById('userTradesModal').style.display = 'none';
+        }
+
+        async function loadUserTrades(userId) {
+            const tbody = document.getElementById('userTradesTableBody');
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">체결 원장을 조회하는 중...</td></tr>';
+            try {
+                const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/trades`);
+                if (res.ok) {
+                    const trades = await res.json();
+                    tbody.innerHTML = '';
+                    if (trades.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">체결된 거래 내역이 존재하지 않습니다.</td></tr>';
+                        return;
+                    }
+                    trades.forEach(t => {
+                        const tr = document.createElement('tr');
+                        tr.style.borderBottom = '1px solid rgba(255, 255, 255, 0.05)';
+                        const formattedDate = new Date(t.executedAt).toLocaleString();
+                        const isBuy = t.side === 'BUY';
+                        const badgeClass = isBuy ? 'buy' : 'sell';
+                        const sideLabel = isBuy ? '매수 (BUY)' : '매도 (SELL)';
+                        
+                        const displayPrice = t.symbol.includes("BTC") ? (t.price / 100.0) : t.price;
+                        const displayVolume = t.qty * (displayPrice);
+                        
+                        tr.innerHTML = `
+                            <td style="padding: 0.75rem; font-family: var(--font-mono); font-weight: bold; color: var(--color-secondary);">${t.tradeId}</td>
+                            <td style="padding: 0.75rem; font-weight: bold; color: #fff;">${t.symbol}</td>
+                            <td style="padding: 0.75rem;"><span class="badge ${badgeClass}" style="padding: 0.15rem 0.4rem; font-size: 0.75rem;">${sideLabel}</span></td>
+                            <td style="padding: 0.75rem; text-align: right; font-weight: bold; color: ${isBuy ? '#34d399' : '#f87171'}">${parseFloat(displayPrice).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</td>
+                            <td style="padding: 0.75rem; text-align: right; font-weight: bold;">${parseFloat(t.qty).toLocaleString()}</td>
+                            <td style="padding: 0.75rem; text-align: right; font-weight: bold; color: var(--color-secondary);">${parseFloat(displayVolume).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td style="padding: 0.75rem; padding-right: 1.5rem; text-align: right; font-size: 0.75rem; color: var(--color-text-secondary);">${formattedDate}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to load user trades", err);
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #ef4444;">체결 내역을 조회하는 과정에서 에러가 발생했습니다.</td></tr>';
+            }
+        }
+
+        let exchangeLedgerData = [];
+
+        async function loadLedgerData() {
+            const tbody = document.getElementById('exchangeLedgerTableBody');
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-secondary); padding: 3rem;">감사 원장을 불러오는 중...</td></tr>';
+            try {
+                const res = await fetch(`${API_BASE_URL}/admin/ledgers`);
+                if (res.ok) {
+                    exchangeLedgerData = await res.json();
+                    renderExchangeLedgerTable(exchangeLedgerData);
+                }
+            } catch (err) {
+                console.error("Failed to load exchange ledgers", err);
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #ef4444; padding: 3rem;">원장 데이터를 조회하는 중 오류가 발생했습니다.</td></tr>';
+            }
+        }
+
+        function renderExchangeLedgerTable(ledgers) {
+            const tbody = document.getElementById('exchangeLedgerTableBody');
+            tbody.innerHTML = '';
+            if (ledgers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-secondary); padding: 3rem;">입출금 감사 이력이 존재하지 않습니다.</td></tr>';
+                return;
+            }
+            ledgers.forEach(l => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid rgba(255, 255, 255, 0.05)';
+                const formattedDate = new Date(l.createdAt).toLocaleString();
+                const isDeposit = l.type === 'DEPOSIT';
+                const badgeClass = isDeposit ? 'active' : 'suspended';
+                
+                tr.innerHTML = `
+                    <td style="font-family: var(--font-mono); font-weight: bold; color: var(--color-text-secondary);">${l.journalId}</td>
+                    <td style="font-family: var(--font-mono); font-weight: bold; color: var(--color-secondary);">${l.userId}</td>
+                    <td style="font-weight: 600;">${l.email}</td>
+                    <td style="font-weight: bold; color: #fff;">${l.currency}</td>
+                    <td><span class="badge ${badgeClass}" style="padding: 0.15rem 0.4rem; font-size: 0.75rem;">${l.type}</span></td>
+                    <td style="text-align: right; font-weight: bold; color: ${isDeposit ? '#10b981' : '#ef4444'}">${parseFloat(l.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}</td>
+                    <td style="text-align: right; padding-right: 2rem; font-size: 0.8rem; color: var(--color-text-secondary);">${formattedDate}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterExchangeLedgerTable() {
+            const query = document.getElementById('exchangeLedgerSearchInput').value.toLowerCase().trim();
+            const filtered = exchangeLedgerData.filter(l => 
+                l.email.toLowerCase().includes(query) || 
+                l.userId.toString().includes(query) || 
+                l.currency.toLowerCase().includes(query)
+            );
+            renderExchangeLedgerTable(filtered);
+        }
+
+        async function submitExchangeLedgerTransfer() {
+            const userId = document.getElementById('ledgerUserIdInput').value.trim();
+            const currency = document.getElementById('ledgerCurrencySelect').value;
+            const type = document.getElementById('ledgerTypeSelect').value;
+            const amountInput = document.getElementById('ledgerAmountInput').value.trim();
+
+            if (!userId || isNaN(userId)) {
+                alert("올바른 회원 UID를 입력해 주세요.");
+                return;
+            }
+            if (!amountInput || isNaN(amountInput)) {
+                alert("올바른 이체 금액 수치를 입력해 주세요.");
+                return;
+            }
+
+            let amount = parseFloat(amountInput);
+            if (amount <= 0) {
+                alert("이체 수량은 0보다 커야 합니다.");
+                return;
+            }
+
+            if (type === 'WITHDRAWAL') {
+                amount = -amount;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/assets/adjust`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ currency, amount })
+                });
+
+                if (res.ok) {
+                    alert(`UID [${userId}] 회원에게 ${currency} ${type} 처리가 성공적으로 실행 완료되었습니다.`);
+                    document.getElementById('ledgerUserIdInput').value = '';
+                    document.getElementById('ledgerAmountInput').value = '';
+                    loadLedgerData();
+                } else {
+                    const errMsg = await res.text();
+                    alert(`실패: ${errMsg}`);
+                }
+            } catch (err) {
+                console.error("Ledger transfer failed", err);
+                alert("서버 연결에 실패했습니다.");
+            }
         }
     </script>
 </body>

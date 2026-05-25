@@ -81,4 +81,20 @@ public class UserController {
             return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
         }
     }
+
+    @Autowired
+    private exchange.admin.repository.TradeRepository tradeRepository;
+
+    @Autowired
+    private exchange.admin.repository.LedgerJournalRepository ledgerJournalRepository;
+
+    @GetMapping("/{id}/trades")
+    public ResponseEntity<List<exchange.admin.repository.TradeRepository.UserTradeProjection>> getUserTrades(@PathVariable Long id) {
+        return ResponseEntity.ok(tradeRepository.findUserTrades(id));
+    }
+
+    @GetMapping("/{id}/ledgers")
+    public ResponseEntity<List<exchange.admin.repository.LedgerJournalRepository.DetailedLedgerProjection>> getUserLedgers(@PathVariable Long id) {
+        return ResponseEntity.ok(ledgerJournalRepository.findDetailedLedgersByUserId(id));
+    }
 }

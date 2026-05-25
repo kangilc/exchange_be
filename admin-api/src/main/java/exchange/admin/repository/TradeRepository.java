@@ -31,6 +31,28 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
     List<TradeStatsProjection> getTradeStats(@Param("timeBucket") String timeBucket);
 
 
+    interface UserTradeProjection {
+        Long getTradeId();
+        String getSymbol();
+        Long getBuyOrderId();
+        Long getSellOrderId();
+        Long getPrice();
+        Long getQty();
+        java.time.LocalDateTime getExecutedAt();
+        String getSide();
+    }
+
+    @Query(value = "SELECT t.trade_id as tradeId, t.symbol as symbol, " +
+            "t.buy_order_id as buyOrderId, t.sell_order_id as sellOrderId, " +
+            "t.price as price, t.qty as qty, t.executed_at as executedAt, " +
+            "CASE WHEN o_buy.user_id = :userId THEN 'BUY' ELSE 'SELL' END as side " +
+            "FROM trades t " +
+            "JOIN orders o_buy ON t.buy_order_id = o_buy.order_id " +
+            "JOIN orders o_sell ON t.sell_order_id = o_sell.order_id " +
+            "WHERE o_buy.user_id = :userId OR o_sell.user_id = :userId " +
+            "ORDER BY t.executed_at DESC", nativeQuery = true)
+    List<UserTradeProjection> findUserTrades(@Param("userId") Long userId);
+
     @Query(value = "SELECT COUNT(trade_id) FROM trades", nativeQuery = true)
     Long getTotalTradeCount();
 
