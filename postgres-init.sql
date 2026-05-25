@@ -56,25 +56,29 @@ CREATE TABLE IF NOT EXISTS ledger_journal (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- 초기 시드 데이터 인젝션
+-- 초기 시드 데이터 인젝션 (100명의 사용자 자동 생성)
 -- 비밀번호 해시는 단순 'password123' 가정
 INSERT INTO users (user_id, email, password_hash)
-VALUES 
-(1, 'user1@exchange.com', '$2a$10$eImiTXuWVxfM37uY4JANjO'),
-(2, 'user2@exchange.com', '$2a$10$eImiTXuWVxfM37uY4JANjO'),
-(3, 'user3@exchange.com', '$2a$10$eImiTXuWVxfM37uY4JANjO')
+SELECT 
+    i, 
+    'user' || i || '@exchange.com', 
+    '$2a$10$eImiTXuWVxfM37uY4JANjO'
+FROM generate_series(1, 100) AS i
 ON CONFLICT (user_id) DO NOTHING;
 
--- 지갑 잔액 초기화 (사용자별 10억 KRW, 10 BTC, 10만 ADA 지원)
+-- 지갑 잔액 초기화 (100명의 사용자별 10억 KRW, 10 BTC, 10만 ADA 지원)
 INSERT INTO wallets (user_id, currency, balance, locked_balance)
-VALUES
-(1, 'KRW', 1000000000.000000000000000000, 0.0),
-(1, 'BTC', 10.000000000000000000, 0.0),
-(1, 'ADA', 100000.000000000000000000, 0.0),
-(2, 'KRW', 1000000000.000000000000000000, 0.0),
-(2, 'BTC', 10.000000000000000000, 0.0),
-(2, 'ADA', 100000.000000000000000000, 0.0),
-(3, 'KRW', 1000000000.000000000000000000, 0.0),
-(3, 'BTC', 10.000000000000000000, 0.0),
-(3, 'ADA', 100000.000000000000000000, 0.0)
+SELECT 
+    u.user_id, 
+    c.currency, 
+    c.initial_balance, 
+    0.0
+FROM users u
+CROSS JOIN (
+    VALUES 
+        ('KRW', 1000000000.000000000000000000),
+        ('BTC', 10.000000000000000000),
+        ('ADA', 100000.000000000000000000)
+) AS c(currency, initial_balance)
 ON CONFLICT (user_id, currency) DO NOTHING;
+
