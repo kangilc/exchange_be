@@ -1133,6 +1133,15 @@
                                 </table>
                             </div>
                         </div>
+                        <div class="panel-footer" style="padding: 1rem; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-glow); background: rgba(0,0,0,0.15);">
+                            <div style="font-size: 0.8rem; color: var(--color-text-secondary);" id="ledgerPagingInfo">
+                                Page 1 of 1 (Total 0 items)
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn-action-small" onclick="prevLedgerPage()" id="btnPrevLedger">◀ 이전</button>
+                                <button class="btn-action-small" onclick="nextLedgerPage()" id="btnNextLedger">다음 ▶</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1900,15 +1909,17 @@
         }
 
         // ==========================================
-        // ADDED FEATURES: USER TRADES, PERSONAL LEDGER, EXCHANGE-WIDE LEDGER
+        // ADDED FEATURES: USER TRADES, PERSONAL LEDGER, EXCHANGE-WIDE LEDGER (WITH PERFORMANCE TUNING PAGING)
         // ==========================================
         async function loadUserLedgerHistory(userId) {
             const tbody = document.getElementById('userLedgerHistoryBody');
             tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1rem; color: var(--color-text-secondary);">로딩 중...</td></tr>';
             try {
-                const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/ledgers`);
+                // Fetch first page of 50 items for user specific logs (usually more than enough for single user UI)
+                const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/ledgers?page=0&size=50`);
                 if (res.ok) {
-                    const ledgers = await res.json();
+                    const data = await res.json();
+                    const ledgers = data.content || [];
                     tbody.innerHTML = '';
                     if (ledgers.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1rem; color: var(--color-text-secondary);">입출금 이력이 존재하지 않습니다.</td></tr>';
@@ -1948,9 +1959,11 @@
             const tbody = document.getElementById('userTradesTableBody');
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">체결 원장을 조회하는 중...</td></tr>';
             try {
-                const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/trades`);
+                // Fetch first page of 50 items for user specific trade list
+                const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/trades?page=0&size=50`);
                 if (res.ok) {
-                    const trades = await res.json();
+                    const data = await res.json();
+                    const trades = data.content || [];
                     tbody.innerHTML = '';
                     if (trades.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">체결된 거래 내역이 존재하지 않습니다.</td></tr>';
@@ -1985,16 +1998,32 @@
             }
         }
 
+        let currentLedgerPage = 0;
+        let ledgerPageSize = 50;
+        let ledgerTotalPages = 1;
         let exchangeLedgerData = [];
 
         async function loadLedgerData() {
             const tbody = document.getElementById('exchangeLedgerTableBody');
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-secondary); padding: 3rem;">감사 원장을 불러오는 중...</td></tr>';
+            
+            const query = document.getElementById('exchangeLedgerSearchInput').value.trim();
+            const searchParam = query ? `&search=${encodeURIComponent(query)}` : '';
+            
             try {
-                const res = await fetch(`${API_BASE_URL}/admin/ledgers`);
+                const res = await fetch(`${API_BASE_URL}/admin/ledgers?page=${currentLedgerPage}&size=${ledgerPageSize}${searchParam}`);
                 if (res.ok) {
-                    exchangeLedgerData = await res.json();
-                    renderExchangeLedgerTable(exchangeLedgerData);
+                    const data = await res.json();
+                    ledgerTotalPages = data.totalPages;
+                    
+                    // Update paging controls text
+                    document.getElementById('ledgerPagingInfo').innerText = `Page ${currentLedgerPage + 1} of ${data.totalPages || 1} (Total ${data.totalElements} items)`;
+                    
+                    // Disable/enable prev/next buttons
+                    document.getElementById('btnPrevLedger').disabled = currentLedgerPage <= 0;
+                    document.getElementById('btnNextLedger').disabled = currentLedgerPage >= (ledgerTotalPages - 1);
+                    
+                    renderExchangeLedgerTable(data.content);
                 }
             } catch (err) {
                 console.error("Failed to load exchange ledgers", err);
@@ -2002,10 +2031,24 @@
             }
         }
 
+        function prevLedgerPage() {
+            if (currentLedgerPage > 0) {
+                currentLedgerPage--;
+                loadLedgerData();
+            }
+        }
+
+        function nextLedgerPage() {
+            if (currentLedgerPage < (ledgerTotalPages - 1)) {
+                currentLedgerPage++;
+                loadLedgerData();
+            }
+        }
+
         function renderExchangeLedgerTable(ledgers) {
             const tbody = document.getElementById('exchangeLedgerTableBody');
             tbody.innerHTML = '';
-            if (ledgers.length === 0) {
+            if (!ledgers || ledgers.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-secondary); padding: 3rem;">입출금 감사 이력이 존재하지 않습니다.</td></tr>';
                 return;
             }
@@ -2030,13 +2073,9 @@
         }
 
         function filterExchangeLedgerTable() {
-            const query = document.getElementById('exchangeLedgerSearchInput').value.toLowerCase().trim();
-            const filtered = exchangeLedgerData.filter(l => 
-                l.email.toLowerCase().includes(query) || 
-                l.userId.toString().includes(query) || 
-                l.currency.toLowerCase().includes(query)
-            );
-            renderExchangeLedgerTable(filtered);
+            // Server side filtering
+            currentLedgerPage = 0;
+            loadLedgerData();
         }
 
         async function submitExchangeLedgerTransfer() {
@@ -2075,6 +2114,7 @@
                     alert(`UID [${userId}] 회원에게 ${currency} ${type} 처리가 성공적으로 실행 완료되었습니다.`);
                     document.getElementById('ledgerUserIdInput').value = '';
                     document.getElementById('ledgerAmountInput').value = '';
+                    currentLedgerPage = 0; // Go to first page
                     loadLedgerData();
                 } else {
                     const errMsg = await res.text();

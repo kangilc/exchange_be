@@ -85,3 +85,68 @@ CROSS JOIN (
 ON CONFLICT (user_id, currency) DO NOTHING;
 
 
+-- 5-1. 데이터 조회 성능 최적화를 위한 B-Tree 인덱스 구성 (Paging & Search)
+CREATE INDEX IF NOT EXISTS idx_ledger_journal_type_created_at ON ledger_journal(type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ledger_journal_user_type_created_at ON ledger_journal(user_id, type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trades_executed_at ON trades(executed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+
+
+-- 6. 회원별 대용량 입금 내역 랜덤 시뮬레이션 데이터 인젝션
+-- 각 회원별(1~1000명) 최근 1년 동안 최소 1번에서 최대 100번까지 다양한 금액(100만원 ~ 50억원 상당)으로 입금 감사 로그 및 지갑 잔고 추가
+DO $$
+DECLARE
+    user_rec RECORD;
+    num_deposits INT;
+    currency_choices TEXT[] := ARRAY['KRW', 'USD', 'BTC', 'ADA'];
+    selected_currency TEXT;
+    dep_amount NUMERIC(36, 18);
+    random_days INT;
+    random_secs INT;
+    dep_date TIMESTAMP;
+BEGIN
+    -- Loop through all users
+    FOR user_rec IN SELECT user_id FROM users LOOP
+        -- Random number of deposits between 1 and 100
+        num_deposits := floor(random() * 100) + 1;
+        
+        FOR i IN 1..num_deposits LOOP
+            -- Random currency
+            selected_currency := currency_choices[floor(random() * 4) + 1];
+            
+            -- Random amount based on currency
+            IF selected_currency = 'KRW' THEN
+                -- Random between 1,000,000 (100만원) and 5,000,000,000 (50억원)
+                dep_amount := floor(random() * (5000000000 - 1000000 + 1)) + 1000000;
+            ELSIF selected_currency = 'USD' THEN
+                -- Random between 1,000 and 5,000,000
+                dep_amount := floor(random() * (5000000 - 1000 + 1)) + 1000;
+            ELSIF selected_currency = 'BTC' THEN
+                -- Random between 0.01 and 50.00
+                dep_amount := round((random() * (50.0 - 0.01) + 0.01)::numeric, 8);
+            ELSE
+                -- ADA
+                dep_amount := round((random() * (100000.0 - 10.0) + 10.0)::numeric, 8);
+            END IF;
+            
+            -- Random date over the last 1 year (365 days)
+            random_days := floor(random() * 365);
+            random_secs := floor(random() * 86400);
+            dep_date := NOW() - (random_days * INTERVAL '1 day') - (random_secs * INTERVAL '1 second');
+            
+            -- Insert into ledger_journal
+            INSERT INTO ledger_journal (user_id, currency, amount, type, reference_id, created_at)
+            VALUES (user_rec.user_id, selected_currency, dep_amount, 'DEPOSIT', NULL, dep_date);
+            
+            -- Update or insert wallet balance
+            INSERT INTO wallets (user_id, currency, balance, locked_balance, updated_at)
+            VALUES (user_rec.user_id, selected_currency, dep_amount, 0.0, dep_date)
+            ON CONFLICT (user_id, currency) 
+            DO UPDATE SET balance = wallets.balance + EXCLUDED.balance, updated_at = EXCLUDED.updated_at;
+            
+        END LOOP;
+    END LOOP;
+END $$;
+
+
+

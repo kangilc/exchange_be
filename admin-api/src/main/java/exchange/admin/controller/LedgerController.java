@@ -16,7 +16,11 @@ public class LedgerController {
     private LedgerJournalRepository ledgerJournalRepository;
 
     @GetMapping
-    public ResponseEntity<List<LedgerJournalRepository.DetailedLedgerProjection>> getAllDetailedLedgers() {
-        return ResponseEntity.ok(ledgerJournalRepository.findAllDetailedLedgers());
+    public ResponseEntity<org.springframework.data.domain.Page<LedgerJournalRepository.DetailedLedgerProjection>> getAllDetailedLedgers(
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        String searchParam = (search != null && !search.trim().isEmpty()) ? "%" + search.trim() + "%" : null;
+        return ResponseEntity.ok(ledgerJournalRepository.findAllDetailedLedgers(searchParam, org.springframework.data.domain.PageRequest.of(page, size)));
     }
 }

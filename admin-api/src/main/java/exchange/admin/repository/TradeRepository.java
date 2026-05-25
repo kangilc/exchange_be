@@ -50,8 +50,13 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
             "JOIN orders o_buy ON t.buy_order_id = o_buy.order_id " +
             "JOIN orders o_sell ON t.sell_order_id = o_sell.order_id " +
             "WHERE o_buy.user_id = :userId OR o_sell.user_id = :userId " +
-            "ORDER BY t.executed_at DESC", nativeQuery = true)
-    List<UserTradeProjection> findUserTrades(@Param("userId") Long userId);
+            "ORDER BY t.executed_at DESC",
+            countQuery = "SELECT COUNT(*) FROM trades t " +
+                    "JOIN orders o_buy ON t.buy_order_id = o_buy.order_id " +
+                    "JOIN orders o_sell ON t.sell_order_id = o_sell.order_id " +
+                    "WHERE o_buy.user_id = :userId OR o_sell.user_id = :userId",
+            nativeQuery = true)
+    org.springframework.data.domain.Page<UserTradeProjection> findUserTrades(@Param("userId") Long userId, org.springframework.data.domain.Pageable pageable);
 
     @Query(value = "SELECT COUNT(trade_id) FROM trades", nativeQuery = true)
     Long getTotalTradeCount();

@@ -89,12 +89,18 @@ public class UserController {
     private exchange.admin.repository.LedgerJournalRepository ledgerJournalRepository;
 
     @GetMapping("/{id}/trades")
-    public ResponseEntity<List<exchange.admin.repository.TradeRepository.UserTradeProjection>> getUserTrades(@PathVariable Long id) {
-        return ResponseEntity.ok(tradeRepository.findUserTrades(id));
+    public ResponseEntity<org.springframework.data.domain.Page<exchange.admin.repository.TradeRepository.UserTradeProjection>> getUserTrades(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(tradeRepository.findUserTrades(id, org.springframework.data.domain.PageRequest.of(page, size)));
     }
 
     @GetMapping("/{id}/ledgers")
-    public ResponseEntity<List<exchange.admin.repository.LedgerJournalRepository.DetailedLedgerProjection>> getUserLedgers(@PathVariable Long id) {
-        return ResponseEntity.ok(ledgerJournalRepository.findDetailedLedgersByUserId(id));
+    public ResponseEntity<org.springframework.data.domain.Page<exchange.admin.repository.LedgerJournalRepository.DetailedLedgerProjection>> getUserLedgers(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ledgerJournalRepository.findDetailedLedgersByUserId(id, org.springframework.data.domain.PageRequest.of(page, size)));
     }
 }
