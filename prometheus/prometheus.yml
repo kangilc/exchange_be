@@ -14,3 +14,8 @@ scrape_configs:
   - job_name: 'ws-gateway'
     static_configs:
       - targets: ['ws-gateway:9102']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+

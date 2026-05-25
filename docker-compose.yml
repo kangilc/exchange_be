@@ -188,7 +188,30 @@ services:
       - prometheus
     restart: always
 
+  # cadvisor: 각 도커 컨테이너의 실시간 CPU 및 RAM 점유율을 계측하는 구글 오픈소스 도구
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.50.0
+    container_name: cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/machine-id:/etc/machine-id:ro
+    command:
+      - --docker_only=true
+    ports:
+      - "8082:8080"
+    restart: always
+
+
   # =========================================================================
+
   # 6. 영속성 및 정산 시스템 (PostgreSQL & Db Persister)
   # =========================================================================
 
