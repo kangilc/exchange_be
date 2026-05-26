@@ -101,6 +101,7 @@
             letter-spacing: -0.5px;
             background: linear-gradient(135deg, #ffffff 30%, #94a3b8);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -931,6 +932,14 @@
         <div class="panel orderbook-panel middle-column">
             <div class="panel-header">
                 <h3 class="panel-title">실시간 호가</h3>
+                <div style="display: flex; gap: 0.6rem; align-items: center; flex-shrink: 0;">
+                    <span style="font-size: 0.7rem; color: var(--color-text-secondary); white-space: nowrap;">체결강도: <span id="vol-power" style="color: #00f2fe; font-weight: 800; font-family: var(--font-mono);">100.0%</span></span>
+                    <select id="ob-grouping" onchange="changeGrouping()" style="background: rgba(9, 14, 26, 0.85); border: 1px solid rgba(255,255,255,0.08); color: var(--color-text-primary); font-size: 0.7rem; border-radius: 4px; padding: 2px 4px; font-weight: 700; cursor: pointer; outline: none;">
+                        <option value="1">기본 호가</option>
+                        <option value="10">x10 병합</option>
+                        <option value="100">x100 병합</option>
+                    </select>
+                </div>
             </div>
             <div class="panel-body" style="padding: 0;">
                 <div class="orderbook-ladder">
@@ -1086,7 +1095,10 @@
                         </div>
 
                         <div class="input-group">
-                            <label class="input-label">주문 가격</label>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <label class="input-label">주문 가격</label>
+                                <span style="font-size: 0.65rem; color: var(--color-text-secondary); white-space: nowrap;">주문가능: <span id="avail-balance-display" style="color: #00f2fe; font-family: var(--font-mono); font-weight: 700;">--</span></span>
+                            </div>
                             <div class="input-wrapper">
                                 <input type="number" id="order-price" value="65000" min="1" step="1" oninput="updateTotalAmount()">
                                 <button class="input-adjust-btn minus" onclick="adjustInput('order-price', -1)">-</button>
@@ -1109,6 +1121,12 @@
                                 <button class="preset-btn" onclick="setQtyPreset(10)">10 BTC</button>
                                 <button class="preset-btn" onclick="setQtyPreset(50)">50 BTC</button>
                             </div>
+                            <div class="preset-buttons" style="grid-template-columns: repeat(4, 1fr); margin-top: 0.25rem;">
+                                <button class="preset-btn" style="border-color: rgba(0, 242, 254, 0.15); color: #00f2fe;" onclick="setRatioPreset(0.1)">10%</button>
+                                <button class="preset-btn" style="border-color: rgba(0, 242, 254, 0.15); color: #00f2fe;" onclick="setRatioPreset(0.25)">25%</button>
+                                <button class="preset-btn" style="border-color: rgba(0, 242, 254, 0.15); color: #00f2fe;" onclick="setRatioPreset(0.50)">50%</button>
+                                <button class="preset-btn" style="border-color: rgba(0, 242, 254, 0.15); color: #00f2fe;" onclick="setRatioPreset(1.0)">100%</button>
+                            </div>
                         </div>
 
                         <div class="total-amount-box">
@@ -1117,6 +1135,44 @@
                         </div>
 
                         <button id="submit-order-btn" class="btn-submit buy" onclick="submitOrder()">매수 주문 전송</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Smart Wallet & Portfolio -->
+            <div class="panel" style="min-height: 220px;">
+                <div class="panel-header">
+                    <h3 class="panel-title">실시간 보유 자산 & 포트폴리오</h3>
+                    <span id="wallet-reset" style="font-size: 0.7rem; color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); padding: 2px 6px; border-radius: 4px; cursor: pointer; font-weight: 700; flex-shrink: 0;" onclick="resetWallet()">지갑 리셋</span>
+                </div>
+                <div class="panel-body" style="gap: 0.75rem; font-size: 0.8rem; display: flex; flex-direction: column;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.03); padding: 0.65rem; border-radius: 8px;">
+                        <div>
+                            <div style="color: var(--color-text-secondary); font-size: 0.7rem;">총 평가 자산</div>
+                            <div id="portfolio-total" style="font-family: var(--font-mono); font-size: 1.05rem; font-weight: 800; color: #fff; margin-top: 2px;">--</div>
+                        </div>
+                        <div>
+                            <div style="color: var(--color-text-secondary); font-size: 0.7rem;">평가 손익 (ROI)</div>
+                            <div id="portfolio-pnl" style="font-family: var(--font-mono); font-size: 1.05rem; font-weight: 800; color: #fff; margin-top: 2px;">--</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.4rem; font-family: var(--font-mono); font-size: 0.75rem;">
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.02); padding-bottom: 2px;">
+                            <span style="color: var(--color-text-secondary);">보유 KRW</span>
+                            <span id="asset-krw" style="font-weight: 600; color: #fff;">1,000,000,000 KRW</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.02); padding-bottom: 2px;">
+                            <span style="color: var(--color-text-secondary);">보유 USD</span>
+                            <span id="asset-usd" style="font-weight: 600; color: #fff;">10,000.00 USD</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.02); padding-bottom: 2px;">
+                            <span style="color: var(--color-text-secondary);">보유 BTC</span>
+                            <span id="asset-btc" style="font-weight: 600; color: #fff;">10.00000000 BTC</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding-bottom: 2px;">
+                            <span style="color: var(--color-text-secondary);">보유 ADA</span>
+                            <span id="asset-ada" style="font-weight: 600; color: #fff;">100,000.00 ADA</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1148,6 +1204,26 @@
         let backoffDelay = 1000;
         let pingIntervalId = null;
         let needsRender = false;
+
+        // 가상 지갑 및 포트폴리오 초기 데이터 정책
+        const defaultBalances = {
+            KRW: 1000000000,
+            USD: 10000,
+            BTC: 10.0,
+            ADA: 100000.0
+        };
+
+        let balances = JSON.parse(localStorage.getItem('hfx_balances')) || { ...defaultBalances };
+        let myPortfolio = JSON.parse(localStorage.getItem('hfx_portfolio')) || {
+            'BTC-USD': { qty: 10.0, avgPrice: 65000 },
+            'ADA-KRW': { qty: 100000.0, avgPrice: 500 }
+        };
+
+        // 체결 강도 분석용 최근 체결 이력 버퍼
+        const recentTradesForPower = [];
+
+        // 호가 그룹핑 기본값 설정
+        let activeGroupingFactor = 1;
 
         // Java String.hashCode() mapping in JS to match symbolId
         function getHashCode(str) {
@@ -1184,6 +1260,155 @@
         };
 
         const priceFlashStates = new Map(); // 가격별 개별 플래시 상태 (Price -> 'inc'/'dec')
+
+        // ==========================================
+        // 💼 Smart Wallet & Portfolio Logic
+        // ==========================================
+        function saveWallet() {
+            localStorage.setItem('hfx_balances', JSON.stringify(balances));
+            localStorage.setItem('hfx_portfolio', JSON.stringify(myPortfolio));
+            updateWalletUI();
+        }
+
+        function resetWallet() {
+            balances = { ...defaultBalances };
+            myPortfolio = {
+                'BTC-USD': { qty: 10.0, avgPrice: 65000 },
+                'ADA-KRW': { qty: 100000.0, avgPrice: 500 }
+            };
+            saveWallet();
+            log('system', '보유 자산 및 포트폴리오 지갑이 완전 초기화되었습니다.');
+        }
+
+        function updateWalletUI() {
+            const isBtc = currentSymbol === 'BTC-USD';
+            const coin = isBtc ? 'BTC' : 'ADA';
+            const fiat = isBtc ? 'USD' : 'KRW';
+            const unit = isBtc ? '$' : '₩';
+
+            // 보유 잔고 렌더링
+            const assetKrw = document.getElementById('asset-krw');
+            const assetUsd = document.getElementById('asset-usd');
+            const assetBtc = document.getElementById('asset-btc');
+            const assetAda = document.getElementById('asset-ada');
+
+            if (assetKrw) assetKrw.innerText = balances.KRW.toLocaleString() + ' KRW';
+            if (assetUsd) assetUsd.innerText = balances.USD.toLocaleString(undefined, { minimumFractionDigits: 2 }) + ' USD';
+            if (assetBtc) assetBtc.innerText = balances.BTC.toFixed(8) + ' BTC';
+            if (assetAda) assetAda.innerText = balances.ADA.toLocaleString(undefined, { minimumFractionDigits: 2 }) + ' ADA';
+
+            // 주문가능 자산 표출
+            const availDisplay = document.getElementById('avail-balance-display');
+            if (availDisplay) {
+                availDisplay.innerText = unit + balances[fiat].toLocaleString(undefined, { maximumFractionDigits: 2 });
+            }
+
+            // 실시간 가격 추출 (Best Bid/Ask 중간값)
+            const book = books[currentSymbol];
+            const sortedBids = Array.from(book.bids.entries()).filter(([_, q]) => q > 0).sort((a, b) => b[0] - a[0]);
+            const sortedAsks = Array.from(book.asks.entries()).filter(([_, q]) => q > 0).sort((a, b) => a[0] - b[0]);
+
+            let currentPrice = 0;
+            if (sortedBids.length > 0 && sortedAsks.length > 0) {
+                currentPrice = ((sortedBids[0][0] + sortedAsks[0][0]) / 2) / 100;
+            }
+
+            const totalEl = document.getElementById('portfolio-total');
+            const pnlEl = document.getElementById('portfolio-pnl');
+
+            if (currentPrice === 0) {
+                if (totalEl) totalEl.innerText = '--';
+                if (pnlEl) pnlEl.innerText = '--';
+                return;
+            }
+
+            const coinBalance = balances[coin];
+            const pf = myPortfolio[currentSymbol] || { qty: 0, avgPrice: 0 };
+
+            // 평단가가 초기 세팅 안 되어 있고 보유 잔량이 있을 경우, 현재가를 최초 평단으로 동기화
+            if (pf.avgPrice === 0 && coinBalance > 0) {
+                pf.avgPrice = currentPrice;
+                pf.qty = coinBalance;
+                myPortfolio[currentSymbol] = pf;
+                localStorage.setItem('hfx_portfolio', JSON.stringify(myPortfolio));
+            }
+
+            const totalFiatValue = balances[fiat];
+            const coinFiatValue = coinBalance * currentPrice;
+            const totalAssetValue = totalFiatValue + coinFiatValue;
+
+            const pnl = coinBalance * (currentPrice - pf.avgPrice);
+            const roi = pf.avgPrice > 0 && coinBalance > 0 ? (pnl / (coinBalance * pf.avgPrice)) * 100 : 0;
+
+            if (totalEl) totalEl.innerText = unit + totalAssetValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            if (pnlEl) {
+                const roiSign = pnl >= 0 ? '+' : '';
+                pnlEl.innerText = `${roiSign}${unit}${pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${roiSign}${roi.toFixed(2)}%)`;
+                if (pnl > 0) {
+                    pnlEl.style.color = '#ef4444'; // 상승 레드
+                } else if (pnl < 0) {
+                    pnlEl.style.color = '#3b82f6'; // 하락 블루
+                } else {
+                    pnlEl.style.color = 'var(--color-text-primary)';
+                }
+            }
+        }
+
+        // 가능 자고 비율 자동 계산 슬라이더 매핑
+        function setRatioPreset(ratio) {
+            const isBtc = currentSymbol === 'BTC-USD';
+            const coin = isBtc ? 'BTC' : 'ADA';
+            const fiat = isBtc ? 'USD' : 'KRW';
+            const price = parseFloat(document.getElementById('order-price').value) || 0;
+
+            if (price <= 0) {
+                alertBubble('가격을 먼저 올바르게 기입해주세요.', 'rgba(239, 68, 68, 0.95)');
+                return;
+            }
+
+            let qty = 0;
+            if (selectedSide === 'BUY') {
+                const availFiat = balances[fiat];
+                qty = (availFiat * ratio) / price;
+                qty = isBtc ? Math.floor(qty * 10000) / 10000 : Math.floor(qty * 100) / 100;
+            } else {
+                const availCoin = balances[coin];
+                qty = availCoin * ratio;
+                qty = isBtc ? Math.floor(qty * 10000) / 10000 : Math.floor(qty * 100) / 100;
+            }
+
+            document.getElementById('order-qty').value = Math.max(0, qty);
+            updateTotalAmount();
+        }
+
+        // 호가 그룹핑 단위 변동 핸들러
+        function changeGrouping() {
+            activeGroupingFactor = parseInt(document.getElementById('ob-grouping').value) || 1;
+            needsRender = true;
+            log('system', `호가 모아보기 병합 수준이 변경되었습니다: x${activeGroupingFactor}`);
+        }
+
+        // 실시간 체결 강도 지표 업데이터
+        function updateVolumePower(side, qty) {
+            recentTradesForPower.push({ side, qty, time: Date.now() });
+            if (recentTradesForPower.length > 200) {
+                recentTradesForPower.shift();
+            }
+
+            let buySum = 0;
+            let sellSum = 0;
+            recentTradesForPower.forEach(t => {
+                if (t.side === 1) buySum += t.qty; // BUY 체결량
+                else sellSum += t.qty; // SELL 체결량
+            });
+
+            const power = sellSum > 0 ? (buySum / sellSum) * 100 : 100;
+            const powerEl = document.getElementById('vol-power');
+            if (powerEl) {
+                powerEl.innerText = power.toFixed(1) + '%';
+            }
+        }
 
         // Speed tracking
         let msgCount = 0;
@@ -1479,15 +1704,36 @@
         // Update asymmetric high-contrast orderbook UI
         function updateOrderbookUI() {
             const book = books[currentSymbol];
+            const groupFactor = activeGroupingFactor;
+
+            // bids와 asks의 원본 데이터를 병합 팩터에 맞춰 Map에 다시 담는다.
+            const mergedBids = new Map();
+            const mergedAsks = new Map();
+
+            // Bid 병합 (매수)
+            for (const [price, qty] of book.bids.entries()) {
+                if (qty <= 0) continue;
+                const stepScale = groupFactor * 100;
+                const mergedPrice = Math.floor(price / stepScale) * stepScale;
+                mergedBids.set(mergedPrice, (mergedBids.get(mergedPrice) || 0) + qty);
+            }
+
+            // Ask 병합 (매도)
+            for (const [price, qty] of book.asks.entries()) {
+                if (qty <= 0) continue;
+                const stepScale = groupFactor * 100;
+                const mergedPrice = Math.floor(price / stepScale) * stepScale;
+                mergedAsks.set(mergedPrice, (mergedAsks.get(mergedPrice) || 0) + qty);
+            }
 
             // 매도 호가 오름차순 (가장 싼 가격부터 위로 쌓음)
-            const sortedAsks = Array.from(book.asks.entries())
+            const sortedAsks = Array.from(mergedAsks.entries())
                 .filter(([_, qty]) => qty > 0)
                 .sort((a, b) => a[0] - b[0])
                 .slice(0, 10);
 
             // 매수 호가 내림차순 (가장 비싼 가격부터 아래로 쌓음)
-            const sortedBids = Array.from(book.bids.entries())
+            const sortedBids = Array.from(mergedBids.entries())
                 .filter(([_, qty]) => qty > 0)
                 .sort((a, b) => b[0] - a[0])
                 .slice(0, 10);
@@ -1613,6 +1859,7 @@
 
             // 대기 중인 모든 개별 가격 플래시 버퍼 초기화 (메모리 누수 방지)
             priceFlashStates.clear();
+            updateWalletUI();
         }
 
         // Track & add price to charts
@@ -1745,6 +1992,9 @@
 
         // Add Real-time simulated execution lists (체결 내역)
         function addTradeHistory(symbol, price, qty, side) {
+            if (symbol === currentSymbol) {
+                updateVolumePower(side, qty);
+            }
             const targetBook = books[symbol];
 
             const now = new Date();
@@ -1809,29 +2059,76 @@
             }
 
             const priceInput = parseFloat(document.getElementById('order-price').value);
-            const qtyInput = parseInt(document.getElementById('order-qty').value);
+            const qtyInput = parseFloat(document.getElementById('order-qty').value);
 
             if (isNaN(priceInput) || priceInput <= 0 || isNaN(qtyInput) || qtyInput <= 0) {
                 alertBubble('가격 및 수량이 올바르지 않음', 'rgba(239, 68, 68, 0.95)');
                 return;
             }
 
+            const isBtc = currentSymbol === 'BTC-USD';
+            const coin = isBtc ? 'BTC' : 'ADA';
+            const fiat = isBtc ? 'USD' : 'KRW';
+
+            // 로컬 모의 지갑 잔고 검증 및 가상 선정산 처리
+            const orderTotal = priceInput * qtyInput;
+
+            if (selectedSide === 'BUY') {
+                if (balances[fiat] < orderTotal) {
+                    alertBubble(`자산 부족! 가용 ${fiat} 잔액이 부족합니다.`, 'rgba(239, 68, 68, 0.95)');
+                    return;
+                }
+                
+                // 가상 체결 및 잔고 가감
+                balances[fiat] -= orderTotal;
+                
+                const pf = myPortfolio[currentSymbol] || { qty: 0, avgPrice: 0 };
+                const currentQty = balances[coin];
+                
+                // 평단가 가중평균 갱신
+                const totalCost = (currentQty * pf.avgPrice) + orderTotal;
+                const newQty = currentQty + qtyInput;
+                const newAvg = newQty > 0 ? (totalCost / newQty) : 0;
+                
+                pf.avgPrice = newAvg;
+                pf.qty = newQty;
+                myPortfolio[currentSymbol] = pf;
+                balances[coin] = newQty;
+            } else {
+                if (balances[coin] < qtyInput) {
+                    alertBubble(`자산 부족! 보유 ${coin} 수량이 부족합니다.`, 'rgba(239, 68, 68, 0.95)');
+                    return;
+                }
+                
+                // 가상 체결 및 잔고 가감
+                balances[coin] -= qtyInput;
+                balances[fiat] += orderTotal;
+                
+                const pf = myPortfolio[currentSymbol] || { qty: 0, avgPrice: 0 };
+                pf.qty = Math.max(0, balances[coin]);
+                if (pf.qty === 0) pf.avgPrice = 0;
+                myPortfolio[currentSymbol] = pf;
+            }
+
+            saveWallet(); // 로컬스토리지 저장 및 UI 즉시 연동
+
             // 소수점 2자리 정수 100 스케일 맞춤 변환
             const scaledPrice = Math.round(priceInput * 100);
 
+            // 매칭 엔진 백엔드 주문 전송
             const payload = {
                 action: 'NEW',
-                symbol: currentSymbol, // 라우팅을 위한 심볼 파라미터 추가
+                symbol: currentSymbol,
                 side: selectedSide,
                 price: scaledPrice,
-                qty: qtyInput
+                qty: Math.round(qtyInput)
             };
 
             ws.send(JSON.stringify(payload));
-            const symbolUnit = currentSymbol === 'BTC-USD' ? 'BTC' : 'ADA';
-            const priceUnit = currentSymbol === 'BTC-USD' ? '$' : '₩';
-            log(selectedSide.toLowerCase(), `주문 전송 [${currentSymbol}]: ${qtyInput} ${symbolUnit} @ ${priceUnit}${priceInput.toFixed(2)}`);
-            alertBubble(`${selectedSide === 'BUY' ? '매수' : '매도'} 주문이 접수되었다.`);
+            const symbolUnit = coin;
+            const priceUnit = isBtc ? '$' : '₩';
+            log(selectedSide.toLowerCase(), `주문 체결 완료 [${currentSymbol}]: ${qtyInput.toLocaleString()} ${symbolUnit} @ ${priceUnit}${priceInput.toFixed(2)}`);
+            alertBubble(`${selectedSide === 'BUY' ? '매수' : '매도'} 주문이 접수 및 즉시 체결되었다.`);
         }
 
         // Top edge animated slider notification bubble
@@ -1875,6 +2172,7 @@
         }
 
         // Initiate connection instantly on load
+        updateWalletUI();
         connect();
     </script>
 </body>
