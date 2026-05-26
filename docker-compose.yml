@@ -26,6 +26,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1 # 카프카 브로커의 고유 ID
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181 # ZooKeeper 접속 정보
+      KAFKA_HEAP_OPTS: "-Xms384m -Xmx384m" # JVM 힙 메모리 최적화 (기존 1GB -> 384MB)
       # 내부 및 외부 클라이언트용 리스너 구성 (PLAINTEXT 및 PLAINTEXT_HOST 프로토콜 분리)
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
