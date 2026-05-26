@@ -13,6 +13,7 @@ import java.io.PrintWriter;
 public final class WsHandler extends SimpleChannelInboundHandler<Object> {
     private final ChannelGroup clients;
     private final String engineHost;
+    private final String adaEngineHost;
     private final int btcPort;
     private final int adaPort;
     
@@ -24,6 +25,7 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
     public WsHandler(ChannelGroup clients) {
         this.clients = clients;
         this.engineHost = ConfigLoader.get("ENGINE_HOST", "localhost");
+        this.adaEngineHost = ConfigLoader.get("ADA_ENGINE_HOST", "localhost");
         this.btcPort = ConfigLoader.getInt("COMMAND_PORT", 9999);
         this.adaPort = ConfigLoader.getInt("ADA_COMMAND_PORT", 9997);
     }
@@ -104,14 +106,15 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
 
     private synchronized void sendToEngine(String symbol, String cmd) {
         boolean isAda = "ADA-KRW".equalsIgnoreCase(symbol);
+        String targetHost = isAda ? adaEngineHost : engineHost;
         int targetPort = isAda ? adaPort : btcPort;
         Socket targetSocket = isAda ? adaSocket : btcSocket;
         PrintWriter targetWriter = isAda ? adaWriter : btcWriter;
 
         try {
             if (targetSocket == null || targetSocket.isClosed() || !targetSocket.isConnected()) {
-                System.out.println("Connecting to Matching Engine command port (" + symbol + ") at " + engineHost + ":" + targetPort);
-                targetSocket = new Socket(engineHost, targetPort);
+                System.out.println("Connecting to Matching Engine command port (" + symbol + ") at " + targetHost + ":" + targetPort);
+                targetSocket = new Socket(targetHost, targetPort);
                 targetWriter = new PrintWriter(targetSocket.getOutputStream(), true);
                 
                 if (isAda) {

@@ -168,11 +168,11 @@
         /* Layout Grid */
         .dashboard-container {
             display: grid;
-            grid-template-columns: 1.8fr 1.3fr 1.1fr;
+            grid-template-columns: 1.4fr 1.25fr 1.1fr; /* 그리드 비율 최적화로 우측 마켓 리스트 잘림 방지 */
             gap: 1.25rem;
             padding: 1.25rem;
             flex-grow: 1;
-            max-width: 1920px;
+            max-width: 100%; /* 유연한 100% 레이아웃 적용 */
             margin: 0 auto;
             width: 100%;
         }
@@ -262,7 +262,7 @@
 
         /* Asymmetric Orderbook Layout */
         .orderbook-panel {
-            min-height: 720px;
+            min-height: 830px; /* 호가 20개와 스프레드바가 잘림 없이 미려하게 노출되도록 조정 */
         }
 
         .orderbook-ladder {
@@ -850,6 +850,57 @@
             from { transform: translateY(50px) scale(0.85); opacity: 0; }
             to { transform: translateY(0) scale(1); opacity: 1; }
         }
+
+        /* 🌟 업비트 스타일 현재가 검은색 네모 상자 및 이중 테두리 강조 */
+        .current-price-box {
+            border: 2.5px solid #000000 !important;
+            outline: 1.5px solid #ffffff !important;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.35);
+            background-color: rgba(255, 255, 255, 0.05) !important;
+            border-radius: 4px;
+            position: relative;
+            z-index: 30;
+        }
+
+        /* 🌟 선택된 마켓 행 검은색 네모 강조 */
+        .active-market-row {
+            border: 2px solid #000000 !important;
+            outline: 1.5px solid #ffffff !important;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.03) !important;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* 🌟 업비트 블루 말풍선 누적 툴팁 */
+        .ob-tooltip {
+            position: absolute;
+            background: #0052c4; /* 업비트 블루 */
+            color: #ffffff;
+            padding: 0.6rem 0.85rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-family: var(--font-mono);
+            z-index: 9999;
+            pointer-events: none;
+            display: none;
+            box-shadow: 0 4px 15px rgba(0, 82, 196, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            line-height: 1.4;
+        }
+
+        .ob-tooltip::after {
+            content: '';
+            position: absolute;
+            left: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-width: 6px 6px 6px 0;
+            border-style: solid;
+            border-color: transparent #0052c4 transparent transparent;
+            display: block;
+            width: 0;
+        }
     </style>
 </head>
 
@@ -889,7 +940,7 @@
     <!-- Main Grid Layout -->
     <div class="dashboard-container">
 
-        <!-- Left Column: Chart & Execution history -->
+        <!-- Left Column: Chart & Trading Panel & Smart Wallet -->
         <div class="left-column">
             <!-- Price Chart -->
             <div class="panel">
@@ -903,178 +954,6 @@
                 </div>
             </div>
 
-            <!-- Recent Trades (체결 내역) -->
-            <div class="panel trades-panel">
-                <div class="panel-header">
-                    <h3 class="panel-title">실시간 체결 내역</h3>
-                </div>
-                <div class="panel-body" style="padding: 0;">
-                    <div class="trades-table-container">
-                        <table class="trades-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 25%;">체결 시간</th>
-                                    <th style="width: 25%;">체결 가격 (USD)</th>
-                                    <th style="width: 25%;">체결 수량 (BTC)</th>
-                                    <th style="width: 25%;">체결 금액 (USD)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="trades-tbody">
-                                <!-- 실시간으로 채워짐 -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Middle Column: Asymmetric Orderbook -->
-        <div class="panel orderbook-panel middle-column">
-            <div class="panel-header">
-                <h3 class="panel-title">실시간 호가</h3>
-                <div style="display: flex; gap: 0.6rem; align-items: center; flex-shrink: 0;">
-                    <span style="font-size: 0.7rem; color: var(--color-text-secondary); white-space: nowrap;">체결강도: <span id="vol-power" style="color: #00f2fe; font-weight: 800; font-family: var(--font-mono);">100.0%</span></span>
-                    <select id="ob-grouping" onchange="changeGrouping()" style="background: rgba(9, 14, 26, 0.85); border: 1px solid rgba(255,255,255,0.08); color: var(--color-text-primary); font-size: 0.7rem; border-radius: 4px; padding: 2px 4px; font-weight: 700; cursor: pointer; outline: none;">
-                        <option value="1">기본 호가</option>
-                        <option value="10">x10 병합</option>
-                        <option value="100">x100 병합</option>
-                    </select>
-                </div>
-            </div>
-            <div class="panel-body" style="padding: 0;">
-                <div class="orderbook-ladder">
-                    <!-- Column Header -->
-                    <div class="ladder-header">
-                        <div>매도 잔량 (BTC)</div>
-                        <div>호가 (USD)</div>
-                        <div>매수 잔량 (BTC)</div>
-                    </div>
-
-                    <!-- Ask Side (Sell) - Top portion of book -->
-                    <div class="ladder-rows" id="ask-rows">
-                        <!-- 10 Ask Rows pre-rendered from high to low price -->
-                        <div class="ladder-row ask" id="ask-row-0">
-                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty"></div>
-                        </div>
-                        <div class="ladder-row ask" id="ask-row-1">
-                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty"></div>
-                        </div>
-                        <div class="ladder-row ask" id="ask-row-2">
-                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty"></div>
-                        </div>
-                        <div class="ladder-row ask" id="ask-row-3">
-                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty"></div>
-                        </div>
-                        <div class="ladder-row ask" id="ask-row-4">
-                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty"></div>
-                        </div>
-                        <div class="ladder-row ask" id="ask-row-5">
-                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty"></div>
-                        </div>
-                        <div class="ladder-row ask" id="ask-row-6">
-                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty"></div>
-                        </div>
-                        <div class="ladder-row ask" id="ask-row-7">
-                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty"></div>
-                        </div>
-                        <div class="ladder-row ask" id="ask-row-8">
-                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty"></div>
-                        </div>
-                        <div class="ladder-row ask" id="ask-row-9">
-                            <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty"></div>
-                        </div>
-                    </div>
-
-                    <!-- Spread Indicator Bar (Center) -->
-                    <div class="spread-bar">
-                        <div class="spread-col-left">매도 스프레드</div>
-                        <div class="spread-price-container">
-                            <span id="mid-price" class="spread-value">--</span>
-                            <span id="spread-gap" class="spread-change">--</span>
-                        </div>
-                        <div class="spread-col-right">매수 스프레드</div>
-                    </div>
-
-                    <!-- Bid Side (Buy) - Bottom portion of book -->
-                    <div class="ladder-rows" id="bid-rows">
-                        <!-- 10 Bid Rows pre-rendered from high to low price -->
-                        <div class="ladder-row bid" id="bid-row-0">
-                            <div class="ladder-cell ask-qty"></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                        </div>
-                        <div class="ladder-row bid" id="bid-row-1">
-                            <div class="ladder-cell ask-qty"></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                        </div>
-                        <div class="ladder-row bid" id="bid-row-2">
-                            <div class="ladder-cell ask-qty"></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                        </div>
-                        <div class="ladder-row bid" id="bid-row-3">
-                            <div class="ladder-cell ask-qty"></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                        </div>
-                        <div class="ladder-row bid" id="bid-row-4">
-                            <div class="ladder-cell ask-qty"></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                        </div>
-                        <div class="ladder-row bid" id="bid-row-5">
-                            <div class="ladder-cell ask-qty"></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                        </div>
-                        <div class="ladder-row bid" id="bid-row-6">
-                            <div class="ladder-cell ask-qty"></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                        </div>
-                        <div class="ladder-row bid" id="bid-row-7">
-                            <div class="ladder-cell ask-qty"></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                        </div>
-                        <div class="ladder-row bid" id="bid-row-8">
-                            <div class="ladder-cell ask-qty"></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                        </div>
-                        <div class="ladder-row bid" id="bid-row-9">
-                            <div class="ladder-cell ask-qty"></div>
-                            <div class="ladder-cell price">--</div>
-                            <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Right Column: Interactive Order Terminal & Logs -->
-        <div class="right-column">
             <!-- Order Terminal -->
             <div class="panel">
                 <div class="panel-header">
@@ -1176,8 +1055,216 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Event Logs -->
+        <!-- Middle Column: Orderbook & Execution History -->
+        <div class="middle-column">
+            <!-- Real-time Orderbook -->
+            <div class="panel orderbook-panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">실시간 호가</h3>
+                    <div style="display: flex; gap: 0.6rem; align-items: center; flex-shrink: 0;">
+                        <span style="font-size: 0.7rem; color: var(--color-text-secondary); white-space: nowrap;">체결강도: <span id="vol-power" style="color: #00f2fe; font-weight: 800; font-family: var(--font-mono);">100.0%</span></span>
+                        <select id="ob-grouping" onchange="changeGrouping()" style="background: rgba(9, 14, 26, 0.85); border: 1px solid rgba(255,255,255,0.08); color: var(--color-text-primary); font-size: 0.7rem; border-radius: 4px; padding: 2px 4px; font-weight: 700; cursor: pointer; outline: none;">
+                            <option value="1">기본 호가</option>
+                            <option value="10">x10 병합</option>
+                            <option value="100">x100 병합</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="panel-body" style="padding: 0;">
+                    <div class="orderbook-ladder">
+                        <!-- Column Header -->
+                        <div class="ladder-header">
+                            <div>매도 잔량 (BTC)</div>
+                            <div>호가 (USD)</div>
+                            <div>매수 잔량 (BTC)</div>
+                        </div>
+
+                        <!-- Ask Side (Sell) - Top portion of book -->
+                        <div class="ladder-rows" id="ask-rows">
+                            <!-- 10 Ask Rows pre-rendered from high to low price -->
+                            <div class="ladder-row ask" id="ask-row-0">
+                                <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty"></div>
+                            </div>
+                            <div class="ladder-row ask" id="ask-row-1">
+                                <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty"></div>
+                            </div>
+                            <div class="ladder-row ask" id="ask-row-2">
+                                <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty"></div>
+                            </div>
+                            <div class="ladder-row ask" id="ask-row-3">
+                                <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty"></div>
+                            </div>
+                            <div class="ladder-row ask" id="ask-row-4">
+                                <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty"></div>
+                            </div>
+                            <div class="ladder-row ask" id="ask-row-5">
+                                <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty"></div>
+                            </div>
+                            <div class="ladder-row ask" id="ask-row-6">
+                                <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty"></div>
+                            </div>
+                            <div class="ladder-row ask" id="ask-row-7">
+                                <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty"></div>
+                            </div>
+                            <div class="ladder-row ask" id="ask-row-8">
+                                <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty"></div>
+                            </div>
+                            <div class="ladder-row ask" id="ask-row-9">
+                                <div class="ladder-cell ask-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty"></div>
+                            </div>
+                        </div>
+
+                        <!-- Spread Indicator Bar (Center) -->
+                        <div class="spread-bar">
+                            <div class="spread-col-left">매도 스프레드</div>
+                            <div class="spread-price-container">
+                                <span id="mid-price" class="spread-value">--</span>
+                                <span id="spread-gap" class="spread-change">--</span>
+                            </div>
+                            <div class="spread-col-right">매수 스프레드</div>
+                        </div>
+
+                        <!-- Bid Side (Buy) - Bottom portion of book -->
+                        <div class="ladder-rows" id="bid-rows">
+                            <!-- 10 Bid Rows pre-rendered from high to low price -->
+                            <div class="ladder-row bid" id="bid-row-0">
+                                <div class="ladder-cell ask-qty"></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            </div>
+                            <div class="ladder-row bid" id="bid-row-1">
+                                <div class="ladder-cell ask-qty"></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            </div>
+                            <div class="ladder-row bid" id="bid-row-2">
+                                <div class="ladder-cell ask-qty"></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            </div>
+                            <div class="ladder-row bid" id="bid-row-3">
+                                <div class="ladder-cell ask-qty"></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            </div>
+                            <div class="ladder-row bid" id="bid-row-4">
+                                <div class="ladder-cell ask-qty"></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            </div>
+                            <div class="ladder-row bid" id="bid-row-5">
+                                <div class="ladder-cell ask-qty"></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            </div>
+                            <div class="ladder-row bid" id="bid-row-6">
+                                <div class="ladder-cell ask-qty"></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            </div>
+                            <div class="ladder-row bid" id="bid-row-7">
+                                <div class="ladder-cell ask-qty"></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            </div>
+                            <div class="ladder-row bid" id="bid-row-8">
+                                <div class="ladder-cell ask-qty"></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            </div>
+                            <div class="ladder-row bid" id="bid-row-9">
+                                <div class="ladder-cell ask-qty"></div>
+                                <div class="ladder-cell price">--</div>
+                                <div class="ladder-cell bid-qty qty-cell"><div class="depth-bar"></div><span class="qty-value">--</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Trades (체결 내역) -->
+            <div class="panel trades-panel" style="min-height: 280px; flex-grow: 1;">
+                <div class="panel-header">
+                    <h3 class="panel-title">실시간 체결 내역</h3>
+                </div>
+                <div class="panel-body" style="padding: 0;">
+                    <div class="trades-table-container">
+                        <table class="trades-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 25%;">체결 시간</th>
+                                    <th style="width: 25%;">체결 가격 (USD)</th>
+                                    <th style="width: 25%;">체결 수량 (BTC)</th>
+                                    <th style="width: 25%;">체결 금액 (USD)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trades-tbody">
+                                <!-- 실시간으로 채워짐 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Market List & Console logs -->
+        <div class="right-column">
+            <!-- Market List Panel (🌟 신설: 업비트 스타일) -->
+            <div class="panel" style="min-height: 520px; flex-grow: 1;">
+                <div class="panel-header">
+                    <h3 class="panel-title">마켓 리스트</h3>
+                </div>
+                <div class="panel-body" style="padding: 0; display: flex; flex-direction: column;">
+                    <!-- Market Tabs -->
+                    <div class="side-toggle" style="margin: 0.75rem; background: rgba(255,255,255,0.01);">
+                        <button id="market-tab-usd" class="side-btn buy active" style="font-size: 0.75rem; padding: 0.45rem 0;" onclick="switchMarketTab('USD')">USD 마켓</button>
+                        <button id="market-tab-krw" class="side-btn buy" style="font-size: 0.75rem; padding: 0.45rem 0;" onclick="switchMarketTab('KRW')">KRW 마켓</button>
+                    </div>
+                    <!-- Market Search -->
+                    <div style="padding: 0 0.75rem 0.75rem 0.75rem;">
+                        <input type="text" id="market-search" placeholder="코인명/심볼 검색..." oninput="filterMarketList()" style="width: 100%; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 0.5rem 0.75rem; color: #fff; font-size: 0.75rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#00f2fe'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'">
+                    </div>
+                    <!-- Market Table -->
+                    <div style="flex-grow: 1; overflow-y: auto; max-height: 480px;">
+                        <table class="trades-table" style="font-size: 0.75rem; width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th style="text-align: left; padding: 0.5rem 0.75rem;">한글명/심볼</th>
+                                    <th style="padding: 0.5rem 0.75rem;">현재가</th>
+                                    <th style="padding: 0.5rem 0.75rem;">전일대비</th>
+                                </tr>
+                            </thead>
+                            <tbody id="market-list-tbody">
+                                <!-- JS로 동적 렌더링 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Logs (시스템 이벤트 로그) -->
             <div class="panel event-log-panel">
                 <div class="panel-header">
                     <h3 class="panel-title">시스템 이벤트 로그</h3>
@@ -1204,6 +1291,7 @@
         let backoffDelay = 1000;
         let pingIntervalId = null;
         let needsRender = false;
+        let lastTradePrice = 6500000; // 실시간 최종 체결가 트래커 (100배 스케일)
 
         // 가상 지갑 및 포트폴리오 초기 데이터 정책
         const defaultBalances = {
@@ -1389,6 +1477,97 @@
             log('system', `호가 모아보기 병합 수준이 변경되었습니다: x${activeGroupingFactor}`);
         }
 
+        // ==========================================
+        // 🌟 Live Market List & Search Panel Logic
+        // ==========================================
+        let activeMarketTab = 'USD'; // 기본 탭: USD
+
+        const marketCoins = [
+            { id: 'BTC-USD', name: '비트코인', symbol: 'BTC/USD', fiat: 'USD', basePrice: 65000 },
+            { id: 'ETH-USD', name: '이더리움', symbol: 'ETH/USD', fiat: 'USD', basePrice: 3500 },
+            { id: 'XRP-USD', name: '리플', symbol: 'XRP/USD', fiat: 'USD', basePrice: 0.52 },
+            { id: 'DOGE-USD', name: '도지코인', symbol: 'DOGE/USD', fiat: 'USD', basePrice: 0.15 },
+            { id: 'ADA-KRW', name: '에이다', symbol: 'ADA/KRW', fiat: 'KRW', basePrice: 500 },
+            { id: 'SOL-KRW', name: '솔라나', symbol: 'SOL/KRW', fiat: 'KRW', basePrice: 220000 }
+        ];
+
+        function renderMarketListUI() {
+            const tbody = document.getElementById('market-list-tbody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '';
+            const searchKeyword = (document.getElementById('market-search')?.value || '').toLowerCase();
+
+            marketCoins.forEach(coin => {
+                // 현재 선택된 탭 필터링
+                if (coin.fiat !== activeMarketTab) return;
+
+                // 검색어 필터링
+                const nameMatches = coin.name.toLowerCase().includes(searchKeyword);
+                const symbolMatches = coin.id.toLowerCase().includes(searchKeyword);
+                if (!nameMatches && !symbolMatches) return;
+
+                // 실시간 현재가 구하기
+                const book = books[coin.id];
+                let livePrice = coin.basePrice;
+                if (book) {
+                    const sortedBids = Array.from(book.bids.entries()).filter(([_, q]) => q > 0).sort((a,b)=>b[0]-a[0]);
+                    const sortedAsks = Array.from(book.asks.entries()).filter(([_, q]) => q > 0).sort((a,b)=>a[0]-b[0]);
+                    if (sortedBids.length > 0 && sortedAsks.length > 0) {
+                        livePrice = ((sortedBids[0][0] + sortedAsks[0][0]) / 2) / 100;
+                    }
+                }
+
+                const unit = coin.fiat === 'USD' ? '$' : '₩';
+                const isSelected = coin.id === currentSymbol;
+
+                const row = document.createElement('tr');
+                if (isSelected) {
+                    row.className = 'active-market-row';
+                }
+                row.style.cursor = 'pointer';
+                row.onclick = () => {
+                    if (coin.id === 'BTC-USD' || coin.id === 'ADA-KRW') {
+                        switchSymbol(coin.id);
+                    } else {
+                        alertBubble(`${coin.name} 마켓은 모의 시세용 전시 목록입니다. BTC 또는 ADA 마켓을 활용해주세요!`, 'rgba(138, 43, 226, 0.95)');
+                    }
+                };
+
+                // 전일대비율 가상 렌더링 (비주얼)
+                const mockChange = coin.id === 'BTC-USD' ? '-0.25%' : (coin.id === 'ADA-KRW' ? '+0.16%' : '+0.00%');
+                const mockColor = mockChange.startsWith('+') ? '#ef4444' : (mockChange.startsWith('-') ? '#3b82f6' : '#fff');
+
+                row.innerHTML = `
+                    <td style="text-align: left; padding: 0.5rem 0.75rem; font-weight: 700;">
+                        <span style="color: #fff; display: block; font-size: 0.75rem;">${coin.name}</span>
+                        <span style="color: var(--color-text-secondary); font-size: 0.65rem;">${coin.symbol}</span>
+                    </td>
+                    <td style="font-family: var(--font-mono); font-weight: 700; text-align: right; padding: 0.5rem 0.75rem; color: ${mockColor};">
+                        ${unit}${livePrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    </td>
+                    <td style="font-family: var(--font-mono); text-align: right; padding: 0.5rem 0.75rem; color: ${mockColor}; font-weight: 600;">
+                        ${mockChange}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function switchMarketTab(fiat) {
+            activeMarketTab = fiat;
+            document.getElementById('market-tab-usd').className = fiat === 'USD' ? 'side-btn buy active' : 'side-btn buy';
+            document.getElementById('market-tab-krw').className = fiat === 'KRW' ? 'side-btn buy active' : 'side-btn buy';
+            renderMarketListUI();
+        }
+
+        function filterMarketList() {
+            renderMarketListUI();
+        }
+
+        // 실시간 틱마다 마켓 리스트 UI 도 동시 갱신하도록 타이머 추가 (1초에 한 번만 리스트 갱신하여 CPU 세이브)
+        setInterval(renderMarketListUI, 1000);
+
         // 실시간 체결 강도 지표 업데이터
         function updateVolumePower(side, qty) {
             recentTradesForPower.push({ side, qty, time: Date.now() });
@@ -1478,6 +1657,7 @@
                 qtyLabel.innerText = 'BTC';
                 document.getElementById('order-price').value = 65000;
                 document.getElementById('order-qty').value = 5;
+                lastTradePrice = 6500000; // BTC 기본 스케일가 초기화
                 
                 const presets = document.querySelectorAll('.preset-btn');
                 presets[0].innerText = '1 BTC'; presets[0].setAttribute('onclick', 'setQtyPreset(1)');
@@ -1489,6 +1669,7 @@
                 qtyLabel.innerText = 'ADA';
                 document.getElementById('order-price').value = 500;
                 document.getElementById('order-qty').value = 1000;
+                lastTradePrice = 50000; // ADA 기본 스케일가 초기화
 
                 const presets = document.querySelectorAll('.preset-btn');
                 presets[0].innerText = '100 ADA'; presets[0].setAttribute('onclick', 'setQtyPreset(100)');
@@ -1503,6 +1684,7 @@
             // Redraw everything for the newly selected symbol
             updateOrderbookUI();
             renderTradeHistoryUI();
+            renderMarketListUI(); // 🌟 선택 마켓 행 강조 테두리 즉시 업데이트
             drawPriceChart();
             
             log('system', `거래 종목 전환 완료: ${symbol}`);
@@ -1763,6 +1945,18 @@
                     qtyVal.innerText = qty.toLocaleString();
                     rowEl.onclick = () => fillPriceInput(price);
 
+                    // 🌟 현재가 검은색 네모 상자 매핑
+                    if (price === lastTradePrice) {
+                        priceCell.classList.add('current-price-box');
+                    } else {
+                        priceCell.classList.remove('current-price-box');
+                    }
+
+                    // 🌟 마우스 누적 툴팁 장착
+                    rowEl.onmouseenter = (e) => showObTooltip(e, 'ASK', price, sortedAsks);
+                    rowEl.onmousemove = (e) => moveObTooltip(e);
+                    rowEl.onmouseleave = () => hideObTooltip();
+
                     const widthPercent = Math.min((qty / maxDepth) * 100, 100);
                     depthBar.style.width = `${widthPercent}%`;
 
@@ -1784,6 +1978,10 @@
                     qtyVal.innerText = '--';
                     depthBar.style.width = '0%';
                     rowEl.onclick = null;
+                    rowEl.onmouseenter = null;
+                    rowEl.onmousemove = null;
+                    rowEl.onmouseleave = null;
+                    priceCell.classList.remove('current-price-box');
                     book.lastRenderedAsks[i] = null;
                 }
             }
@@ -1804,6 +2002,18 @@
                     priceCell.innerText = (price / 100).toFixed(2);
                     qtyVal.innerText = qty.toLocaleString();
                     rowEl.onclick = () => fillPriceInput(price);
+
+                    // 🌟 현재가 검은색 네모 상자 매핑
+                    if (price === lastTradePrice) {
+                        priceCell.classList.add('current-price-box');
+                    } else {
+                        priceCell.classList.remove('current-price-box');
+                    }
+
+                    // 🌟 마우스 누적 툴팁 장착
+                    rowEl.onmouseenter = (e) => showObTooltip(e, 'BID', price, sortedBids);
+                    rowEl.onmousemove = (e) => moveObTooltip(e);
+                    rowEl.onmouseleave = () => hideObTooltip();
 
                     const widthPercent = Math.min((qty / maxDepth) * 100, 100);
                     depthBar.style.width = `${widthPercent}%`;
@@ -1826,6 +2036,10 @@
                     qtyVal.innerText = '--';
                     depthBar.style.width = '0%';
                     rowEl.onclick = null;
+                    rowEl.onmouseenter = null;
+                    rowEl.onmousemove = null;
+                    rowEl.onmouseleave = null;
+                    priceCell.classList.remove('current-price-box');
                     book.lastRenderedBids[i] = null;
                 }
             }
@@ -1981,6 +2195,66 @@
             chartCtx.fillText(`${unit}${lastPrice.toFixed(2)}`, px - 75, py - 12);
         }
 
+        // ==========================================
+        // 🌟 Orderbook Cumulative hover tooltips
+        // ==========================================
+        let obTooltipEl = null;
+
+        // Initialize tooltip box dynamically on load
+        window.addEventListener('DOMContentLoaded', () => {
+            obTooltipEl = document.createElement('div');
+            obTooltipEl.id = 'ob-tooltip';
+            obTooltipEl.className = 'ob-tooltip';
+            document.body.appendChild(obTooltipEl);
+            renderMarketListUI(); // 초기 마켓 리스트 바인딩
+        });
+
+        function showObTooltip(event, side, targetPrice, sortedAsksOrBids) {
+            if (!obTooltipEl) return;
+
+            let accQty = 0;
+            let accCost = 0;
+
+            if (side === 'ASK') {
+                for (const [p, q] of sortedAsksOrBids) {
+                    if (p > targetPrice) break;
+                    accQty += q;
+                    accCost += q * (p / 100);
+                }
+            } else {
+                for (const [p, q] of sortedAsksOrBids) {
+                    if (p < targetPrice) break;
+                    accQty += q;
+                    accCost += q * (p / 100);
+                }
+            }
+
+            const unit = currentSymbol === 'BTC-USD' ? '$' : '₩';
+            const coinUnit = currentSymbol === 'BTC-USD' ? 'BTC' : 'ADA';
+
+            obTooltipEl.style.display = 'block';
+            obTooltipEl.innerHTML = `
+                <div style="font-weight: 800; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 2px; margin-bottom: 4px; color: #fff; font-size: 0.65rem;">누적 정보 (${side === 'ASK' ? '매도' : '매수'})</div>
+                <div style="display:flex; justify-content:space-between; gap:1.2rem; font-size: 0.65rem;"><span>평균가:</span> <span style="font-weight:700;">${unit}${(targetPrice/100).toLocaleString(undefined, {minimumFractionDigits:2})}</span></div>
+                <div style="display:flex; justify-content:space-between; gap:1.2rem; font-size: 0.65rem;"><span>누적량:</span> <span style="font-weight:700; color:#00f2fe;">${accQty.toLocaleString()} ${coinUnit}</span></div>
+                <div style="display:flex; justify-content:space-between; gap:1.2rem; font-size: 0.65rem;"><span>누적액:</span> <span style="font-weight:700; color:#ef4444;">${unit}${accCost.toLocaleString(undefined, {maximumFractionDigits:0})}</span></div>
+            `;
+
+            moveObTooltip(event);
+        }
+
+        function moveObTooltip(event) {
+            if (!obTooltipEl || obTooltipEl.style.display === 'none') return;
+            obTooltipEl.style.left = `${event.pageX + 18}px`;
+            obTooltipEl.style.top = `${event.pageY - 30}px`;
+        }
+
+        function hideObTooltip() {
+            if (obTooltipEl) {
+                obTooltipEl.style.display = 'none';
+            }
+        }
+
         // Fill Price input from clicking Orderbook price cell
         function fillPriceInput(scaledPrice) {
             const realPrice = scaledPrice / 100;
@@ -1994,6 +2268,7 @@
         function addTradeHistory(symbol, price, qty, side) {
             if (symbol === currentSymbol) {
                 updateVolumePower(side, qty);
+                lastTradePrice = price; // 최종 체결가 실시간 동기화
             }
             const targetBook = books[symbol];
 
