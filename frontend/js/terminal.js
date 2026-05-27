@@ -1,6 +1,7 @@
 // 🌌 Advanced Order Terminal & Stop-Limit Order Controller
 import { state, saveWallet, logEntry, alertBubble } from './state.js';
 import { updateWalletUI } from './wallet.js';
+import { getActiveWalletService } from './walletService.js';
 
 export let activeTab = 'LIMIT'; // LIMIT, MARKET, STOP_LIMIT
 
@@ -123,7 +124,7 @@ export function switchTab(tab) {
     updateTotalAmount();
 }
 
-function handleOrderSubmit() {
+async function handleOrderSubmit() {
     if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
         alertBubble('터미널 연결 끊김!', 'rgba(239, 68, 68, 0.95)');
         return;
@@ -182,41 +183,23 @@ function handleOrderSubmit() {
     // standard execution (LIMIT or MARKET)
     const orderTotal = targetPrice * qtyInput;
 
+    const service = getActiveWalletService();
+    const balances = state.balances;
+
     if (state.selectedSide === 'BUY') {
-        if (state.balances[fiat] < orderTotal) {
+        if ((balances[fiat] || 0) < orderTotal) {
             alertBubble(`자산 부족! 가용 ${fiat} 잔액이 부족합니다.`, 'rgba(239, 68, 68, 0.95)');
             return;
         }
-        
-        state.balances[fiat] -= orderTotal;
-        
-        const pf = state.myPortfolio[state.currentSymbol] || { qty: 0, avgPrice: 0 };
-        const currentQty = state.balances[coin];
-        
-        const totalCost = (currentQty * pf.avgPrice) + orderTotal;
-        const newQty = currentQty + qtyInput;
-        const newAvg = newQty > 0 ? (totalCost / newQty) : 0;
-        
-        pf.avgPrice = newAvg;
-        pf.qty = newQty;
-        state.myPortfolio[state.currentSymbol] = pf;
-        state.balances[coin] = newQty;
     } else {
-        if (state.balances[coin] < qtyInput) {
+        if ((balances[coin] || 0) < qtyInput) {
             alertBubble(`자산 부족! 보유 ${coin} 수량이 부족합니다.`, 'rgba(239, 68, 68, 0.95)');
             return;
         }
-        
-        state.balances[coin] -= qtyInput;
-        state.balances[fiat] += orderTotal;
-        
-        const pf = state.myPortfolio[state.currentSymbol] || { qty: 0, avgPrice: 0 };
-        pf.qty = Math.max(0, state.balances[coin]);
-        if (pf.qty === 0) pf.avgPrice = 0;
-        state.myPortfolio[state.currentSymbol] = pf;
     }
 
-    saveWallet();
+    // Delegate balance/portfolio deduction to active WalletService
+    await service.deductOrderCost(fiat, coin, orderTotal, qtyInput, state.selectedSide);
     updateWalletUI();
 
     // Scale to match match-engine

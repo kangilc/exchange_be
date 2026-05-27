@@ -1,6 +1,7 @@
 // 🌌 Smart Wallet and Deposit/Withdrawal Control Module
 import { state, saveWallet, logEntry, alertBubble, books } from './state.js';
 import { showAuthModal } from './auth.js';
+import { getActiveWalletService } from './walletService.js';
 
 export function initWallet() {
     // Inject Deposit & Withdrawal Modal
@@ -150,10 +151,20 @@ export function initWallet() {
 
     // Add triggers to main UI buttons if they exist
     const depositBtn = document.getElementById('btn-show-deposit');
-    if (depositBtn) depositBtn.onclick = () => showWalletModal('deposit');
+    if (depositBtn) {
+        depositBtn.onclick = (e) => {
+            e.stopPropagation();
+            showWalletModal('deposit');
+        };
+    }
 
     const withdrawBtn = document.getElementById('btn-show-withdraw');
-    if (withdrawBtn) withdrawBtn.onclick = () => showWalletModal('withdraw');
+    if (withdrawBtn) {
+        withdrawBtn.onclick = (e) => {
+            e.stopPropagation();
+            showWalletModal('withdraw');
+        };
+    }
 
     const reportTrigger = document.getElementById('portfolio-card');
     if (reportTrigger) {
@@ -199,7 +210,7 @@ function switchWalletTab(tab) {
     }
 }
 
-function handleDeposit() {
+async function handleDeposit() {
     const asset = document.getElementById('deposit-asset-select').value;
     const amount = parseFloat(document.getElementById('deposit-amount').value);
 
@@ -208,30 +219,21 @@ function handleDeposit() {
         return;
     }
 
-    // Process local deposit
-    state.balances[asset] = (state.balances[asset] || 0) + amount;
-    
-    // Add ledger log
-    const txId = 'TXD-' + Math.floor(100000 + Math.random() * 900000);
-    const log = {
-        txId,
-        type: '입금',
-        asset,
-        amount,
-        time: new Date().toLocaleString(),
-        status: '완료'
-    };
-    state.ledger.unshift(log);
-    
-    saveWallet();
-    alertBubble(`${amount} ${asset} 입금이 무승인 승인 처리되었습니다.`, "rgba(16, 185, 129, 0.95)");
-    logEntry("wallet", `자산 입금 완료: ${amount.toLocaleString()} ${asset} (${txId})`);
-    
-    document.getElementById('deposit-amount').value = "";
-    renderLedgerHistory();
+    try {
+        const service = getActiveWalletService();
+        const log = await service.deposit(asset, amount);
+        alertBubble(`${amount} ${asset} 입금이 완료되었습니다.`, "rgba(16, 185, 129, 0.95)");
+        logEntry("wallet", `자산 입금 완료: ${amount.toLocaleString()} ${asset} (${log.txId})`);
+        
+        document.getElementById('deposit-amount').value = "";
+        await updateWalletUI();
+        renderLedgerHistory();
+    } catch (e) {
+        alertBubble("입금 처리 중 오류가 발생했습니다.", "rgba(239, 68, 68, 0.95)");
+    }
 }
 
-function handleWithdraw() {
+async function handleWithdraw() {
     const asset = document.getElementById('withdraw-asset-select').value;
     const address = document.getElementById('withdraw-address').value.trim();
     const amount = parseFloat(document.getElementById('withdraw-amount').value);
@@ -244,35 +246,29 @@ function handleWithdraw() {
         alertBubble("올바른 출금 수량을 작성하십시오.", "rgba(239, 68, 68, 0.95)");
         return;
     }
-    if ((state.balances[asset] || 0) < amount) {
+    
+    const service = getActiveWalletService();
+    const balances = await service.getBalances();
+    if ((balances[asset] || 0) < amount) {
         alertBubble("자산이 부족하여 출금할 수 없습니다.", "rgba(239, 68, 68, 0.95)");
         return;
     }
 
     // Safe withdrawal demands 2FA verification!
-    showAuthModal(() => {
-        // Execute withdrawal
-        state.balances[asset] -= amount;
-        
-        // Add to ledger
-        const txId = 'TXW-' + Math.floor(100000 + Math.random() * 900000);
-        const log = {
-            txId,
-            type: '출금',
-            asset,
-            amount,
-            time: new Date().toLocaleString(),
-            status: '완료'
-        };
-        state.ledger.unshift(log);
-        
-        saveWallet();
-        alertBubble(`${amount} ${asset} 출금이 보안 승인 완료되었습니다.`, "rgba(16, 185, 129, 0.95)");
-        logEntry("wallet", `자산 출금 완료: ${amount.toLocaleString()} ${asset} 주소 [${address.slice(0, 8)}...]`);
-        
-        document.getElementById('withdraw-amount').value = "";
-        document.getElementById('withdraw-address').value = "";
-        closeWalletModal();
+    showAuthModal(async () => {
+        try {
+            const log = await service.withdraw(asset, amount, address);
+            alertBubble(`${amount} ${asset} 출금이 보안 승인 완료되었습니다.`, "rgba(16, 185, 129, 0.95)");
+            logEntry("wallet", `자산 출금 완료: ${amount.toLocaleString()} ${asset} 주소 [${address.slice(0, 8)}...]`);
+            
+            document.getElementById('withdraw-amount').value = "";
+            document.getElementById('withdraw-address').value = "";
+            closeWalletModal();
+            await updateWalletUI();
+            renderLedgerHistory();
+        } catch (e) {
+            alertBubble("출금 처리 중 오류가 발생했습니다.", "rgba(239, 68, 68, 0.95)");
+        }
     });
 }
 

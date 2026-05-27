@@ -34,6 +34,9 @@ export const state = {
     
     // Deposit/Withdrawal logs
     ledger: JSON.parse(localStorage.getItem('hfx_ledger')) || [],
+
+    // Active service mode
+    isLive: JSON.parse(localStorage.getItem('hfx_is_live')) || false,
 };
 
 // Java String.hashCode() mapping in JS to match symbolId
@@ -75,6 +78,7 @@ export function saveWallet() {
     localStorage.setItem('hfx_portfolio', JSON.stringify(state.myPortfolio));
     localStorage.setItem('hfx_stop_limit_orders', JSON.stringify(state.stopLimitOrders));
     localStorage.setItem('hfx_ledger', JSON.stringify(state.ledger));
+    localStorage.setItem('hfx_is_live', JSON.stringify(state.isLive));
     
     // Dispatch custom event to notify other modules
     window.dispatchEvent(new CustomEvent('walletUpdated'));

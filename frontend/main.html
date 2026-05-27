@@ -36,6 +36,13 @@
             <span class="logo-sub">Multi-Engine</span>
         </div>
 
+        <div class="mode-selector-container" style="display: flex; gap: 0.5rem; align-items: center; margin-right: auto; margin-left: 2rem;">
+            <button id="mode-toggle-btn" class="mode-toggle-btn sandbox">
+                <span class="mode-dot" style="width: 6px; height: 6px; border-radius: 50%; display: inline-block;"></span>
+                <span id="mode-text">모의투자 모드 (Local Cache)</span>
+            </button>
+        </div>
+
         <div class="connection-status">
             <div class="stat-item">
                 <span class="stat-label">네트워크:</span>
@@ -72,9 +79,9 @@
                 <div class="orderbook-ladder">
                     <!-- Column Header -->
                     <div class="ladder-header">
-                        <div>매도 잔량 (BTC)</div>
-                        <div>호가 (USD)</div>
-                        <div>매수 잔량 (BTC)</div>
+                        <div id="ob-hdr-ask">매도 잔량 (BTC)</div>
+                        <div id="ob-hdr-price">호가 (USD)</div>
+                        <div id="ob-hdr-bid">매수 잔량 (BTC)</div>
                     </div>
 
                     <!-- Ask Side (Sell) - Top portion of book (10 rows injected) -->

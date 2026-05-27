@@ -83,6 +83,19 @@ export function fillPriceInput(scaledPrice) {
 export function updateOrderbookUI() {
     const book = books[state.currentSymbol];
     if (!book) return;
+
+    // Update column headers dynamically based on selected symbol
+    const isBtc = state.currentSymbol === 'BTC-USD';
+    const coin = isBtc ? 'BTC' : 'ADA';
+    const fiat = isBtc ? 'USD' : 'KRW';
+
+    const hdrAsk = document.getElementById('ob-hdr-ask');
+    const hdrPrice = document.getElementById('ob-hdr-price');
+    const hdrBid = document.getElementById('ob-hdr-bid');
+
+    if (hdrAsk) hdrAsk.innerText = `매도 잔량 (${coin})`;
+    if (hdrPrice) hdrPrice.innerText = `호가 (${fiat})`;
+    if (hdrBid) hdrBid.innerText = `매수 잔량 (${coin})`;
     
     const groupFactor = state.activeGroupingFactor;
 

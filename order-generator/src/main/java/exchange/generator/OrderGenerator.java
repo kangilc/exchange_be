@@ -6,7 +6,7 @@ import java.util.Random;
 
 public final class OrderGenerator {
     private static final java.util.concurrent.atomic.AtomicInteger totalOrderCount = new java.util.concurrent.atomic.AtomicInteger(0);
-    private static final int MAX_ORDERS = 10000;
+    private static final int MAX_ORDERS = Integer.MAX_VALUE;
 
     public static void main(String[] args) {
         String btcHost = ConfigLoader.get("ENGINE_HOST", "localhost");

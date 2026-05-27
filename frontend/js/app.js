@@ -6,6 +6,7 @@ import { initChart, resizeCanvas, drawPriceChart } from './chart.js';
 import { initWallet, updateWalletUI } from './wallet.js';
 import { initTerminal, setRatioPreset } from './terminal.js';
 import { logDeviceSession } from './auth.js';
+import { getActiveWalletService } from './walletService.js';
 
 // Market coins mapping for mock and display
 const marketCoins = [
@@ -26,6 +27,17 @@ document.addEventListener('DOMContentLoaded', () => {
     initWallet();
     initTerminal();
     initGateway();
+
+    // Initialize sandbox/production toggle button
+    initModeToggle();
+
+    // Load initial wallet/balances/ledger from active service
+    const service = getActiveWalletService();
+    service.getBalances().then(() => {
+        service.getLedger().then(() => {
+            updateWalletUI();
+        });
+    });
 
     // 2. Log mock device audit session
     logDeviceSession();
@@ -262,4 +274,41 @@ function switchMarketTab(fiat) {
         tabKrw.className = fiat === 'KRW' ? 'side-btn buy active' : 'side-btn buy';
     }
     renderMarketListUI();
+}
+
+function initModeToggle() {
+    const btn = document.getElementById('mode-toggle-btn');
+    const txt = document.getElementById('mode-text');
+    
+    if (!btn) return;
+    
+    const updateBtnUI = () => {
+        if (state.isLive) {
+            btn.className = 'mode-toggle-btn production';
+            if (txt) txt.innerText = '실거래 모드 (Live DB)';
+            logEntry('auth', '서버 데이터베이스(Live DB) 연동 실거래 모드로 전환되었습니다.');
+        } else {
+            btn.className = 'mode-toggle-btn sandbox';
+            if (txt) txt.innerText = '모의투자 모드 (Local Cache)';
+            logEntry('auth', '로컬스토리지 모의투자 모드로 전환되었습니다.');
+        }
+    };
+    
+    // Initial sync
+    updateBtnUI();
+    
+    btn.onclick = () => {
+        state.isLive = !state.isLive;
+        localStorage.setItem('hfx_is_live', JSON.stringify(state.isLive));
+        updateBtnUI();
+        
+        // Refresh wallet state
+        const service = getActiveWalletService();
+        service.getBalances().then(() => {
+            service.getLedger().then(() => {
+                updateWalletUI();
+                alertBubble(state.isLive ? '실거래 모드(Live DB)로 전환되었습니다.' : '모의투자 모드(Local Cache)로 전환되었습니다.', state.isLive ? 'rgba(16, 185, 129, 0.95)' : 'rgba(245, 158, 11, 0.95)');
+            });
+        });
+    };
 }
