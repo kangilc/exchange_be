@@ -20,7 +20,7 @@ public final class OrderGenerator {
         System.out.println(" - ADA-KRW command port: " + adaHost + ":" + adaPort);
 
         // Start BTC-USD generator thread
-        Thread btcThread = new Thread(new GeneratorTask(btcHost, btcPort, 65000, "BTC-USD"), "generator-btc");
+        Thread btcThread = new Thread(new GeneratorTask(btcHost, btcPort, 6500000, "BTC-USD"), "generator-btc");
         // Start ADA-KRW generator thread
         Thread adaThread = new Thread(new GeneratorTask(adaHost, adaPort, 50000, "ADA-KRW"), "generator-ada");
 
