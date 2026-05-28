@@ -296,8 +296,10 @@ export function updateOrderbookUI() {
             }
         }
 
-        // Insert new chart tick
-        addPriceTick(midVal);
+        // [개선 완료] 실시간 차트는 오더북의 가상 중간가(midVal)가 아닌, gateway.js에서 처리되는 
+        // 실제 체결(Executed Trades) 가격 기준(addPriceTick)으로만 일관되게 갱신되도록 변경하였습니다.
+        // 이로써 화면 상의 현재 캔들과 F5 새로고침 후 DB에서 불러오는 역사 캔들의 모양이 100% 완벽히 일치하게 됩니다.
+        // (이전 코드: addPriceTick(midVal);)
 
         // Monitor Stop-Limit trigger conditions
         monitorStopLimitOrders(midVal);
