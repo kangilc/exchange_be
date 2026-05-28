@@ -1,0 +1,61 @@
+
+/* 🌌 Ultra-Premium Dark Theme Styling System */
+
+:root {
+  --font-sans: "Noto Sans KR", "Outfit", sans-serif;
+  --font-mono: "Fira Code", monospace;
+}
+
+body {
+  background-color: #070b15;
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(138, 43, 226, 0.12) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(0, 242, 254, 0.08) 0%, transparent 45%);
+  background-attachment: fixed;
+  color: #f8fafc;
+  font-family: var(--font-sans);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom Scrollbar for live table */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.01);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(138, 43, 226, 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 242, 254, 0.4);
+}
+
+/* Card Glow Effect */
+.card-custom {
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.card-custom:hover {
+  border-color: rgba(0, 242, 254, 0.35);
+  box-shadow: 0 8px 32px 0 rgba(0, 242, 254, 0.05);
+  transform: translateY(-2px);
+}
