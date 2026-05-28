@@ -47,5 +47,19 @@ public class StatsController {
         response.put("lastPrice", statsService.getLastPrice(symbol));
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * 특정 종목의 다중 시간 해상도(1m, 5m, 15m, 1h)에 맞춰 집계된 OHLCV 캔들 목록을 반환합니다.
+     * 프론트엔드 TradingView 차트와 연동되어 과거 시세를 고속 렌더링하기 위해 사용됩니다.
+     * 한글 주석을 자세하게 추가하여 가독성을 높였습니다.
+     */
+    @GetMapping("/candles")
+    public ResponseEntity<List<java.util.Map<String, Object>>> getCandles(
+            @RequestParam("symbol") String symbol,
+            @RequestParam(value = "resolution", defaultValue = "1m") String resolution,
+            @RequestParam(value = "limit", defaultValue = "100") int limit) {
+        // StatsService의 온더플라이 캔들 집계 기능을 호출하여 결과를 반환합니다.
+        return ResponseEntity.ok(statsService.getCandleStats(symbol, resolution, limit));
+    }
 }
 

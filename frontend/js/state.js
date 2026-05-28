@@ -42,6 +42,9 @@ export const state = {
 
     // 현재 활성화된 데이터 서비스 모드 (false = 모의투자/Sandbox, true = 실거래/Live DB)
     isLive: JSON.parse(localStorage.getItem('hfx_is_live')) || false,
+
+    // ⏱️ 차트 현재 해상도 상태 ('1m', '5m', '15m', '1h' 등) - 상세 한글 주석 지원
+    activeResolution: '1m',
 };
 
 /**

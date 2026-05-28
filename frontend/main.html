@@ -113,10 +113,16 @@
 
         <!-- 2. Real-Time Canvas Price Chart Panel -->
         <div class="panel chart-panel" id="chart-panel" style="min-height: 400px;">
-            <div class="panel-header">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 class="panel-title">실시간 변동 가격 차트</h3>
-                <div class="logo-sub" style="font-size: 0.65rem; border-color: rgba(0, 242, 254, 0.25); color: #00f2fe; text-transform: uppercase;">
-                    TradingView 1M 봉
+                <div style="display: flex; gap: 0.4rem; align-items: center; flex-shrink: 0;">
+                    <!-- ⏱️ 다중 해상도 선택 셀렉터 (1M, 5M, 15M, 1H) -->
+                    <div class="side-toggle" style="background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.06); padding: 2px; border-radius: 4px; display: flex; gap: 2px;">
+                        <button id="res-btn-1m" class="side-btn buy active" style="padding: 2px 8px; font-size: 0.65rem; font-weight: 700; height: 20px; line-height: 16px; min-width: 32px;">1M</button>
+                        <button id="res-btn-5m" class="side-btn buy" style="padding: 2px 8px; font-size: 0.65rem; font-weight: 700; height: 20px; line-height: 16px; min-width: 32px;">5M</button>
+                        <button id="res-btn-15m" class="side-btn buy" style="padding: 2px 8px; font-size: 0.65rem; font-weight: 700; height: 20px; line-height: 16px; min-width: 32px;">15M</button>
+                        <button id="res-btn-1h" class="side-btn buy" style="padding: 2px 8px; font-size: 0.65rem; font-weight: 700; height: 20px; line-height: 16px; min-width: 32px;">1H</button>
+                    </div>
                 </div>
             </div>
             <div class="panel-body">

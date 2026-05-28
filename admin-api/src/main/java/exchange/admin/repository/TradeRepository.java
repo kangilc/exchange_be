@@ -65,5 +65,7 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
     Double getTotalTradeVolume();
 
     java.util.Optional<Trade> findFirstBySymbolOrderByTradeIdDesc(String symbol);
+
+    java.util.List<Trade> findTop500BySymbolOrderByExecutedAtDesc(String symbol);
 }
 

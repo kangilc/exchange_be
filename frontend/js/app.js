@@ -2,7 +2,7 @@
 import { state, logEntry, alertBubble, books } from './state.js';
 import { initGateway, renderTradeHistoryUI } from './gateway.js';
 import { initOrderbook, updateOrderbookUI } from './orderbook.js';
-import { initChart, resizeCanvas, drawPriceChart, seedHistoricalCandles } from './chart.js';
+import { initChart, resizeCanvas, drawPriceChart, fetchAndLoadHistoricalCandles } from './chart.js';
 import { initWallet, updateWalletUI } from './wallet.js';
 import { initTerminal, setRatioPreset } from './terminal.js';
 import { logDeviceSession } from './auth.js';
@@ -91,6 +91,35 @@ function bindUIEvents() {
     if (tabUsd) tabUsd.onclick = () => switchMarketTab('USD');
     if (tabKrw) tabKrw.onclick = () => switchMarketTab('KRW');
 
+    // ⏱️ 차트 시간 해상도 변경 버튼 클릭 이벤트 매핑 (한글 주석 장착)
+    const resButtons = {
+        '1m': document.getElementById('res-btn-1m'),
+        '5m': document.getElementById('res-btn-5m'),
+        '15m': document.getElementById('res-btn-15m'),
+        '1h': document.getElementById('res-btn-1h')
+    };
+
+    Object.entries(resButtons).forEach(([res, btn]) => {
+        if (btn) {
+            btn.onclick = () => {
+                // 이미 활성화된 해상도인 경우 무시합니다.
+                if (state.activeResolution === res) return;
+
+                // 모든 버튼에서 active 스타일 제거 후 클릭한 버튼만 활성화
+                Object.values(resButtons).forEach(b => b?.classList.remove('active'));
+                btn.classList.add('active');
+
+                // 전역 상태에 활성 해상도 저장 및 차트 데이터 재로딩 트리거
+                state.activeResolution = res;
+                const basePrice = state.currentSymbol === 'BTC-USD' ? 65000 : 500;
+                
+                // 실제 DB 캔들 데이터를 새로운 시간 단위 해상도로 즉시 갱신합니다.
+                fetchAndLoadHistoricalCandles(state.currentSymbol, basePrice, res);
+                logEntry('system', `차트 해상도가 ${res.toUpperCase()} 단위로 정상 전환되었습니다.`);
+            };
+        }
+    });
+
     // Default Side side-toggle setup
     setSide('BUY');
 }
@@ -133,8 +162,8 @@ async function syncLastPriceFromServer(symbol) {
                 const actualPrice = data.lastPrice / 100;
                 state.lastTradePrice = data.lastPrice;
                 
-                // Instantly seed the TradingView chart with historical candles centered around actual price
-                seedHistoricalCandles(actualPrice);
+                // Fetch and load actual database-backed historical candles centered around actual price
+                fetchAndLoadHistoricalCandles(symbol, actualPrice, state.activeResolution);
 
                 const orderPriceInput = document.getElementById('order-price');
                 if (orderPriceInput) {
@@ -215,8 +244,8 @@ function switchSymbol(symbol) {
     const event = new Event('input', { bubbles: true });
     document.getElementById('order-qty')?.dispatchEvent(event);
     
-    // Seed initial baseline price mock candles instantly during transition
-    seedHistoricalCandles(symbol === 'BTC-USD' ? 65000 : 500);
+    // Fetch and load actual database historical candles centered around baseline price instantly
+    fetchAndLoadHistoricalCandles(symbol, symbol === 'BTC-USD' ? 65000 : 500, state.activeResolution);
 
     // Redraw and rebind elements
     updateOrderbookUI();
