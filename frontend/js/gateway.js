@@ -30,7 +30,7 @@ export function initGateway() {
 
 export function connect() {
     const host = window.location.hostname || 'localhost';
-    const wsUrl = `ws://${host}:8080/ws`;
+    const wsUrl = `ws://${host}:8088/ws`;
 
     logEntry('system', `웹소켓 게이트웨이에 연결 중: ${wsUrl}`);
     state.ws = new WebSocket(wsUrl);

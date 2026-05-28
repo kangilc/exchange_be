@@ -128,7 +128,7 @@ services:
     depends_on:
       - kafka
     ports:
-      - "8080:8080" # 웹소켓 연결용 실시간 서비스 포트
+      - "8088:8088" # 웹소켓 연결용 실시간 서비스 포트
       - "9102:9102" # 웹소켓 서버 자체 성능 지표 수집용 포트
     env_file:
       - .env.dev
@@ -207,7 +207,7 @@ services:
     command:
       - --docker_only=true
     ports:
-      - "8082:8080"
+      - "8182:8182"
     restart: always
 
 

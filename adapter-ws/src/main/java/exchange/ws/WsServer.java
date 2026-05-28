@@ -18,7 +18,7 @@ public final class WsServer {
     public static void main(String[] args) throws Exception {
         WsMetricsServer.getInstance().start();
         String broker = ConfigLoader.get("KAFKA_BROKER", "localhost:9092");
-        int port = ConfigLoader.getInt("PORT", 8080);
+        int port = ConfigLoader.getInt("PORT", 8088);
 
 
         System.out.println("Starting Netty WebSocket Gateway on port: " + port);

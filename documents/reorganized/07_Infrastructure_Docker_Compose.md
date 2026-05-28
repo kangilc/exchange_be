@@ -75,7 +75,7 @@ services:
     depends_on:
       - kafka
     ports:
-      - "8080:8080"
+      - "8088:8088"
     environment:
       KAFKA_BROKER: kafka:9092
 

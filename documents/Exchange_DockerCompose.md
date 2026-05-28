@@ -123,7 +123,7 @@ services:
     depends_on:
       - kafka
     ports:
-      - "8080:8080"
+      - "8088:8088"
     environment:
       KAFKA_BROKER: ${KAFKA_BROKER}
 
@@ -186,7 +186,7 @@ docker compose up --build
 
 이후:
 
-*   WebSocket: `ws://localhost:8080/ws`
+*   WebSocket: `ws://localhost:8088/ws`
 *   UI 데모: `ws-client.html` 열기
 *   Kafka topic:
     ```bash
@@ -293,7 +293,7 @@ docker compose up --build
 
 확인:
 
-*   WS: `ws://localhost:8080/ws`
+*   WS: `ws://localhost:8088/ws`
 *   Order Generator 동작 여부
 *   UI(WebGL) 호가 실시간 변동
 

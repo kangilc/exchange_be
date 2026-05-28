@@ -9,5 +9,5 @@ RUN gradle :adapter-ws:installDist -x test --no-daemon
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY --from=build /home/gradle/project/adapter-ws/build/install/adapter-ws ./
-EXPOSE 8080
+EXPOSE 8088
 ENTRYPOINT ["./bin/adapter-ws"]
