@@ -45,6 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. Bind UI elements and handlers
     bindUIEvents();
 
+    // Sync initial symbol price from server
+    syncLastPriceFromServer(state.currentSymbol);
+
     // 4. Start animation render loop
     requestAnimationFrame(renderLoop);
 
@@ -119,6 +122,30 @@ function setSide(side) {
     document.getElementById('order-qty')?.dispatchEvent(event);
 }
 
+async function syncLastPriceFromServer(symbol) {
+    const host = window.location.hostname || 'localhost';
+    const url = `http://${host}:8181/admin/stats/ticker?symbol=${symbol}`;
+    try {
+        const response = await fetch(url);
+        if (response.ok) {
+            const data = await response.json();
+            if (data && data.lastPrice) {
+                const actualPrice = data.lastPrice / 100;
+                state.lastTradePrice = data.lastPrice;
+                const orderPriceInput = document.getElementById('order-price');
+                if (orderPriceInput) {
+                    orderPriceInput.value = actualPrice;
+                    // Trigger calculation updates
+                    const event = new Event('input', { bubbles: true });
+                    orderPriceInput.dispatchEvent(event);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Failed to sync last price from server:', e);
+    }
+}
+
 function switchSymbol(symbol) {
     if (state.currentSymbol === symbol) return;
     state.currentSymbol = symbol;
@@ -190,6 +217,9 @@ function switchSymbol(symbol) {
     renderMarketListUI();
     resizeCanvas();
     drawPriceChart();
+    
+    // Sync true current price from backend stats service dynamically
+    syncLastPriceFromServer(symbol);
     
     logEntry('system', `거래 종목 전환 완료: ${symbol}`);
 }

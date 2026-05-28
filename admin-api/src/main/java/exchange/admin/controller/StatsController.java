@@ -39,5 +39,13 @@ public class StatsController {
     public ResponseEntity<java.util.Map<String, Object>> getSummaryStats() {
         return ResponseEntity.ok(statsService.getSummaryStats());
     }
+
+    @GetMapping("/ticker")
+    public ResponseEntity<java.util.Map<String, Object>> getTicker(@RequestParam("symbol") String symbol) {
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("symbol", symbol);
+        response.put("lastPrice", statsService.getLastPrice(symbol));
+        return ResponseEntity.ok(response);
+    }
 }
 

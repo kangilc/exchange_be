@@ -46,6 +46,37 @@ public class StatsService {
         return summary;
     }
 
+    private static final long CACHE_EXPIRE_MS = 1000; // 1 second
+    
+    private static class PriceCacheEntry {
+        final long price;
+        final long timestamp;
+        
+        PriceCacheEntry(long price) {
+            this.price = price;
+            this.timestamp = System.currentTimeMillis();
+        }
+        
+        boolean isExpired() {
+            return System.currentTimeMillis() - timestamp > CACHE_EXPIRE_MS;
+        }
+    }
+    
+    private final java.util.concurrent.ConcurrentHashMap<String, PriceCacheEntry> priceCache = 
+        new java.util.concurrent.ConcurrentHashMap<>();
+
+    public Long getLastPrice(String symbol) {
+        PriceCacheEntry entry = priceCache.get(symbol);
+        if (entry == null || entry.isExpired()) {
+            long price = tradeRepository.findFirstBySymbolOrderByTradeIdDesc(symbol)
+                    .map(exchange.admin.model.Trade::getPrice)
+                    .orElse(symbol.toUpperCase().contains("BTC") ? 6500000L : 50000L);
+            entry = new PriceCacheEntry(price);
+            priceCache.put(symbol, entry);
+        }
+        return entry.price;
+    }
+
 
     private String mapResolutionToBucket(String resolution) {
         if (resolution == null) {

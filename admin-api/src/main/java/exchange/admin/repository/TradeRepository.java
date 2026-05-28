@@ -63,5 +63,7 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
 
     @Query(value = "SELECT COALESCE(SUM(qty * (price / 100.0)), 0.0) FROM trades", nativeQuery = true)
     Double getTotalTradeVolume();
+
+    java.util.Optional<Trade> findFirstBySymbolOrderByTradeIdDesc(String symbol);
 }
 
