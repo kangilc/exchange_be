@@ -149,4 +149,96 @@ BEGIN
 END $$;
 
 
+-- 7. 최근 24시간 동안의 비트코인 5만건, 에이다 5만건 고정밀 체결 시드 대량 주입 (총 10만건 체결, 20만건 주문 생성)
+-- 한글 주석을 자세히 추가하여 정밀한 난수 발생 및 집계 규칙을 가시화했습니다.
+
+-- A. BTC-USD 매수 주문(Buy Orders) 5만 건 대량 주입
+INSERT INTO orders (order_id, user_id, symbol, side, price, qty, remaining_qty, status, created_at)
+SELECT 
+    10000000 + i, -- 주문 ID 고유 범위 지정
+    floor(random() * 999 + 1)::bigint, -- 임의의 회원 ID (1~1000)
+    'BTC-USD',
+    'BUY',
+    -- 삼각함수(sin)를 융합하여 부드럽고 자연스러운 금융 시세의 파동(Wave)과 노이즈 변동성을 정밀 설계합니다.
+    (6500000 + floor(sin(i::double precision / 200.0) * 120000) + floor(random() * 3000))::bigint,
+    floor(random() * 500 + 1)::bigint, -- 수량 랜덤 주입
+    0,
+    'FILLED',
+    -- 최근 24시간 전부터 현재까지 5만 건을 시간순으로 매우 정밀하게 등분 배치
+    NOW() - (24.0 / 50000.0 * (50000 - i) * INTERVAL '1 hour')
+FROM generate_series(1, 50000) AS i;
+
+-- B. BTC-USD 매도 주문(Sell Orders) 5만 건 대량 주입 (체결 대상)
+INSERT INTO orders (order_id, user_id, symbol, side, price, qty, remaining_qty, status, created_at)
+SELECT 
+    10000000 + order_id,
+    (floor(random() * 999 + 1)::bigint % 1000) + 1,
+    'BTC-USD',
+    'SELL',
+    price,
+    qty,
+    0,
+    'FILLED',
+    created_at
+FROM orders
+WHERE order_id BETWEEN 10000001 AND 10050000;
+
+-- C. BTC-USD 체결 내역(Trades) 5만 건 연결 생성
+INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, executed_at)
+SELECT 
+    30000000 + (order_id - 10000000),
+    'BTC-USD',
+    order_id,
+    order_id + 10000000,
+    price,
+    qty,
+    created_at
+FROM orders
+WHERE order_id BETWEEN 10000001 AND 10050000;
+
+
+-- D. ADA-KRW 매수 주문 5만 건 대량 주입
+INSERT INTO orders (order_id, user_id, symbol, side, price, qty, remaining_qty, status, created_at)
+SELECT 
+    40000000 + i,
+    floor(random() * 999 + 1)::bigint,
+    'ADA-KRW',
+    'BUY',
+    (50000 + floor(sin(i::double precision / 500.0) * 2500) + floor(random() * 150))::bigint,
+    floor(random() * 10000 + 100)::bigint,
+    0,
+    'FILLED',
+    NOW() - (24.0 / 50000.0 * (50000 - i) * INTERVAL '1 hour')
+FROM generate_series(1, 50000) AS i;
+
+-- E. ADA-KRW 매도 주문 5만 건 대량 주입
+INSERT INTO orders (order_id, user_id, symbol, side, price, qty, remaining_qty, status, created_at)
+SELECT 
+    10000000 + order_id,
+    (floor(random() * 999 + 1)::bigint % 1000) + 1,
+    'ADA-KRW',
+    'SELL',
+    price,
+    qty,
+    0,
+    'FILLED',
+    created_at
+FROM orders
+WHERE order_id BETWEEN 40000001 AND 40050000;
+
+-- F. ADA-KRW 체결 내역 5만 건 연결 생성
+INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, executed_at)
+SELECT 
+    60000000 + (order_id - 40000000),
+    'ADA-KRW',
+    order_id,
+    order_id + 10000000,
+    price,
+    qty,
+    created_at
+FROM orders
+WHERE order_id BETWEEN 40000001 AND 40050000;
+
+
+
 
