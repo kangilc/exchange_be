@@ -334,6 +334,18 @@ export function addPriceTick(price) {
     // 현재 시간을 해상도 단위 경계선으로 버킷 분할 정수내림 처리합니다.
     const bucketTime = Math.floor(Date.now() / (resolutionSeconds * 1000)) * resolutionSeconds - offsetSeconds;
 
+    // [치명적 오류 예방 가드]
+    // 해상도 탭 전환(1M -> 5M 등) 과정의 비동기 네트워크 통신 지연이나 
+    // 시스템 클럭 불일치로 인해 현재 차트의 가장 최신 봉보다 과거 타임스탬프를 가진 틱이 업데이트를 시도할 경우,
+    // TradingView Lightweight Charts 내부 엔진이 'Cannot update oldest data' 예외를 던지며 차트가 마비되는 현상을 원천 방지합니다.
+    if (loadedCandlesBuffer && loadedCandlesBuffer.length > 0) {
+        const lastCandleTime = loadedCandlesBuffer[loadedCandlesBuffer.length - 1].time;
+        if (bucketTime < lastCandleTime) {
+            // 해상도 전환 중에 비동기로 데이터를 패치하기 전 들어온 오래된 틱은 에러 방지를 위해 조용히 무시합니다.
+            return;
+        }
+    }
+
     if (!currentCandle || bucketTime > currentCandle.time) {
         // 집계 시간축이 변경되었으므로 신규 봉(Candlestick)을 새롭게 마운트합니다.
         currentCandle = {
