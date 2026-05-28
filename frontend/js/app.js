@@ -2,7 +2,7 @@
 import { state, logEntry, alertBubble, books } from './state.js';
 import { initGateway, renderTradeHistoryUI } from './gateway.js';
 import { initOrderbook, updateOrderbookUI } from './orderbook.js';
-import { initChart, resizeCanvas, drawPriceChart } from './chart.js';
+import { initChart, resizeCanvas, drawPriceChart, seedHistoricalCandles } from './chart.js';
 import { initWallet, updateWalletUI } from './wallet.js';
 import { initTerminal, setRatioPreset } from './terminal.js';
 import { logDeviceSession } from './auth.js';
@@ -132,6 +132,10 @@ async function syncLastPriceFromServer(symbol) {
             if (data && data.lastPrice) {
                 const actualPrice = data.lastPrice / 100;
                 state.lastTradePrice = data.lastPrice;
+                
+                // Instantly seed the TradingView chart with historical candles centered around actual price
+                seedHistoricalCandles(actualPrice);
+
                 const orderPriceInput = document.getElementById('order-price');
                 if (orderPriceInput) {
                     orderPriceInput.value = actualPrice;
@@ -211,6 +215,9 @@ function switchSymbol(symbol) {
     const event = new Event('input', { bubbles: true });
     document.getElementById('order-qty')?.dispatchEvent(event);
     
+    // Seed initial baseline price mock candles instantly during transition
+    seedHistoricalCandles(symbol === 'BTC-USD' ? 65000 : 500);
+
     // Redraw and rebind elements
     updateOrderbookUI();
     renderTradeHistoryUI();

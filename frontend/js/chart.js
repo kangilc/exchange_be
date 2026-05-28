@@ -1,150 +1,178 @@
-// 🌌 Canvas price history graphing module
-import { state, books } from './state.js';
+// 🌌 TradingView Lightweight Candlestick Charts Integration Module
+import { state } from './state.js';
 
-let chartCanvas = null;
-let chartCtx = null;
-const maxHistoryPoints = 65;
+let chart = null;
+let candlestickSeries = null;
+let volumeSeries = null;
+let container = null;
+
+let currentCandle = null;
+let currentVolume = 0;
 
 export function initChart() {
-    chartCanvas = document.getElementById('priceCanvas');
-    if (!chartCanvas) return;
-    
-    chartCtx = chartCanvas.getContext('2d');
+    container = document.getElementById('tv-chart-container');
+    if (!container) return;
 
-    // Resize handlers
+    // Clean up container before recreating
+    container.innerHTML = '';
+
+    // Create high-performance TradingView chart instance with premium glassmorphic options
+    chart = LightweightCharts.createChart(container, {
+        layout: {
+            background: { type: 'solid', color: 'rgba(9, 14, 26, 0.1)' },
+            textColor: '#94a3b8',
+            fontSize: 10,
+            fontFamily: 'Outfit, Noto Sans KR, sans-serif',
+        },
+        grid: {
+            vertLines: { color: 'rgba(255, 255, 255, 0.025)' },
+            horzLines: { color: 'rgba(255, 255, 255, 0.025)' },
+        },
+        crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
+            vertLine: {
+                color: 'rgba(0, 242, 254, 0.4)',
+                width: 1,
+                style: 3, // dashed
+                labelBackgroundColor: '#00f2fe',
+            },
+            horzLine: {
+                color: 'rgba(0, 242, 254, 0.4)',
+                width: 1,
+                style: 3, // dashed
+                labelBackgroundColor: '#00f2fe',
+            }
+        },
+        rightPriceScale: {
+            borderColor: 'rgba(255, 255, 255, 0.06)',
+            visible: true,
+        },
+        timeScale: {
+            borderColor: 'rgba(255, 255, 255, 0.06)',
+            timeVisible: true,
+            secondsVisible: false,
+        },
+    });
+
+    // Add Candlestick series
+    candlestickSeries = chart.addCandlestickSeries({
+        upColor: '#22c55e',
+        downColor: '#ef4444',
+        borderDownColor: '#ef4444',
+        borderUpColor: '#22c55e',
+        wickDownColor: '#ef4444',
+        wickUpColor: '#22c55e',
+    });
+
+    // Add Volume histogram series overlayed at the bottom
+    volumeSeries = chart.addHistogramSeries({
+        color: 'rgba(59, 130, 246, 0.3)',
+        priceFormat: {
+            type: 'volume',
+        },
+        priceScaleId: '', // Overlay style
+    });
+
+    volumeSeries.priceScale().applyOptions({
+        scaleMargins: {
+            top: 0.8, // keeps volume chart tucked nicely at the bottom 20%
+            bottom: 0,
+        },
+    });
+
+    // Seed mock data initially
+    const basePrice = state.currentSymbol === 'BTC-USD' ? 65000 : 500;
+    seedHistoricalCandles(basePrice);
+
+    // Dynamic resize handler
     window.addEventListener('resize', resizeCanvas);
-    setTimeout(resizeCanvas, 300);
+    setTimeout(resizeCanvas, 200);
 }
 
 export function resizeCanvas() {
-    if (!chartCanvas) return;
-    const rect = chartCanvas.parentElement.getBoundingClientRect();
-    chartCanvas.width = rect.width * window.devicePixelRatio;
-    chartCanvas.height = rect.height * window.devicePixelRatio;
-    chartCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    drawPriceChart();
+    if (!chart || !container) return;
+    const rect = container.getBoundingClientRect();
+    chart.resize(rect.width, rect.height || 330);
 }
 
+/**
+ * Seeds beautiful mock 1-minute historical OHLCV data to fill the canvas on startup
+ */
+export function seedHistoricalCandles(basePrice) {
+    if (!candlestickSeries || !volumeSeries) return;
+
+    const candles = [];
+    const volumeData = [];
+    let lastPrice = basePrice;
+    
+    // Correct for local browser timezone offset (Lightweight Charts renders internally as UTC)
+    const offsetSeconds = new Date().getTimezoneOffset() * 60;
+
+    // Generate 100 historical minute bars
+    for (let i = 100; i >= 0; i--) {
+        const time = Math.floor((Date.now() - i * 60 * 1000) / 60000) * 60 - offsetSeconds;
+        const open = lastPrice;
+        const drift = (Math.random() - 0.5) * (basePrice * 0.003);
+        const close = lastPrice + drift;
+        const high = Math.max(open, close) + Math.random() * (basePrice * 0.001);
+        const low = Math.min(open, close) - Math.random() * (basePrice * 0.001);
+        const volume = Math.floor(Math.random() * 800) + 100;
+        const isUp = close >= open;
+
+        candles.push({ time, open, high, low, close });
+        volumeData.push({
+            time,
+            value: volume,
+            color: isUp ? 'rgba(34, 197, 94, 0.35)' : 'rgba(239, 68, 68, 0.35)'
+        });
+
+        lastPrice = close;
+    }
+
+    candlestickSeries.setData(candles);
+    volumeSeries.setData(volumeData);
+
+    // Retain current running bar state
+    const lastCandle = candles[candles.length - 1];
+    currentCandle = { ...lastCandle };
+    currentVolume = volumeData[volumeData.length - 1].value;
+}
+
+/**
+ * Aggregates a single real-time transaction-level trade price into the active 1-minute OHLCV candle bar
+ */
 export function addPriceTick(price) {
-    const book = books[state.currentSymbol];
-    if (!book) return;
-    
-    const history = book.priceHistory;
-    const last = history[history.length - 1];
-    if (last === price) return;
-    
-    history.push(price);
-    if (history.length > maxHistoryPoints) {
-        history.shift();
+    if (!candlestickSeries || !volumeSeries) return;
+
+    const offsetSeconds = new Date().getTimezoneOffset() * 60;
+    const minuteTime = Math.floor(Date.now() / 60000) * 60 - offsetSeconds;
+
+    if (!currentCandle || minuteTime > currentCandle.time) {
+        // Start a brand new minute candle
+        currentCandle = {
+            time: minuteTime,
+            open: price,
+            high: price,
+            low: price,
+            close: price
+        };
+        currentVolume = Math.floor(Math.random() * 5) + 1;
+    } else {
+        // Update the existing 1-minute running candle
+        currentCandle.close = price;
+        currentCandle.high = Math.max(currentCandle.high, price);
+        currentCandle.low = Math.min(currentCandle.low, price);
+        currentVolume += 1; // Increment trade count/volume
     }
-    drawPriceChart();
+
+    // Direct real-time updates to series
+    candlestickSeries.update(currentCandle);
+    volumeSeries.update({
+        time: minuteTime,
+        value: currentVolume,
+        color: currentCandle.close >= currentCandle.open ? 'rgba(34, 197, 94, 0.35)' : 'rgba(239, 68, 68, 0.35)'
+    });
 }
 
-export function drawPriceChart() {
-    if (!chartCanvas || !chartCtx) return;
-    
-    const w = chartCanvas.width / window.devicePixelRatio;
-    const h = chartCanvas.height / window.devicePixelRatio;
-
-    chartCtx.clearRect(0, 0, w, h);
-
-    const book = books[state.currentSymbol];
-    if (!book) return;
-
-    const history = book.priceHistory;
-
-    if (history.length === 0) {
-        chartCtx.fillStyle = '#94a3b8';
-        chartCtx.font = '13px Noto Sans KR';
-        chartCtx.textAlign = 'center';
-        chartCtx.fillText('엔진으로부터 실시간 호가 데이터를 수신 대기 중...', w / 2, h / 2);
-        return;
-    }
-
-    // Calc boundaries
-    let maxPrice = -Infinity;
-    let minPrice = Infinity;
-    history.forEach(p => {
-        if (p > maxPrice) maxPrice = p;
-        if (p < minPrice) minPrice = p;
-    });
-
-    const range = maxPrice - minPrice || 10;
-    const paddedMin = minPrice - (range * 0.15);
-    const paddedMax = maxPrice + (range * 0.15);
-    const rangeScale = paddedMax - paddedMin;
-
-    function getX(index) {
-        return (index / (maxHistoryPoints - 1)) * (w - 20) + 10;
-    }
-
-    function getY(val) {
-        return h - ((val - paddedMin) / rangeScale) * (h - 40) - 20;
-    }
-
-    // Grid lines
-    chartCtx.beginPath();
-    chartCtx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
-    chartCtx.lineWidth = 1;
-    for (let i = 1; i < 4; i++) {
-        const yGrid = (h / 4) * i;
-        chartCtx.moveTo(0, yGrid);
-        chartCtx.lineTo(w, yGrid);
-    }
-    chartCtx.stroke();
-
-    // 1. Chart area fill gradient
-    chartCtx.beginPath();
-    chartCtx.moveTo(getX(0), h);
-    history.forEach((pt, i) => {
-        chartCtx.lineTo(getX(i), getY(pt));
-    });
-    chartCtx.lineTo(getX(history.length - 1), h);
-    chartCtx.closePath();
-
-    const areaGrd = chartCtx.createLinearGradient(0, 0, 0, h);
-    areaGrd.addColorStop(0, 'rgba(0, 242, 254, 0.2)');
-    areaGrd.addColorStop(1, 'rgba(138, 43, 226, 0.0)');
-    chartCtx.fillStyle = areaGrd;
-    chartCtx.fill();
-
-    // 2. Stroke line
-    chartCtx.beginPath();
-    history.forEach((pt, i) => {
-        if (i === 0) chartCtx.moveTo(getX(i), getY(pt));
-        else chartCtx.lineTo(getX(i), getY(pt));
-    });
-    const lineGrd = chartCtx.createLinearGradient(0, 0, w, 0);
-    lineGrd.addColorStop(0, '#8a2be2');
-    lineGrd.addColorStop(1, '#00f2fe');
-    chartCtx.strokeStyle = lineGrd;
-    chartCtx.lineWidth = 2.5;
-    chartCtx.shadowColor = 'rgba(0, 242, 254, 0.4)';
-    chartCtx.shadowBlur = 8;
-    chartCtx.stroke();
-    chartCtx.shadowBlur = 0; // Reset
-
-    // 3. Last price blinking dot
-    const lastIdx = history.length - 1;
-    const lastPrice = history[lastIdx];
-    const px = getX(lastIdx);
-    const py = getY(lastPrice);
-
-    chartCtx.beginPath();
-    chartCtx.arc(px, py, 6, 0, 2 * Math.PI);
-    chartCtx.fillStyle = '#00f2fe';
-    chartCtx.fill();
-
-    chartCtx.beginPath();
-    chartCtx.arc(px, py, 12, 0, 2 * Math.PI);
-    chartCtx.strokeStyle = 'rgba(0, 242, 254, 0.4)';
-    chartCtx.lineWidth = 2;
-    chartCtx.stroke();
-
-    // 4. Floating Price Tag
-    chartCtx.fillStyle = '#fff';
-    chartCtx.font = 'bold 11px Fira Code';
-    chartCtx.textAlign = 'left';
-    const unit = state.currentSymbol === 'BTC-USD' ? '$' : '₩';
-    chartCtx.fillText(`${unit}${lastPrice.toFixed(2)}`, px - 75, py - 12);
-}
+// Kept for backward compatibility mapping
+export function drawPriceChart() {}

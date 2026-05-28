@@ -1,6 +1,7 @@
 // 🌌 초저지연(Low-Latency) 실시간 바이너리 웹소켓 게이트웨이 커넥터 모듈
 import { state, books, BTC_SYMBOL_ID, ADA_SYMBOL_ID, logEntry, alertBubble } from './state.js';
 import { updateOrderbookUI } from './orderbook.js';
+import { addPriceTick } from './chart.js';
 
 // 실시간 처리량(TPS) 측정을 위한 카운터 변수
 let msgCount = 0;
@@ -258,6 +259,7 @@ export function addTradeHistory(symbol, price, qty, side) {
     if (symbol === state.currentSymbol) {
         updateVolumePower(side, qty);
         state.lastTradePrice = price; // 최종 체결가 보정
+        addPriceTick(price / 100);    // 실시간 캔들 차트 업데이트!
     }
     const targetBook = books[symbol];
 
