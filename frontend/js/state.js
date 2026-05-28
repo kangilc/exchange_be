@@ -67,6 +67,7 @@ export const books = {
     'BTC-USD': {
         bids: new Map(), // 매수 대기 주문 맵
         asks: new Map(), // 매도 대기 주문 맵
+        basePrice: 65000, // 전일 대비 등락률 산출용 기준가 (65,000.00 달러)
         lastRenderedAsks: new Array(10).fill(null), // 이전 프레임의 매도 드로잉 상태 캐시
         lastRenderedBids: new Array(10).fill(null), // 이전 프레임의 매수 드로잉 상태 캐시
         priceHistory: [], // 차트 드로잉용 역사 가격 배열
@@ -75,6 +76,7 @@ export const books = {
     'ADA-KRW': {
         bids: new Map(),
         asks: new Map(),
+        basePrice: 500,  // 전일 대비 등락률 산출용 기준가 (500.00 원)
         lastRenderedAsks: new Array(10).fill(null),
         lastRenderedBids: new Array(10).fill(null),
         priceHistory: [],

@@ -278,6 +278,24 @@ export function updateOrderbookUI() {
             spreadGapEl.className = isPriceUp ? 'spread-change up' : 'spread-change down';
         }
 
+        // 24H 대비 등락률 실시간 산출 및 UI 렌더링
+        const changeEl = document.getElementById('change-24h');
+        if (changeEl && book.basePrice) {
+            const diff = midVal - book.basePrice;
+            const diffPercent = (diff / book.basePrice) * 100;
+            const sign = diff >= 0 ? '+' : '';
+            
+            changeEl.innerText = `전일 대비: ${sign}${diffPercent.toFixed(2)}% (${sign}${unit}${Math.abs(diff).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})`;
+            
+            if (diff > 0) {
+                changeEl.style.color = '#ef4444'; // 상승 시 레드(전통적 증권 컬러)
+            } else if (diff < 0) {
+                changeEl.style.color = '#3b82f6'; // 하락 시 블루
+            } else {
+                changeEl.style.color = '#94a3b8'; // 변동 없음 시 회색
+            }
+        }
+
         // Insert new chart tick
         addPriceTick(midVal);
 
@@ -286,6 +304,8 @@ export function updateOrderbookUI() {
     } else {
         if (midPriceEl) midPriceEl.innerText = '--';
         if (spreadGapEl) spreadGapEl.innerText = '--';
+        const changeEl = document.getElementById('change-24h');
+        if (changeEl) changeEl.innerText = '전일 대비: --';
     }
 
     state.priceFlashStates.clear();
