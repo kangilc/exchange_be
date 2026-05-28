@@ -259,7 +259,7 @@ services:
       dockerfile: admin-api/Dockerfile
     container_name: admin-api
     ports:
-      - "8081:8081" # 관리 시스템 REST API 포트
+      - "8181:8181" # 관리 시스템 REST API 포트
     depends_on:
       - postgres
     environment:

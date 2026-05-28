@@ -806,7 +806,7 @@
             <!-- Host endpoint configuration so WSL users can modify IPs on the fly -->
             <div class="host-config">
                 <label>API Host:</label>
-                <input type="text" id="apiHostInput" value="localhost:8081" placeholder="IP:PORT" onchange="initApiEndpoints()">
+                <input type="text" id="apiHostInput" value="localhost:8181" placeholder="IP:PORT" onchange="initApiEndpoints()">
             </div>
             <div class="status-badge">
                 <span class="status-dot"></span>
@@ -1320,7 +1320,7 @@
     <!-- ========================================== -->
     <script>
         // Core State
-        let API_BASE_URL = 'http://localhost:8081';
+        let API_BASE_URL = 'http://localhost:8181';
         let currentResolution = 'daily';
         let usersData = [];
         let walletsData = [];
@@ -1335,7 +1335,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             // Check current window host to auto-configure API path
             if (window.location.hostname && window.location.hostname !== 'localhost') {
-                document.getElementById('apiHostInput').value = `${window.location.hostname}:8081`;
+                document.getElementById('apiHostInput').value = `${window.location.hostname}:8181`;
             }
             initApiEndpoints();
             loadAllDashboardData();

@@ -79,7 +79,7 @@ export class SandboxWalletService extends WalletService {
 export class ProductionWalletService extends WalletService {
     constructor() {
         super();
-        this.apiHost = 'http://localhost:8081';
+        this.apiHost = 'http://localhost:8181';
         this.userId = 1; // Default seeded user in DB
     }
 
