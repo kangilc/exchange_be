@@ -60,3 +60,15 @@ Desktop.ini
 .env.test.local
 .env.production.local
 # .env  <- Commented out to permit tracking of local compose configs for now, customize as needed.
+
+# ==========================================
+# Node.js, NPM & React Environments
+# ==========================================
+node-env/
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.eslintcache
+.npm/
+
