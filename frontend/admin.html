@@ -11,6 +11,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Outfit:wght@300;400;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <!-- ApexCharts CDN for stunning data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- TradingView Lightweight Charts CDN -->
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
 
     <style>
         :root {
@@ -834,6 +836,9 @@
             <div class="nav-item" onclick="switchTab('ledger-tab')">
                 <span>💸</span> 입출금 통합 관리
             </div>
+            <div class="nav-item" onclick="switchTab('market-watch-tab')">
+                <span>🌌</span> 실시간 마켓 감시
+            </div>
         </div>
 
         <!-- Main Dashboard Window Workspace content -->
@@ -1146,6 +1151,108 @@
                 </div>
             </div>
 
+            <!-- ========================================== -->
+            <!-- TAB 6: REAL-TIME MARKET WATCH (실시간 마켓 감시) -->
+            <!-- ========================================== -->
+            <div id="market-watch-tab" class="tab-panel">
+                <div class="section-header">
+                    <div class="section-title">실시간 마켓 감시 모니터</div>
+                    <div class="chart-controls">
+                        <!-- 종목 선택기 -->
+                        <button class="btn-toggle active" id="btn-admin-symbol-btc" onclick="switchAdminSymbol('BTC-USD')">BTC-USD</button>
+                        <button class="btn-toggle" id="btn-admin-symbol-ada" onclick="switchAdminSymbol('ADA-KRW')">ADA-KRW</button>
+                        <span style="width: 15px;"></span>
+                        <!-- 해상도 선택기 -->
+                        <button class="btn-toggle active" id="btn-admin-res-1m" onclick="switchAdminResolution('1m')">1M</button>
+                        <button class="btn-toggle" id="btn-admin-res-5m" onclick="switchAdminResolution('5m')">5M</button>
+                        <button class="btn-toggle" id="btn-admin-res-15m" onclick="switchAdminResolution('15m')">15M</button>
+                        <button class="btn-toggle" id="btn-admin-res-1h" onclick="switchAdminResolution('1h')">1H</button>
+                    </div>
+                </div>
+
+                <div class="split-layout">
+                    <!-- 차트 영역 -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="panel-title" id="adminChartTitle">BTC-USD 실시간 시세 차트</div>
+                            <span class="status-badge" id="adminObStatus">
+                                <span class="status-dot"></span>
+                                <span id="adminObStatusText">WS CONNECTED</span>
+                            </span>
+                        </div>
+                        <div class="panel-body" style="padding: 0; background: #070b15; position: relative;">
+                            <!-- TradingView 차트 마운트 컨테이너 -->
+                            <div id="admin-tv-chart" style="width: 100%; height: 380px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 실시간 마켓 핵심 요약 카드 -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="panel-title">마켓 핵심 요약</div>
+                        </div>
+                        <div class="panel-body" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <div class="card" style="margin: 0; background: rgba(22, 32, 60, 0.35);">
+                                <div class="card-label">최종 체결 현재가</div>
+                                <div class="card-value" id="adminLastPrice" style="color: var(--color-secondary); font-size: 2rem;">-</div>
+                            </div>
+                            <div class="progress-box">
+                                <div class="progress-header">
+                                    <span>24H 누적 거래량</span>
+                                    <span id="adminTotalVolumeText">-</span>
+                                </div>
+                                <div class="progress-track">
+                                    <div class="progress-bar" style="width: 100%;"></div>
+                                </div>
+                            </div>
+                            <div style="font-size: 0.8rem; color: var(--color-text-secondary); display: flex; flex-direction: column; gap: 0.50rem;">
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 0.4rem;">
+                                    <span>전일 대비 등락폭</span>
+                                    <span id="adminChange24h" style="font-weight: bold;">-</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 0.4rem;">
+                                    <span>시스템 총 체결량</span>
+                                    <span id="adminTotalTradesCount" style="font-weight: bold; color: #fff;">-</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span>오더북 감시 상태</span>
+                                    <span style="font-weight: bold; color: #10b981;">정상 (10단 전체)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 실시간 체결 로그 모니터 -->
+                <div class="panel" style="margin-top: 1.5rem;">
+                    <div class="panel-header">
+                        <div class="panel-title">실시간 체결 로그 실황 (WebSocket Stream)</div>
+                    </div>
+                    <div class="panel-body" style="padding: 0;">
+                        <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style="padding-left: 2rem;">체결 ID</th>
+                                        <th>종목</th>
+                                        <th>구분</th>
+                                        <th style="text-align: right;">체결가</th>
+                                        <th style="text-align: right;">수량</th>
+                                        <th style="text-align: right;">총 대금</th>
+                                        <th style="text-align: right; padding-right: 2rem;">체결 시각</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminRealtimeTradesBody">
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; color: var(--color-text-secondary); padding: 3rem;">실시간 체결 이벤트를 대기 중입니다...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -1318,814 +1425,7 @@
     <!-- ========================================== -->
     <!-- JAVASCRIPT SYSTEM IMPLEMENTATION -->
     <!-- ========================================== -->
-    <script>
-        // Core State
-        let API_BASE_URL = 'http://localhost:8181';
-        let currentResolution = 'daily';
-        let usersData = [];
-        let walletsData = [];
-        let walletSummaryData = [];
-
-        // ApexCharts Instances
-        let tradeChart = null;
-        let userChart = null;
-        let flowChart = null;
-
-        // Initialize application configurations
-        window.addEventListener('DOMContentLoaded', () => {
-            // Check current window host to auto-configure API path
-            if (window.location.hostname && window.location.hostname !== 'localhost') {
-                document.getElementById('apiHostInput').value = `${window.location.hostname}:8181`;
-            }
-            initApiEndpoints();
-            loadAllDashboardData();
-        });
-
-        function initApiEndpoints() {
-            const hostVal = document.getElementById('apiHostInput').value.trim();
-            API_BASE_URL = `http://${hostVal}`;
-            console.log(`[Admin Systems] Configured REST API Endpoint to: ${API_BASE_URL}`);
-        }
-
-        // Switch Tabs inside Sidebar
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            
-            document.getElementById(tabId).classList.add('active');
-            
-            // Highlight nav item
-            let navs = document.querySelectorAll('.nav-item');
-            if (tabId === 'dashboard-tab') navs[0].classList.add('active');
-            else if (tabId === 'users-tab') navs[1].classList.add('active');
-            else if (tabId === 'wallets-tab') navs[2].classList.add('active');
-            else if (tabId === 'stats-tab') navs[3].classList.add('active');
-            else if (tabId === 'ledger-tab') navs[4].classList.add('active');
-
-            // Force refresh data of specific tabs
-            if (tabId === 'dashboard-tab') {
-                loadAllDashboardData();
-            } else if (tabId === 'users-tab') {
-                loadUsersData();
-            } else if (tabId === 'wallets-tab') {
-                loadWalletsData();
-            } else if (tabId === 'stats-tab') {
-                loadStatsData(currentResolution);
-            } else if (tabId === 'ledger-tab') {
-                loadLedgerData();
-            }
-        }
-
-        // Fetch overall stats for Home Dashboard
-        async function loadAllDashboardData() {
-            try {
-                // 1. High level Summary
-                const sumRes = await fetch(`${API_BASE_URL}/admin/stats/summary`);
-                if (sumRes.ok) {
-                    const sum = await sumRes.json();
-                    document.getElementById('dashTotalUsers').innerText = `${sum.totalUsers.toLocaleString()} 명`;
-                    document.getElementById('dashTotalTrades').innerText = `${sum.totalTrades.toLocaleString()} 건`;
-                    document.getElementById('dashTotalVolume').innerText = `${sum.totalVolume.toLocaleString('ko-KR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} USD`;
-                    document.getElementById('dashTotalWallets').innerText = `${sum.totalWallets.toLocaleString()} 개`;
-                }
-
-                // 2. Wallets Total Summary
-                const wallSumRes = await fetch(`${API_BASE_URL}/admin/wallets/summary`);
-                if (wallSumRes.ok) {
-                    walletSummaryData = await wallSumRes.json();
-                    renderHomeAssetSummary(walletSummaryData);
-                }
-
-                // 3. User lists
-                const usersRes = await fetch(`${API_BASE_URL}/admin/users`);
-                if (usersRes.ok) {
-                    usersData = await usersRes.json();
-                    renderHomeRecentUsers(usersData);
-                }
-            } catch (err) {
-                console.error("Dashboard home load failed", err);
-            }
-        }
-
-        function renderHomeAssetSummary(summary) {
-            const container = document.getElementById('dashAssetSummaryList');
-            container.innerHTML = '';
-            
-            if (!summary || summary.length === 0) {
-                container.innerHTML = '<div style="color: var(--color-text-secondary); text-align: center;">자산 내역이 없습니다.</div>';
-                return;
-            }
-
-            // Find maximum balance for relative scaling
-            const maxBalance = Math.max(...summary.map(s => s.totalBalance + s.totalLocked));
-
-            summary.forEach(s => {
-                const total = s.totalBalance + s.totalLocked;
-                const lockedPct = total > 0 ? (s.totalLocked / total) * 100 : 0;
-                const scaleWidth = maxBalance > 0 ? (total / maxBalance) * 100 : 0;
-                
-                let fmtTotal = total.toLocaleString(undefined, { maximumFractionDigits: 4 });
-                let fmtLocked = s.totalLocked.toLocaleString(undefined, { maximumFractionDigits: 4 });
-
-                const item = document.createElement('div');
-                item.className = 'progress-box';
-                item.innerHTML = `
-                    <div class="progress-header">
-                        <span style="font-weight: 700; color: #fff;">${s.currency} <span class="glowing-indicator" style="background: ${s.currency === 'KRW' ? '#c84a31' : '#0052c4'};"></span></span>
-                        <span>총합: ${fmtTotal} ${s.currency} <span style="color: var(--color-accent); font-size: 0.7rem; font-family: var(--font-mono);">(주문 락: ${fmtLocked} - ${lockedPct.toFixed(1)}%)</span></span>
-                    </div>
-                    <div class="progress-track">
-                        <div class="progress-bar" style="width: ${Math.max(scaleWidth, 4)}%; background: linear-gradient(90deg, ${s.currency === 'KRW' ? '#c84a31, #f59e0b' : '#0052c4, #00f2fe'});"></div>
-                    </div>
-                `;
-                container.appendChild(item);
-            });
-        }
-
-        function renderHomeRecentUsers(users) {
-            const tbody = document.getElementById('dashRecentUsersList');
-            tbody.innerHTML = '';
-
-            // Sort by ID descending to get recent
-            const sorted = [...users].sort((a, b) => b.userId - a.userId).slice(0, 5);
-
-            if (sorted.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--color-text-secondary);">회원이 없습니다.</td></tr>';
-                return;
-            }
-
-            sorted.forEach(u => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${u.email}</td>
-                    <td><span class="badge ${u.grade.toLowerCase()}">${u.grade}</span></td>
-                    <td><span class="badge ${u.status.toLowerCase()}">${u.status}</span></td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        // ==========================================
-        // USER MANAGEMENT SYSTEM (회원 관리)
-        // ==========================================
-        async function loadUsersData() {
-            try {
-                const res = await fetch(`${API_BASE_URL}/admin/users`);
-                if (res.ok) {
-                    usersData = await res.json();
-                    renderUsersTable(usersData);
-                }
-            } catch (err) {
-                console.error("Users list load failed", err);
-            }
-        }
-
-        function renderUsersTable(users) {
-            const tbody = document.getElementById('usersTableBody');
-            tbody.innerHTML = '';
-
-            if (users.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-text-secondary); padding: 2rem;">가입된 회원이 존재하지 않습니다.</td></tr>';
-                return;
-            }
-
-            users.forEach(u => {
-                const tr = document.createElement('tr');
-                const formattedDate = u.createdAt ? new Date(u.createdAt).toLocaleString() : '-';
-                
-                tr.innerHTML = `
-                    <td style="font-family: var(--font-mono); font-weight: 700; color: var(--color-secondary);">${u.userId}</td>
-                    <td style="font-weight: 600;">${u.email}</td>
-                    <td><span class="badge ${u.grade.toLowerCase()}">${u.grade}</span></td>
-                    <td><span class="badge ${u.status.toLowerCase()}">${u.status}</span></td>
-                    <td style="font-size: 0.8rem; color: var(--color-text-secondary);">${formattedDate}</td>
-                    <td style="text-align: right;">
-                        <div class="actions-list" style="justify-content: flex-end; padding-right: 1.5rem; gap: 0.5rem;">
-                            <button class="btn-action-small asset" onclick="openAdjustAssetModal(${u.userId}, '${u.email}')">💸 자산 관리</button>
-                            <button class="btn-action-small" style="background: rgba(147, 51, 234, 0.12); border-color: rgba(147, 51, 234, 0.35); color: #c084fc;" onclick="openUserTradesModal(${u.userId}, '${u.email}')">📈 거래 내역</button>
-                            <button class="btn-action-small" onclick="openEditUserModal(${u.userId}, '${u.email}', '${u.status}', '${u.grade}')">⚙️ 정보 수정</button>
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function filterUsersTable() {
-            const query = document.getElementById('userSearchInput').value.toLowerCase().trim();
-            const filtered = usersData.filter(u => u.email.toLowerCase().includes(query));
-            renderUsersTable(filtered);
-        }
-
-        // Register user modal controls
-        function openRegisterModal() { document.getElementById('registerModal').style.display = 'flex'; }
-        function closeRegisterModal() { document.getElementById('registerModal').style.display = 'none'; }
-        
-        async function submitRegisterUser() {
-            const email = document.getElementById('regEmail').value.trim();
-            const password = document.getElementById('regPassword').value;
-            const grade = document.getElementById('regGrade').value;
-
-            if (!email || !password) {
-                alert("이메일과 비밀번호를 모두 입력해 주세요.");
-                return;
-            }
-
-            try {
-                const res = await fetch(`${API_BASE_URL}/admin/users`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password, grade })
-                });
-
-                if (res.ok) {
-                    alert("회원 계정이 개설되었으며, 통화별(KRW, USD, BTC, ADA) 기본 지갑이 자동 세팅되었습니다.");
-                    closeRegisterModal();
-                    loadUsersData();
-                } else {
-                    alert("등록에 실패하였습니다. 중복된 계정명인지 확인해 주세요.");
-                }
-            } catch (err) {
-                alert("서버 연결 실패: " + err.message);
-            }
-        }
-
-        // Edit user modal controls
-        function openEditUserModal(userId, email, status, grade) {
-            document.getElementById('editUserId').value = userId;
-            document.getElementById('editEmail').value = email;
-            document.getElementById('editStatus').value = status;
-            document.getElementById('editGrade').value = grade;
-            document.getElementById('editUserModal').style.display = 'flex';
-        }
-        function closeEditUserModal() { document.getElementById('editUserModal').style.display = 'none'; }
-
-        async function submitEditUser() {
-            const id = document.getElementById('editUserId').value;
-            const email = document.getElementById('editEmail').value.trim();
-            const status = document.getElementById('editStatus').value;
-            const grade = document.getElementById('editGrade').value;
-
-            try {
-                const res = await fetch(`${API_BASE_URL}/admin/users/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, status, grade })
-                });
-
-                if (res.ok) {
-                    alert("회원 정보가 정상 수정되었습니다.");
-                    closeEditUserModal();
-                    loadUsersData();
-                } else {
-                    alert("수정에 실패하였습니다.");
-                }
-            } catch (err) {
-                alert("서버 연결 오류: " + err.message);
-            }
-        }
-
-        // Adjust Asset modal controls
-        function openAdjustAssetModal(userId, email) {
-            document.getElementById('adjustUserId').value = userId;
-            document.getElementById('adjustUserEmail').value = email;
-            document.getElementById('adjustAmount').value = '';
-            document.getElementById('adjustAssetModal').style.display = 'flex';
-            updateAdjustPlaceholder();
-            loadUserLedgerHistory(userId);
-        }
-        function closeAdjustAssetModal() { document.getElementById('adjustAssetModal').style.display = 'none'; }
-        
-        function updateAdjustPlaceholder() {
-            const type = document.getElementById('adjustType').value;
-            const input = document.getElementById('adjustAmount');
-            if (type === 'DEPOSIT') {
-                input.placeholder = "지급할 액수 입력 (예: 50000)";
-            } else {
-                input.placeholder = "차감할 액수 입력 (양수로 입력 - 예: 2000)";
-            }
-        }
-
-        async function submitAdjustAsset() {
-            const id = document.getElementById('adjustUserId').value;
-            const currency = document.getElementById('adjustCurrency').value;
-            const type = document.getElementById('adjustType').value;
-            const amountInput = document.getElementById('adjustAmount').value.trim();
-
-            if (!amountInput || isNaN(amountInput)) {
-                alert("올바른 금액 수치를 입력해 주세요.");
-                return;
-            }
-
-            let amount = parseFloat(amountInput);
-            if (amount <= 0) {
-                alert("금액은 0보다 커야 합니다.");
-                return;
-            }
-
-            // If it is WITHDRAWAL, we deduct by passing negative amount to backend
-            if (type === 'WITHDRAWAL') {
-                amount = -amount;
-            }
-
-            try {
-                const res = await fetch(`${API_BASE_URL}/admin/users/${id}/assets/adjust`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ currency, amount })
-                });
-
-                if (res.ok) {
-                    alert("자산 원장 및 거래 변동 감사로그(Ledger Journal)가 실시간 반영 완료되었습니다.");
-                    closeAdjustAssetModal();
-                    loadUsersData();
-                } else {
-                    const errMsg = await res.text();
-                    alert("원장 갱신 실패: " + errMsg);
-                }
-            } catch (err) {
-                alert("서버 연결 실패: " + err.message);
-            }
-        }
-
-
-        // ==========================================
-        // WALLET MANAGEMENT SYSTEM (지갑 원장 관리)
-        // ==========================================
-        async function loadWalletsData() {
-            try {
-                // 1. Wallets summary
-                const sumRes = await fetch(`${API_BASE_URL}/admin/wallets/summary`);
-                if (sumRes.ok) {
-                    const sum = await sumRes.json();
-                    renderWalletSummaryGrid(sum);
-                }
-
-                // 2. Individual wallets list
-                const wListRes = await fetch(`${API_BASE_URL}/admin/wallets`);
-                if (wListRes.ok) {
-                    const wallets = await wListRes.json();
-                    
-                    // Fetch user details for mapping email to wallets
-                    const uRes = await fetch(`${API_BASE_URL}/admin/users`);
-                    if (uRes.ok) {
-                        const users = await uRes.json();
-                        const userMap = new Map(users.map(u => [u.userId, u.email]));
-                        
-                        walletsData = wallets.map(w => ({
-                            ...w,
-                            email: userMap.get(w.userId) || 'Unknown Account'
-                        }));
-
-                        renderWalletsTable(walletsData);
-                    }
-                }
-            } catch (err) {
-                console.error("Wallets load failed", err);
-            }
-        }
-
-        function renderWalletSummaryGrid(summary) {
-            const grid = document.getElementById('walletSummaryGrid');
-            grid.innerHTML = '';
-
-            summary.forEach(s => {
-                const total = s.totalBalance + s.totalLocked;
-                
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.innerHTML = `
-                    <div class="card-glow-bg" style="background: radial-gradient(circle, ${s.currency === 'KRW' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(59, 130, 246, 0.08)'} 0%, transparent 70%);"></div>
-                    <div class="card-label">거래소 내 총 보유 ${s.currency}</div>
-                    <div class="card-value">${total.toLocaleString(undefined, {maximumFractionDigits: 6})}</div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--color-text-secondary); margin-top: 0.25rem;">
-                        <span>거래 가능: ${s.totalBalance.toLocaleString(undefined, {maximumFractionDigits: 6})}</span>
-                        <span style="color: var(--color-accent);">주문 대기: ${s.totalLocked.toLocaleString(undefined, {maximumFractionDigits: 6})}</span>
-                    </div>
-                `;
-                grid.appendChild(card);
-            });
-        }
-
-        function renderWalletsTable(wallets) {
-            const tbody = document.getElementById('walletsTableBody');
-            tbody.innerHTML = '';
-
-            if (wallets.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-text-secondary); padding: 2rem;">지갑 원장 데이터가 존재하지 않습니다.</td></tr>';
-                return;
-            }
-
-            wallets.forEach(w => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="font-family: var(--font-mono); color: var(--color-text-secondary);">${w.walletId}</td>
-                    <td style="font-family: var(--font-mono);">${w.userId}</td>
-                    <td style="font-weight: 600;">${w.email}</td>
-                    <td>
-                        <span style="font-weight: 700; color: #fff;">${w.currency}</span>
-                        <span class="glowing-indicator" style="background: ${w.currency === 'KRW' ? '#c84a31' : '#0052c4'};"></span>
-                    </td>
-                    <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${w.balance.toLocaleString(undefined, {maximumFractionDigits: 8})}</td>
-                    <td style="text-align: right; font-family: var(--font-mono); font-weight: 600; color: var(--color-accent); padding-right: 2rem;">${w.lockedBalance.toLocaleString(undefined, {maximumFractionDigits: 8})}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function filterWalletsTable() {
-            const query = document.getElementById('walletSearchInput').value.toLowerCase().trim();
-            const filtered = walletsData.filter(w => 
-                w.email.toLowerCase().includes(query) || 
-                w.currency.toLowerCase().includes(query) ||
-                w.userId.toString().includes(query)
-            );
-            renderWalletsTable(filtered);
-        }
-
-
-        // ==========================================
-        // STATISTICS FLOW ANALYSIS SYSTEM (현황 통계)
-        // ==========================================
-        async function loadStatsData(resolution) {
-            currentResolution = resolution;
-            
-            // Highlight current button
-            document.querySelectorAll('.btn-toggle').forEach(b => b.classList.remove('active'));
-            if (resolution === 'daily') document.getElementById('btnResolutionDaily').classList.add('active');
-            else if (resolution === 'weekly') document.getElementById('btnResolutionWeekly').classList.add('active');
-            else if (resolution === 'monthly') document.getElementById('btnResolutionMonthly').classList.add('active');
-            else if (resolution === 'quarterly') document.getElementById('btnResolutionQuarterly').classList.add('active');
-            else if (resolution === 'annual') document.getElementById('btnResolutionAnnual').classList.add('active');
-
-            try {
-                // 1. Trade stats
-                const tradeRes = await fetch(`${API_BASE_URL}/admin/stats/trades?resolution=${resolution}`);
-                let tradeData = [];
-                if (tradeRes.ok) {
-                    tradeData = await tradeRes.json();
-                }
-
-                // 2. User Stats
-                const userRes = await fetch(`${API_BASE_URL}/admin/stats/users?resolution=${resolution}`);
-                let userData = [];
-                if (userRes.ok) {
-                    userData = await userRes.json();
-                }
-
-                // 3. Asset flow stats
-                const flowRes = await fetch(`${API_BASE_URL}/admin/stats/assets?resolution=${resolution}`);
-                let flowData = [];
-                if (flowRes.ok) {
-                    flowData = await flowRes.json();
-                }
-
-                renderStatsCharts(tradeData, userData, flowData);
-            } catch (err) {
-                console.error("Stats fetch failed", err);
-            }
-        }
-
-        function renderStatsCharts(trades, users, flows) {
-            // Label updates
-            const totalTradeVolumeVal = trades.reduce((acc, t) => acc + t.totalVolume, 0);
-            document.getElementById('chartTradeLabel').innerText = `총합 체결액: ${totalTradeVolumeVal.toLocaleString('ko-KR', {maximumFractionDigits: 2})} USD`;
-
-            // Sort arrays chronological (ascending) for charts
-            const sortedTrades = [...trades].reverse();
-            const sortedUsers = [...users].reverse();
-            const sortedFlows = [...flows].reverse();
-
-            // ---------------------------------
-            // CHART 1: Trades & Volume Chart (Area Chart)
-            // ---------------------------------
-            const tradeOptions = {
-                series: [
-                    { name: '체결 거래 건수', type: 'column', data: sortedTrades.map(t => t.tradeCount) },
-                    { name: '거래 볼륨 (USD)', type: 'area', data: sortedTrades.map(t => t.totalVolume) }
-                ],
-                chart: {
-                    height: 350,
-                    type: 'line',
-                    toolbar: { show: false },
-                    background: 'transparent'
-                },
-                stroke: { width: [0, 3], curve: 'smooth' },
-                theme: { mode: 'dark' },
-                colors: ['#8a2be2', '#00f2fe'],
-                fill: {
-                    type: ['solid', 'gradient'],
-                    gradient: {
-                        shadeIntensity: 1,
-                        opacityFrom: 0.45,
-                        opacityTo: 0.05,
-                        stops: [0, 90, 100]
-                    }
-                },
-                labels: sortedTrades.map(t => t.bucket.substring(0, 16)),
-                xaxis: { type: 'category' },
-                yaxis: [
-                    { title: { text: '체결 건수' } },
-                    { opposite: true, title: { text: '거래 금액 (USD)' } }
-                ],
-                grid: { borderColor: 'rgba(255,255,255,0.05)' }
-            };
-
-            if (tradeChart) tradeChart.destroy();
-            tradeChart = new ApexCharts(document.querySelector("#tradeStatsChart"), tradeOptions);
-            tradeChart.render();
-
-            // ---------------------------------
-            // CHART 2: User Registrations (Bar Chart)
-            // ---------------------------------
-            const userOptions = {
-                series: [{ name: '신규 가입자 수', data: sortedUsers.map(u => u.userCount) }],
-                chart: {
-                    height: 250,
-                    type: 'bar',
-                    toolbar: { show: false },
-                    background: 'transparent'
-                },
-                plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
-                colors: ['#ff007f'],
-                theme: { mode: 'dark' },
-                labels: sortedUsers.map(u => u.bucket.substring(0, 10)),
-                xaxis: { type: 'category' },
-                grid: { borderColor: 'rgba(255,255,255,0.03)' }
-            };
-
-            if (userChart) userChart.destroy();
-            userChart = new ApexCharts(document.querySelector("#userStatsChart"), userOptions);
-            userChart.render();
-
-            // ---------------------------------
-            // CHART 3: Inflow/Outflow Flows (Donut or stacked bar)
-            // ---------------------------------
-            // Process flows data by type (DEPOSIT vs WITHDRAWAL)
-            let depositVol = 0;
-            let withdrawalVol = 0;
-            
-            flows.forEach(f => {
-                if (f.type === 'DEPOSIT') depositVol += Math.abs(f.totalAmount);
-                else if (f.type === 'WITHDRAWAL') withdrawalVol += Math.abs(f.totalAmount);
-            });
-
-            const flowOptions = {
-                series: [depositVol, withdrawalVol],
-                chart: {
-                    height: 250,
-                    type: 'donut',
-                    background: 'transparent'
-                },
-                labels: ['총 입금 흐름 (Deposit)', '총 출금 흐름 (Withdrawal)'],
-                colors: ['#10b981', '#ef4444'],
-                theme: { mode: 'dark' },
-                stroke: { show: false },
-                plotOptions: {
-                    pie: {
-                        donut: {
-                            labels: {
-                                show: true,
-                                total: {
-                                    show: true,
-                                    label: '합산 자산 이동',
-                                    formatter: function (w) {
-                                        return (depositVol + withdrawalVol).toLocaleString(undefined, {maximumFractionDigits: 2});
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            };
-
-            if (flowChart) flowChart.destroy();
-            flowChart = new ApexCharts(document.querySelector("#assetFlowChart"), flowOptions);
-            flowChart.render();
-        }
-
-        function changeResolution(res) {
-            loadStatsData(res);
-        }
-
-        // ==========================================
-        // ADDED FEATURES: USER TRADES, PERSONAL LEDGER, EXCHANGE-WIDE LEDGER (WITH PERFORMANCE TUNING PAGING)
-        // ==========================================
-        async function loadUserLedgerHistory(userId) {
-            const tbody = document.getElementById('userLedgerHistoryBody');
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1rem; color: var(--color-text-secondary);">로딩 중...</td></tr>';
-            try {
-                // Fetch first page of 50 items for user specific logs (usually more than enough for single user UI)
-                const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/ledgers?page=0&size=50`);
-                if (res.ok) {
-                    const data = await res.json();
-                    const ledgers = data.content || [];
-                    tbody.innerHTML = '';
-                    if (ledgers.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1rem; color: var(--color-text-secondary);">입출금 이력이 존재하지 않습니다.</td></tr>';
-                        return;
-                    }
-                    ledgers.forEach(l => {
-                        const tr = document.createElement('tr');
-                        tr.style.borderBottom = '1px solid rgba(255, 255, 255, 0.05)';
-                        const formattedDate = new Date(l.createdAt).toLocaleString();
-                        const badgeClass = l.type === 'DEPOSIT' ? 'active' : 'suspended';
-                        tr.innerHTML = `
-                            <td style="padding: 0.5rem; color: var(--color-text-secondary); font-size: 0.75rem;">${formattedDate}</td>
-                            <td style="padding: 0.5rem;"><span class="badge ${badgeClass}" style="font-size: 0.7rem; padding: 0.1rem 0.3rem;">${l.type}</span></td>
-                            <td style="padding: 0.5rem; font-weight: bold;">${l.currency}</td>
-                            <td style="padding: 0.5rem; text-align: right; font-weight: bold; color: ${l.amount >= 0 ? '#10b981' : '#ef4444'}">${parseFloat(l.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}</td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-                }
-            } catch (err) {
-                console.error("Failed to load user ledger history", err);
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1rem; color: #ef4444;">이력을 불러오지 못했습니다.</td></tr>';
-            }
-        }
-
-        function openUserTradesModal(userId, email) {
-            document.getElementById('userTradesModalTitle').innerText = `[${email}] 회원 실시간 거래 체결 내역`;
-            document.getElementById('userTradesModal').style.display = 'flex';
-            loadUserTrades(userId);
-        }
-
-        function closeUserTradesModal() {
-            document.getElementById('userTradesModal').style.display = 'none';
-        }
-
-        async function loadUserTrades(userId) {
-            const tbody = document.getElementById('userTradesTableBody');
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">체결 원장을 조회하는 중...</td></tr>';
-            try {
-                // Fetch first page of 50 items for user specific trade list
-                const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/trades?page=0&size=50`);
-                if (res.ok) {
-                    const data = await res.json();
-                    const trades = data.content || [];
-                    tbody.innerHTML = '';
-                    if (trades.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">체결된 거래 내역이 존재하지 않습니다.</td></tr>';
-                        return;
-                    }
-                    trades.forEach(t => {
-                        const tr = document.createElement('tr');
-                        tr.style.borderBottom = '1px solid rgba(255, 255, 255, 0.05)';
-                        const formattedDate = new Date(t.executedAt).toLocaleString();
-                        const isBuy = t.side === 'BUY';
-                        const badgeClass = isBuy ? 'buy' : 'sell';
-                        const sideLabel = isBuy ? '매수 (BUY)' : '매도 (SELL)';
-                        
-                        const displayPrice = t.symbol.includes("BTC") ? (t.price / 100.0) : t.price;
-                        const displayVolume = t.qty * (displayPrice);
-                        
-                        tr.innerHTML = `
-                            <td style="padding: 0.75rem; font-family: var(--font-mono); font-weight: bold; color: var(--color-secondary);">${t.tradeId}</td>
-                            <td style="padding: 0.75rem; font-weight: bold; color: #fff;">${t.symbol}</td>
-                            <td style="padding: 0.75rem;"><span class="badge ${badgeClass}" style="padding: 0.15rem 0.4rem; font-size: 0.75rem;">${sideLabel}</span></td>
-                            <td style="padding: 0.75rem; text-align: right; font-weight: bold; color: ${isBuy ? '#34d399' : '#f87171'}">${parseFloat(displayPrice).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</td>
-                            <td style="padding: 0.75rem; text-align: right; font-weight: bold;">${parseFloat(t.qty).toLocaleString()}</td>
-                            <td style="padding: 0.75rem; text-align: right; font-weight: bold; color: var(--color-secondary);">${parseFloat(displayVolume).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                            <td style="padding: 0.75rem; padding-right: 1.5rem; text-align: right; font-size: 0.75rem; color: var(--color-text-secondary);">${formattedDate}</td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-                }
-            } catch (err) {
-                console.error("Failed to load user trades", err);
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #ef4444;">체결 내역을 조회하는 과정에서 에러가 발생했습니다.</td></tr>';
-            }
-        }
-
-        let currentLedgerPage = 0;
-        let ledgerPageSize = 50;
-        let ledgerTotalPages = 1;
-        let exchangeLedgerData = [];
-
-        async function loadLedgerData() {
-            const tbody = document.getElementById('exchangeLedgerTableBody');
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-secondary); padding: 3rem;">감사 원장을 불러오는 중...</td></tr>';
-            
-            const query = document.getElementById('exchangeLedgerSearchInput').value.trim();
-            const searchParam = query ? `&search=${encodeURIComponent(query)}` : '';
-            
-            try {
-                const res = await fetch(`${API_BASE_URL}/admin/ledgers?page=${currentLedgerPage}&size=${ledgerPageSize}${searchParam}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    ledgerTotalPages = data.totalPages;
-                    
-                    // Update paging controls text
-                    document.getElementById('ledgerPagingInfo').innerText = `Page ${currentLedgerPage + 1} of ${data.totalPages || 1} (Total ${data.totalElements} items)`;
-                    
-                    // Disable/enable prev/next buttons
-                    document.getElementById('btnPrevLedger').disabled = currentLedgerPage <= 0;
-                    document.getElementById('btnNextLedger').disabled = currentLedgerPage >= (ledgerTotalPages - 1);
-                    
-                    renderExchangeLedgerTable(data.content);
-                }
-            } catch (err) {
-                console.error("Failed to load exchange ledgers", err);
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #ef4444; padding: 3rem;">원장 데이터를 조회하는 중 오류가 발생했습니다.</td></tr>';
-            }
-        }
-
-        function prevLedgerPage() {
-            if (currentLedgerPage > 0) {
-                currentLedgerPage--;
-                loadLedgerData();
-            }
-        }
-
-        function nextLedgerPage() {
-            if (currentLedgerPage < (ledgerTotalPages - 1)) {
-                currentLedgerPage++;
-                loadLedgerData();
-            }
-        }
-
-        function renderExchangeLedgerTable(ledgers) {
-            const tbody = document.getElementById('exchangeLedgerTableBody');
-            tbody.innerHTML = '';
-            if (!ledgers || ledgers.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-text-secondary); padding: 3rem;">입출금 감사 이력이 존재하지 않습니다.</td></tr>';
-                return;
-            }
-            ledgers.forEach(l => {
-                const tr = document.createElement('tr');
-                tr.style.borderBottom = '1px solid rgba(255, 255, 255, 0.05)';
-                const formattedDate = new Date(l.createdAt).toLocaleString();
-                const isDeposit = l.type === 'DEPOSIT';
-                const badgeClass = isDeposit ? 'active' : 'suspended';
-                
-                tr.innerHTML = `
-                    <td style="font-family: var(--font-mono); font-weight: bold; color: var(--color-text-secondary);">${l.journalId}</td>
-                    <td style="font-family: var(--font-mono); font-weight: bold; color: var(--color-secondary);">${l.userId}</td>
-                    <td style="font-weight: 600;">${l.email}</td>
-                    <td style="font-weight: bold; color: #fff;">${l.currency}</td>
-                    <td><span class="badge ${badgeClass}" style="padding: 0.15rem 0.4rem; font-size: 0.75rem;">${l.type}</span></td>
-                    <td style="text-align: right; font-weight: bold; color: ${isDeposit ? '#10b981' : '#ef4444'}">${parseFloat(l.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 8})}</td>
-                    <td style="text-align: right; padding-right: 2rem; font-size: 0.8rem; color: var(--color-text-secondary);">${formattedDate}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function filterExchangeLedgerTable() {
-            // Server side filtering
-            currentLedgerPage = 0;
-            loadLedgerData();
-        }
-
-        async function submitExchangeLedgerTransfer() {
-            const userId = document.getElementById('ledgerUserIdInput').value.trim();
-            const currency = document.getElementById('ledgerCurrencySelect').value;
-            const type = document.getElementById('ledgerTypeSelect').value;
-            const amountInput = document.getElementById('ledgerAmountInput').value.trim();
-
-            if (!userId || isNaN(userId)) {
-                alert("올바른 회원 UID를 입력해 주세요.");
-                return;
-            }
-            if (!amountInput || isNaN(amountInput)) {
-                alert("올바른 이체 금액 수치를 입력해 주세요.");
-                return;
-            }
-
-            let amount = parseFloat(amountInput);
-            if (amount <= 0) {
-                alert("이체 수량은 0보다 커야 합니다.");
-                return;
-            }
-
-            if (type === 'WITHDRAWAL') {
-                amount = -amount;
-            }
-
-            try {
-                const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/assets/adjust`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ currency, amount })
-                });
-
-                if (res.ok) {
-                    alert(`UID [${userId}] 회원에게 ${currency} ${type} 처리가 성공적으로 실행 완료되었습니다.`);
-                    document.getElementById('ledgerUserIdInput').value = '';
-                    document.getElementById('ledgerAmountInput').value = '';
-                    currentLedgerPage = 0; // Go to first page
-                    loadLedgerData();
-                } else {
-                    const errMsg = await res.text();
-                    alert(`실패: ${errMsg}`);
-                }
-            } catch (err) {
-                console.error("Ledger transfer failed", err);
-                alert("서버 연결에 실패했습니다.");
-            }
-        }
-    </script>
+    <script type="module" src="js/admin.js"></script>
 </body>
 
 </html>
