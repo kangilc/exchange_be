@@ -3,6 +3,8 @@ package exchange.engine.core;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
+import exchange.engine.book.OrderBook;
+import exchange.engine.domain.Order;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -36,7 +38,7 @@ public final class MetricsServer {
         currentTps.set(tps);
     }
 
-    public void start() {
+    public void start(MatchingEngine engine) {
         boolean enabled = Boolean.parseBoolean(ConfigLoader.get("METRICS_ENABLED", "false"));
         if (!enabled) {
             System.out.println("Metrics server is disabled (METRICS_ENABLED=false). Skipping HTTP server creation.");
@@ -47,9 +49,10 @@ public final class MetricsServer {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
             server.createContext("/metrics", new MetricsHandler());
+            server.createContext("/snapshot", new SnapshotHandler(engine));
             server.setExecutor(null); // default executor
             server.start();
-            System.out.println("Lightweight HTTP Metrics Server started on port " + port);
+            System.out.println("Lightweight HTTP Metrics & Snapshot Server started on port " + port);
 
             // Start background TPS tracker thread
             Thread tpsUpdater = new Thread(() -> {
@@ -102,6 +105,81 @@ public final class MetricsServer {
 
             byte[] response = sb.toString().getBytes("UTF-8");
             exchange.getResponseHeaders().set("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+            exchange.sendResponseHeaders(200, response.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(response);
+            }
+        }
+    }
+
+    private class SnapshotHandler implements HttpHandler {
+        private final MatchingEngine engine;
+
+        public SnapshotHandler(MatchingEngine engine) {
+            this.engine = engine;
+        }
+
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            // Enable CORS for frontend clients
+            exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, OPTIONS");
+            exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
+
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            OrderBook book = engine.getOrderBook();
+            long seq = engine.getSeq();
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("{");
+            sb.append("\"symbol\":\"").append(ConfigLoader.get("SYMBOL", "BTC-USD")).append("\",");
+            sb.append("\"seq\":").append(seq).append(",");
+            
+            // Serialize aggregated bids
+            sb.append("\"bids\":[");
+            boolean firstBid = true;
+            synchronized (book.bids) {
+                for (var entry : book.bids.entrySet()) {
+                    long price = entry.getKey();
+                    long qtySum = 0;
+                    for (var order : entry.getValue()) {
+                        qtySum += order.qty;
+                    }
+                    if (qtySum > 0) {
+                        if (!firstBid) sb.append(",");
+                        sb.append("[").append(price).append(",").append(qtySum).append("]");
+                        firstBid = false;
+                    }
+                }
+            }
+            sb.append("],");
+
+            // Serialize aggregated asks
+            sb.append("\"asks\":[");
+            boolean firstAsk = true;
+            synchronized (book.asks) {
+                for (var entry : book.asks.entrySet()) {
+                    long price = entry.getKey();
+                    long qtySum = 0;
+                    for (var order : entry.getValue()) {
+                        qtySum += order.qty;
+                    }
+                    if (qtySum > 0) {
+                        if (!firstAsk) sb.append(",");
+                        sb.append("[").append(price).append(",").append(qtySum).append("]");
+                        firstAsk = false;
+                    }
+                }
+            }
+            sb.append("]");
+            sb.append("}");
+
+            byte[] response = sb.toString().getBytes("UTF-8");
+            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
             exchange.sendResponseHeaders(200, response.length);
             try (OutputStream os = exchange.getResponseBody()) {
                 os.write(response);

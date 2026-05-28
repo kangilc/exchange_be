@@ -43,7 +43,7 @@ export function initGateway() {
  */
 export function connect() {
     const host = window.location.hostname || 'localhost';
-    const wsUrl = `ws://${host}:8080/ws`; // Netty 웹소켓 서버 접속 주소
+    const wsUrl = `ws://${host}:8088/ws`; // Netty 웹소켓 서버 접속 주소
 
     logEntry('system', `웹소켓 게이트웨이에 연결 중: ${wsUrl}`);
     state.ws = new WebSocket(wsUrl);
@@ -69,6 +69,10 @@ export function connect() {
 
         logEntry('system', '연결 성공! 실시간 바이너리 멀티 심볼 스트림 구독 시작.');
         state.backoffDelay = 1000; // 재연결 지연 초기화
+
+        // 웹소켓 연결 성공 즉시 최신 오더북 Full Snapshot 강제 동기화 수행
+        fetchSnapshot('BTC-USD');
+        fetchSnapshot('ADA-KRW');
 
         // 2초 간격으로 서버에 PING을 발송하여 종단간 RTT(네트워크 지연) 계측 시작
         if (state.pingIntervalId) clearInterval(state.pingIntervalId);
@@ -321,4 +325,47 @@ export function renderTradeHistoryUI() {
         `;
         tbody.appendChild(row); // 순차적 누적 삽입
     });
+}
+
+/**
+ * REST API를 사용하여 특정 심볼의 Full Orderbook Snapshot을 동기적으로 가져와 로컬 장부를 초기화함
+ */
+export async function fetchSnapshot(symbol) {
+    const host = window.location.hostname || 'localhost';
+    const port = symbol === 'BTC-USD' ? 9100 : 9101;
+    const url = `http://${host}:${port}/snapshot`;
+
+    logEntry('system', `${symbol} Full Snapshot 동기화 시작...`);
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        const targetBook = books[symbol];
+        if (targetBook) {
+            targetBook.bids.clear();
+            targetBook.asks.clear();
+
+            if (data.bids) {
+                for (const [price, qty] of data.bids) {
+                    targetBook.bids.set(price, qty);
+                }
+            }
+            if (data.asks) {
+                for (const [price, qty] of data.asks) {
+                    targetBook.asks.set(price, qty);
+                }
+            }
+
+            logEntry('system', `${symbol} Full Snapshot 동기화 완료 (Seq: ${data.seq}, 매수: ${data.bids ? data.bids.length : 0}건, 매도: ${data.asks ? data.asks.length : 0}건)`);
+            
+            if (symbol === state.currentSymbol) {
+                state.needsRender = true;
+            }
+        }
+    } catch (error) {
+        logEntry('warning', `${symbol} Snapshot 동기화 실패: ${error.message}`);
+    }
 }

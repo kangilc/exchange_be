@@ -25,7 +25,6 @@ public final class EngineRunner {
     private static final BlockingQueue<Command> commandQueue = new ArrayBlockingQueue<>(1_000_000);
 
     public static void main(String[] args) {
-        MetricsServer.getInstance().start();
         String symbol = ConfigLoader.get("SYMBOL", "BTC-USD");
 
         System.out.println("Starting Matching Engine for symbol: " + symbol);
@@ -57,6 +56,9 @@ public final class EngineRunner {
         MatchingEngine engine = new MatchingEngine(symbol, commandQueue, TCPBroadcasterOutbox);
         Thread engineThread = new Thread(engine, "engine-" + symbol);
         engineThread.start();
+
+        // Start Metrics / Snapshot server with the engine reference
+        MetricsServer.getInstance().start(engine);
 
         // 3. Start Event Broadcast Server
         startEventServer();

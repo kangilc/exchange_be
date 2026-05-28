@@ -67,6 +67,11 @@ public final class OrderGenerator {
                         
                         long priceOffset = (rand.nextInt(30) - 15) * 100; // 🌟 1.0 단위 갭으로 넓게 실시간 주문 분포 형성 (-15 to +14원/달러)
                         long price = referencePrice + priceOffset;
+                        long minPrice = symbol.equalsIgnoreCase("BTC-USD") ? 1000000L : 1000L;
+                        if (price < minPrice) {
+                            price = minPrice;
+                        }
+                        
                         long qty = rand.nextInt(15) + 1; // 1 to 15
                         long userId = rand.nextInt(1000) + 1; // 1000명 회원 중 랜덤 ID (1~1000)
 
@@ -80,6 +85,9 @@ public final class OrderGenerator {
 
                         if (rand.nextInt(100) < 5) {
                             referencePrice += (rand.nextInt(6) - 3) * 100; // referencePrice도 1.0 단위로 변동
+                            if (referencePrice < minPrice) {
+                                referencePrice = minPrice;
+                            }
                         }
 
                         // Places orders at a high throughput rate
