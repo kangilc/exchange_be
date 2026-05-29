@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
 import type { UTCTimestamp } from 'lightweight-charts';
 import { useExchangeStore } from '../store/useExchangeStore';
 
@@ -81,7 +81,7 @@ export const TradingViewChart: React.FC = () => {
         chartRef.current = chart;
 
         // 시리즈 설정
-        const candlestickSeries = chart.addCandlestickSeries({
+        const candlestickSeries = chart.addSeries(CandlestickSeries, {
             upColor: '#22c55e',
             downColor: '#ef4444',
             borderDownColor: '#ef4444',
@@ -91,7 +91,7 @@ export const TradingViewChart: React.FC = () => {
         });
         candlestickSeriesRef.current = candlestickSeries;
 
-        const volumeSeries = chart.addHistogramSeries({
+        const volumeSeries = chart.addSeries(HistogramSeries, {
             color: 'rgba(138, 43, 226, 0.25)',
             priceFormat: { type: 'volume' },
             priceScaleId: '',
@@ -101,14 +101,14 @@ export const TradingViewChart: React.FC = () => {
         });
         volumeSeriesRef.current = volumeSeries;
 
-        const ma7Series = chart.addLineSeries({
+        const ma7Series = chart.addSeries(LineSeries, {
             color: '#f59e0b',
             lineWidth: 1.5,
             title: 'MA7',
         });
         ma7SeriesRef.current = ma7Series;
 
-        const ma25Series = chart.addLineSeries({
+        const ma25Series = chart.addSeries(LineSeries, {
             color: '#ec4899',
             lineWidth: 1.5,
             title: 'MA25',

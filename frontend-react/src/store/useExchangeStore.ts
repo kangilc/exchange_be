@@ -62,6 +62,10 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
     const connectWebSocket = (wsUrl: string) => {
         if (ws) {
+            // 이전 소켓의 이벤트 핸들러를 제거하여 중복 재연결 타이머 유발 방지
+            ws.onopen = null;
+            ws.onclose = null;
+            ws.onmessage = null;
             ws.close();
         }
 
@@ -117,7 +121,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
     return {
         apiBaseUrl: 'http://localhost:8181',
-        wsUrl: 'ws://localhost:8088',
+        wsUrl: 'ws://localhost:8088/ws',
         activeSymbol: 'BTC-USD',
         activeResolution: '1m',
         wsConnected: false,
@@ -136,7 +140,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     if (config.API_BASE_URL) {
                         const base = config.API_BASE_URL;
                         const host = base.replace(/^https?:\/\//, '').split(':')[0];
-                        const wsUrl = `ws://${host}:8088`;
+                        const wsUrl = `ws://${host}:8088/ws`;
                         
                         set({ apiBaseUrl: base, wsUrl });
                         console.log(`[환경 구성] config.json 로드 성공. API: ${base}, WS: ${wsUrl}`);
