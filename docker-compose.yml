@@ -275,3 +275,18 @@ services:
     volumes:
       - ./audit/reports:/audit # 호스트의 audit/reports 경로를 마운트
     command: ["sh", "-c", "tail -f /dev/null"] # 컨테이너가 죽지 않고 무한 대기하도록 설정
+
+  # frontend-react: React 18 + TS + Vite 기반의 고성능 실시간 관제 어드민 터미널 컨테이너
+  frontend-react:
+    build:
+      context: ./frontend-react
+      dockerfile: Dockerfile
+    container_name: frontend-react
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend-react:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    restart: on-failure
