@@ -14,6 +14,46 @@ interface StopLimitOrder {
     status: string;
 }
 
+// ⚡ 실시간 잔량 증감에 따른 네온 깜빡임 이펙트(Neon Flash)를 감지하는 호가별 Row 컴포넌트
+const OrderBookRow: React.FC<{
+    price: number;
+    qty: number;
+    side: 'ask' | 'bid';
+    barWidth: number;
+    cumVal: number;
+}> = ({ price, qty, side, barWidth, cumVal }) => {
+    const prevQty = useRef<number>(qty);
+    const [flashClass, setFlashClass] = useState<string>('');
+
+    useEffect(() => {
+        if (qty !== prevQty.current) {
+            const isInc = qty > prevQty.current;
+            const newClass = isInc 
+                ? (side === 'ask' ? 'flash-ask-inc' : 'flash-bid-inc')
+                : 'flash-dec';
+            
+            setFlashClass(newClass);
+            
+            // 450ms 경과 후 플래시 CSS 클래스 자동 초기화
+            const timer = setTimeout(() => {
+                setFlashClass('');
+            }, 450);
+            
+            prevQty.current = qty;
+            return () => clearTimeout(timer);
+        }
+    }, [qty, side]);
+
+    return (
+        <div className={`grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150 ${flashClass}`}>
+            <div className={`absolute right-0 top-0 bottom-0 transition-all duration-300 pointer-events-none ${side === 'ask' ? 'bg-rose-500/8' : 'bg-emerald-500/8'}`} style={{ width: `${barWidth}%` }} />
+            <span className={`relative z-10 font-bold ${side === 'ask' ? 'text-rose-400' : 'text-emerald-400'}`}>{(price / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            <span className="text-slate-300 relative z-10 text-right font-semibold">{qty.toLocaleString()}</span>
+            <span className="text-slate-500 relative z-10 text-right font-medium">{cumVal.toLocaleString()}</span>
+        </div>
+    );
+};
+
 export const TradingTerminal: React.FC = () => {
     const {
         activeSymbol,
@@ -94,7 +134,8 @@ export const TradingTerminal: React.FC = () => {
     // 2. REST API 기반 풀 오더북 스냅샷 연동 (BTC: 9100, ADA: 9101)
     const fetchFullSnapshot = async (symbol: string) => {
         const port = symbol === 'BTC-USD' ? 9100 : 9101;
-        const host = window.location.hostname || 'localhost';
+        const rawHost = window.location.hostname || '127.0.0.1';
+        const host = rawHost === 'localhost' ? '127.0.0.1' : rawHost;
         const url = `http://${host}:${port}/snapshot`;
 
         appendLog('system', `${symbol} 풀 오더북 스냅샷 동기화 시작...`);
@@ -148,7 +189,8 @@ export const TradingTerminal: React.FC = () => {
 
     // 3. 바이너리 실시간 오더북/체결 스트리밍 게이트웨이 기동
     useEffect(() => {
-        const host = window.location.hostname || 'localhost';
+        const rawHost = window.location.hostname || '127.0.0.1';
+        const host = rawHost === 'localhost' ? '127.0.0.1' : rawHost;
         const wsUrl = `ws://${host}:8088/ws`;
 
         appendLog('system', `초저지연 바이너리 웹소켓 연결 중: ${wsUrl}`);
@@ -508,7 +550,7 @@ export const TradingTerminal: React.FC = () => {
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
                 
                 {/* 1. Real-time Orderbook Ladder (좌측 1열) */}
-                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl flex flex-col overflow-hidden h-[730px]">
+                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl flex flex-col overflow-hidden h-[830px]">
                     <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/2">
                         <span className="text-sm font-extrabold text-white flex items-center gap-2">
                             <Layers size={14} className="text-[#8a2be2]" />
@@ -541,12 +583,14 @@ export const TradingTerminal: React.FC = () => {
                                     const cumVal = cumList[idx];
                                     const barWidth = Math.min((qty / maxCum) * 350, 100); // Proportional visual fill
                                     return (
-                                        <div key={idx} className="grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150">
-                                            <div className="absolute right-0 top-0 bottom-0 bg-rose-500/8 transition-all duration-300 pointer-events-none" style={{ width: `${barWidth}%` }} />
-                                            <span className="text-rose-400 relative z-10 font-bold">{(price / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                            <span className="text-slate-300 relative z-10 text-right font-semibold">{qty.toLocaleString()}</span>
-                                            <span className="text-slate-500 relative z-10 text-right font-medium">{cumVal.toLocaleString()}</span>
-                                        </div>
+                                        <OrderBookRow
+                                            key={idx}
+                                            price={price}
+                                            qty={qty}
+                                            side="ask"
+                                            barWidth={barWidth}
+                                            cumVal={cumVal}
+                                        />
                                     );
                                 });
                             })()}
@@ -576,12 +620,14 @@ export const TradingTerminal: React.FC = () => {
                                     const cumVal = cumList[idx];
                                     const barWidth = Math.min((qty / maxCum) * 350, 100);
                                     return (
-                                        <div key={idx} className="grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150">
-                                            <div className="absolute right-0 top-0 bottom-0 bg-emerald-500/8 transition-all duration-300 pointer-events-none" style={{ width: `${barWidth}%` }} />
-                                            <span className="text-emerald-400 relative z-10 font-bold">{(price / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                            <span className="text-slate-300 relative z-10 text-right font-semibold">{qty.toLocaleString()}</span>
-                                            <span className="text-slate-500 relative z-10 text-right font-medium">{cumVal.toLocaleString()}</span>
-                                        </div>
+                                        <OrderBookRow
+                                            key={idx}
+                                            price={price}
+                                            qty={qty}
+                                            side="bid"
+                                            barWidth={barWidth}
+                                            cumVal={cumVal}
+                                        />
                                     );
                                 });
                             })()}
@@ -590,7 +636,7 @@ export const TradingTerminal: React.FC = () => {
                 </div>
 
                 {/* 2. Middle Panel: Chart + Order Input (중앙 2~3열) */}
-                <div className="xl:col-span-2 flex flex-col gap-6 h-[730px]">
+                <div className="xl:col-span-2 flex flex-col gap-6 h-[830px]">
                     {/* Chart Window */}
                     <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-4 flex flex-col gap-3 flex-1 overflow-hidden relative">
                         <div className="flex items-center justify-between border-b border-white/5 pb-2">
@@ -745,7 +791,7 @@ export const TradingTerminal: React.FC = () => {
                 </div>
 
                 {/* 3. smart Portfolio & Real-time Trades List (우측 4열) */}
-                <div className="flex flex-col gap-6 h-[730px]">
+                <div className="flex flex-col gap-6 h-[830px]">
                     {/* Portfolio Asset Balance Card */}
                     <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex flex-col gap-4">
                         <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex justify-between items-center">

@@ -151,6 +151,7 @@ services:
     environment:
       - ADA_COMMAND_PORT=9997 # ADA 엔진 주문 입력을 위한 타겟 포트
       - ADA_ENGINE_HOST=engine-ada
+      - MAX_ORDERS=10000000
     restart: on-failure
 
   # =========================================================================
