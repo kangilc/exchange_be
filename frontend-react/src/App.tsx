@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useExchangeStore } from './store/useExchangeStore';
 import { TradingViewChart } from './components/TradingViewChart';
+import { TradingTerminal } from './components/TradingTerminal';
 import { 
     LayoutDashboard, Users, ShieldAlert, MonitorPlay, ArrowDownRight, 
     ArrowUpRight, Activity, Plus, Search, Coins, X 
@@ -39,6 +40,9 @@ export const App: React.FC = () => {
 
     // 탭 변수 확장 ('dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger')
     const [activeTab, setActiveTab] = useState<'dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger'>('market-watch');
+
+    // 역할 뷰어 모드 스위처 ('admin' | 'user')
+    const [viewMode, setViewMode] = useState<'admin' | 'user'>('admin');
 
     // 모달 제어 상태
     const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -257,6 +261,22 @@ export const App: React.FC = () => {
                 </div>
 
                 <div className="header-controls flex items-center gap-4 text-xs font-semibold">
+                    {/* 역할 뷰어 모드 스위처 */}
+                    <div className="flex bg-white/5 border border-white/10 rounded-full p-0.5 font-bold mr-2">
+                        <button
+                            onClick={() => setViewMode('admin')}
+                            className={`px-4 py-1.5 rounded-full transition-all text-[10px] uppercase tracking-wider font-extrabold ${viewMode === 'admin' ? 'bg-[#8a2be2] text-white shadow-[0_0_12px_rgba(138,43,226,0.4)]' : 'text-slate-400 hover:text-white'}`}
+                        >
+                            어드민 콘솔
+                        </button>
+                        <button
+                            onClick={() => setViewMode('user')}
+                            className={`px-4 py-1.5 rounded-full transition-all text-[10px] uppercase tracking-wider font-extrabold ${viewMode === 'user' ? 'bg-[#00f2fe] text-slate-950 shadow-[0_0_12px_rgba(0,242,254,0.4)]' : 'text-slate-400 hover:text-white'}`}
+                        >
+                            회원 거래소
+                        </button>
+                    </div>
+
                     <div className="host-config flex items-center bg-white/2 border border-white/5 px-4 py-1.5 rounded-full gap-2 text-slate-400">
                         <label className="uppercase tracking-wider font-bold text-[10px]">API Host</label>
                         <span className="text-[#00f2fe] font-mono">{apiBaseUrl.replace(/^https?:\/\//, '')}</span>
@@ -270,7 +290,11 @@ export const App: React.FC = () => {
             </header>
 
             <div className="flex-1 flex">
-                {/* Sidebar Navigation */}
+                {viewMode === 'user' ? (
+                    <TradingTerminal />
+                ) : (
+                    <>
+                        {/* Sidebar Navigation */}
                 <aside className="w-[260px] bg-[#0a1020]/95 border-r border-white/5 flex flex-col p-6 gap-2 flex-shrink-0">
                     <button
                         onClick={() => setActiveTab('dashboard')}
@@ -921,6 +945,8 @@ export const App: React.FC = () => {
                         </div>
                     )}
                 </main>
+                    </>
+                )}
             </div>
 
             {/* ======================================================= */}
