@@ -42,6 +42,12 @@ interface ExchangeState {
     totalVolumeText: string;
     tradesLog: TradeLog[];
     loadedCandles: CandleData[];
+    users: any[];
+    wallets: any[];
+    walletsSummary: any[];
+    ledgerList: any[];
+    ledgerTotalCount: number;
+    ledgerTotalPages: number;
     
     // 액션 메서드 선언
     initStore: () => Promise<void>;
@@ -51,6 +57,17 @@ interface ExchangeState {
     updateTradeStats: (price: number, qty: number, side: 'BUY' | 'SELL', symbol: string) => void;
     addLoadedCandles: (candles: CandleData[]) => void;
     addRealtimeTick: (price: number) => void;
+
+    // 어드민 전용 추가 메서드
+    fetchUsers: () => Promise<void>;
+    registerUser: (email: string, password: string, grade: string) => Promise<boolean>;
+    updateUser: (userId: number, email: string, grade: string, status: string) => Promise<boolean>;
+    fetchWallets: () => Promise<void>;
+    fetchWalletsSummary: () => Promise<void>;
+    adjustUserAsset: (userId: number, currency: string, amount: number) => Promise<boolean>;
+    fetchLedgerList: (page: number, size: number, email?: string) => Promise<void>;
+    fetchUserLedgers: (userId: number) => Promise<any[]>;
+    fetchUserTrades: (userId: number) => Promise<any[]>;
 }
 
 // 심볼 해시코드 상수
@@ -130,6 +147,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         totalVolumeText: '-',
         tradesLog: [],
         loadedCandles: [],
+        users: [],
+        wallets: [],
+        walletsSummary: [],
+        ledgerList: [],
+        ledgerTotalCount: 0,
+        ledgerTotalPages: 0,
 
         initStore: async () => {
             try {
@@ -206,6 +229,141 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         addRealtimeTick: (_price) => {
             // 차트 캔들 실시간 갱신용 로직을 마운트하기 위해 Hook 및 컴포넌트 레벨에서 차트 시리즈 레퍼런스 업데이트 수행 유도
+        },
+
+        fetchUsers: async () => {
+            try {
+                const res = await fetch(`${get().apiBaseUrl}/admin/users`);
+                if (res.ok) {
+                    const data = await res.json();
+                    set({ users: data });
+                }
+            } catch (err) {
+                console.error("Failed to fetch users", err);
+            }
+        },
+
+        registerUser: async (email, password, grade) => {
+            try {
+                const res = await fetch(`${get().apiBaseUrl}/admin/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, grade })
+                });
+                return res.ok;
+            } catch (err) {
+                console.error("Failed to register user", err);
+                return false;
+            }
+        },
+
+        updateUser: async (userId, email, grade, status) => {
+            try {
+                const res = await fetch(`${get().apiBaseUrl}/admin/users/${userId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, grade, status })
+                });
+                return res.ok;
+            } catch (err) {
+                console.error("Failed to update user", err);
+                return false;
+            }
+        },
+
+        fetchWallets: async () => {
+            try {
+                // 두 API 요청을 병렬로 동시에 날려 레이턴시를 50% 감축시킵니다.
+                const [walletsRes, usersRes] = await Promise.all([
+                    fetch(`${get().apiBaseUrl}/admin/wallets`),
+                    fetch(`${get().apiBaseUrl}/admin/users`)
+                ]);
+
+                if (walletsRes.ok && usersRes.ok) {
+                    const wallets = await walletsRes.json();
+                    const users = await usersRes.json();
+                    const userMap = new Map(users.map((u: any) => [u.userId, u.email]));
+                    const mappedWallets = wallets.map((w: any) => ({
+                        ...w,
+                        email: userMap.get(w.userId) || 'Unknown Account'
+                    }));
+                    set({ wallets: mappedWallets });
+                } else if (walletsRes.ok) {
+                    const wallets = await walletsRes.json();
+                    set({ wallets });
+                }
+            } catch (err) {
+                console.error("Failed to fetch wallets", err);
+            }
+        },
+
+        fetchWalletsSummary: async () => {
+            try {
+                const res = await fetch(`${get().apiBaseUrl}/admin/wallets/summary`);
+                if (res.ok) {
+                    const summary = await res.json();
+                    set({ walletsSummary: summary });
+                }
+            } catch (err) {
+                console.error("Failed to fetch wallets summary", err);
+            }
+        },
+
+        adjustUserAsset: async (userId, currency, amount) => {
+            try {
+                const res = await fetch(`${get().apiBaseUrl}/admin/users/${userId}/assets/adjust`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ currency, amount })
+                });
+                return res.ok;
+            } catch (err) {
+                console.error("Failed to adjust user asset", err);
+                return false;
+            }
+        },
+
+        fetchLedgerList: async (page, size, email) => {
+            try {
+                const searchParam = email ? `&email=${encodeURIComponent(email)}` : '';
+                const res = await fetch(`${get().apiBaseUrl}/admin/ledgers?page=${page}&size=${size}${searchParam}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    set({
+                        ledgerList: data.content || [],
+                        ledgerTotalCount: data.totalElements || 0,
+                        ledgerTotalPages: data.totalPages || 0
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to fetch ledger list", err);
+            }
+        },
+
+        fetchUserLedgers: async (userId) => {
+            try {
+                const res = await fetch(`${get().apiBaseUrl}/admin/users/${userId}/ledgers?page=0&size=50`);
+                if (res.ok) {
+                    const data = await res.json();
+                    return data.content || [];
+                }
+            } catch (err) {
+                console.error("Failed to fetch user ledgers", err);
+            }
+            return [];
+        },
+
+        fetchUserTrades: async (userId) => {
+            try {
+                const res = await fetch(`${get().apiBaseUrl}/admin/users/${userId}/trades?page=0&size=50`);
+                if (res.ok) {
+                    const data = await res.json();
+                    return data.content || [];
+                }
+            } catch (err) {
+                console.error("Failed to fetch user trades", err);
+            }
+            return [];
         }
     };
 });
