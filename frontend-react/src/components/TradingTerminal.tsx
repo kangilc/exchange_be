@@ -517,37 +517,74 @@ export const TradingTerminal: React.FC = () => {
                         <span className="text-[10px] text-[#00f2fe] font-extrabold font-mono">체결강도: {volumePower.toFixed(1)}%</span>
                     </div>
 
-                    <div className="flex-1 flex flex-col font-mono text-[11px] font-bold">
+                    {/* Column Headers */}
+                    <div className="grid grid-cols-3 px-4 py-2 text-[9px] uppercase tracking-wider font-extrabold text-slate-500 border-b border-white/5 bg-slate-950/20">
+                        <span>가격 ({fiat})</span>
+                        <span className="text-right">수량 ({coin})</span>
+                        <span className="text-right">누적 ({coin})</span>
+                    </div>
+
+                    <div className="flex-1 flex flex-col font-mono text-[10px]">
                         {/* Ask Side (Sell) */}
                         <div className="flex-1 flex flex-col justify-end divide-y divide-white/2">
-                            {asksList.map(([price, qty], idx) => (
-                                <div key={idx} className="flex justify-between items-center py-2 px-4 hover:bg-white/2 relative group">
-                                    <div className="absolute right-0 top-0 bottom-0 bg-rose-500/5 transition-all duration-300" style={{ width: `${Math.min((qty / 20) * 100, 100)}%` }} />
-                                    <span className="text-rose-400 relative z-10">{(price / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                    <span className="text-slate-400 relative z-10">{qty.toLocaleString()}</span>
-                                </div>
-                            ))}
+                            {(() => {
+                                const asksWithCum = [...asksList];
+                                let cum = 0;
+                                const cumList: number[] = new Array(asksWithCum.length);
+                                for (let i = asksWithCum.length - 1; i >= 0; i--) {
+                                    cum += asksWithCum[i][1];
+                                    cumList[i] = cum;
+                                }
+                                const maxCum = cum > 0 ? cum : 1;
+
+                                return asksWithCum.map(([price, qty], idx) => {
+                                    const cumVal = cumList[idx];
+                                    const barWidth = Math.min((qty / maxCum) * 350, 100); // Proportional visual fill
+                                    return (
+                                        <div key={idx} className="grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150">
+                                            <div className="absolute right-0 top-0 bottom-0 bg-rose-500/8 transition-all duration-300 pointer-events-none" style={{ width: `${barWidth}%` }} />
+                                            <span className="text-rose-400 relative z-10 font-bold">{(price / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            <span className="text-slate-300 relative z-10 text-right font-semibold">{qty.toLocaleString()}</span>
+                                            <span className="text-slate-500 relative z-10 text-right font-medium">{cumVal.toLocaleString()}</span>
+                                        </div>
+                                    );
+                                });
+                            })()}
                         </div>
 
                         {/* Mid Spread Indicator */}
-                        <div className="bg-slate-950/80 border-y border-white/5 py-3 px-4 flex justify-between items-center text-center">
-                            <span className="text-[9px] text-slate-500 font-extrabold uppercase">Ask Spread</span>
+                        <div className="bg-slate-950/85 border-y border-white/5 py-3 px-4 flex justify-between items-center text-center">
+                            <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider">Ask Spread</span>
                             <div className="flex flex-col items-center">
-                                <span className="text-base text-white font-extrabold tracking-tight">{midPrice > 0 ? midPrice.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '--'}</span>
-                                <span className="text-[9px] text-slate-400">갭: {spread.toLocaleString(undefined, { minimumFractionDigits: 2 })} {fiat}</span>
+                                <span className="text-sm text-white font-black tracking-tight">{midPrice > 0 ? midPrice.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '--'}</span>
+                                <span className="text-[9px] text-[#00f2fe] font-bold mt-0.5">갭: {spread.toLocaleString(undefined, { minimumFractionDigits: 2 })} {fiat}</span>
                             </div>
-                            <span className="text-[9px] text-slate-500 font-extrabold uppercase">Bid Spread</span>
+                            <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider">Bid Spread</span>
                         </div>
 
                         {/* Bid Side (Buy) */}
                         <div className="flex-1 flex flex-col justify-start divide-y divide-white/2">
-                            {bidsList.map(([price, qty], idx) => (
-                                <div key={idx} className="flex justify-between items-center py-2 px-4 hover:bg-white/2 relative group">
-                                    <div className="absolute left-0 top-0 bottom-0 bg-emerald-500/5 transition-all duration-300" style={{ width: `${Math.min((qty / 20) * 100, 100)}%` }} />
-                                    <span className="text-emerald-400 relative z-10">{(price / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                    <span className="text-slate-400 relative z-10">{qty.toLocaleString()}</span>
-                                </div>
-                            ))}
+                            {(() => {
+                                let cum = 0;
+                                const cumList = bidsList.map(([_, qty]) => {
+                                    cum += qty;
+                                    return cum;
+                                });
+                                const maxCum = cum > 0 ? cum : 1;
+
+                                return bidsList.map(([price, qty], idx) => {
+                                    const cumVal = cumList[idx];
+                                    const barWidth = Math.min((qty / maxCum) * 350, 100);
+                                    return (
+                                        <div key={idx} className="grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150">
+                                            <div className="absolute right-0 top-0 bottom-0 bg-emerald-500/8 transition-all duration-300 pointer-events-none" style={{ width: `${barWidth}%` }} />
+                                            <span className="text-emerald-400 relative z-10 font-bold">{(price / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            <span className="text-slate-300 relative z-10 text-right font-semibold">{qty.toLocaleString()}</span>
+                                            <span className="text-slate-500 relative z-10 text-right font-medium">{cumVal.toLocaleString()}</span>
+                                        </div>
+                                    );
+                                });
+                            })()}
                         </div>
                     </div>
                 </div>
