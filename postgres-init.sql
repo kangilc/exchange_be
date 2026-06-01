@@ -133,10 +133,27 @@ ON CONFLICT (user_id, currency) DO NOTHING;
 
 
 -- 5-1. 데이터 조회 성능 최적화를 위한 B-Tree 인덱스 구성 (Paging & Search)
+-- 원장 조회 최적화 (유형 및 시간순)
 CREATE INDEX IF NOT EXISTS idx_ledger_journal_type_created_at ON ledger_journal(type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ledger_journal_user_type_created_at ON ledger_journal(user_id, type, created_at DESC);
+-- 회원별 특정 자산의 원장 변경 히스토리 조회 최적화
+CREATE INDEX IF NOT EXISTS idx_ledger_journal_user_currency_created_at ON ledger_journal(user_id, currency, created_at DESC);
+
+-- 체결 내역 조회 최적화 (마켓별 최근 체결 및 차트 데이터 생성용)
+CREATE INDEX IF NOT EXISTS idx_trades_symbol_executed_at ON trades(symbol, executed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_trades_executed_at ON trades(executed_at DESC);
+-- 주문 삭제 시 CASCADE Sequential Scan 성능 저하 방지를 위한 외래키(FK) 인덱스
+CREATE INDEX IF NOT EXISTS idx_trades_buy_order_id ON trades(buy_order_id);
+CREATE INDEX IF NOT EXISTS idx_trades_sell_order_id ON trades(sell_order_id);
+
+-- 사용자 주문 내역 및 정렬 최적화
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_user_symbol_created_at ON orders(user_id, symbol, created_at DESC);
+-- 매칭 엔진 호가 스캔 및 주문서(Order Book) 최적화 (활성 주문 전용 부분 인덱스)
+CREATE INDEX IF NOT EXISTS idx_orders_active_book 
+ON orders (symbol, side, price, created_at) 
+WHERE status IN ('NEW', 'PARTIALLY_FILLED');
+
 
 
 -- 6. 회원별 대용량 입금 내역 랜덤 시뮬레이션 데이터 인젝션
