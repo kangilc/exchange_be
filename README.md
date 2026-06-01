@@ -86,6 +86,12 @@ graph TD
 *   **매칭 거래 분석 및 자산 변경 이력 조회 (`/admin/stats/trades` / `/admin/stats/assets`):** 기간별 거래소 내의 원화 및 USD, 각종 코인 자산의 증감 흐름과 누적 체결 수치를 다각도로 조회합니다.
 *   **회원 원장 관리 (CRUD):** 회원 가입 등록(`POST /admin/users`), 정보 수정(`PUT /admin/users/{id}`), VIP 등급/거래정지(SUSPENDED) 관리 기능이 완벽 제공됩니다.
 *   **감사 연동 자산 추가/차감 (`/admin/users/{id}/assets/adjust`):** 관리자가 특정 회원의 자산 지갑을 즉각 지급(Deposit) 또는 회수(Withdrawal)할 수 있는 안전한 REST API를 제공하며, 모든 변동분은 `ledger_journal` 감사용 테이블에 완전 보장됩니다.
+*   **Spring Security & JWT 기반 무상태 인증/인가 체계 및 RTR(Refresh Token Rotation) 도입 (🌟 신규):**
+    *   **강력한 API 보호:** 모든 `/admin/**` 엔드포인트를 Spring Security 6 필터 체인으로 보호하고, `ADMIN` 등급을 보유한 인증된 관리자만 접근 가능하도록 엄격히 통제함.
+    *   **Stateless JWT 인증:** 무상태 세션 관리 모델을 탑재하여 서버 메모리나 세션 저장소 부하 없이 헤더의 `Authorization: Bearer <Access_Token>`을 고속 해독해 자격 증명을 수립함.
+    *   **RTR (Refresh Token Rotation) 토큰 회전 기법:** 사용자가 Access Token 만료로 갱신 요청(`POST /admin/auth/refresh`)을 보내면, 기존 Refresh Token을 즉시 폐기(일회성)하고 새로운 Access/Refresh Token 쌍을 자동 재발급함. 이를 통해 Refresh Token 탈취 및 재사용(Replay) 공격을 원천 방지함.
+    *   **안전한 하이브리드 비밀번호 인코더:** 신규 비밀번호는 솔트가 가미된 강력한 `BCrypt` 알고리즘으로 암호화하여 저장하며, 데이터베이스 내 기존 1,000명의 레거시 SHA-256 및 시드 목(Mock) 데이터 비밀번호도 안전하게 호환 대조되도록 구현함.
+    *   **기본 관리자 계정 자동 시딩:** 시스템 기동 시 기본 관리자 계정(`admin@javaf.net` / `admin123`, `ADMIN` 등급)의 존재 여부를 자동 검사하고, 부재 시 안전하게 지갑 자산 초기화와 함께 계정을 자동 주입함.
 *   **PostgreSQL 성능 최적화:** 500 에러를 유발할 수 있는 복잡한 Native Time-Bucket Parameter Binding 문제점을 표준적인 `GROUP BY 1, 2, 3` 및 `ORDER BY 1 DESC` 인덱스 기법으로 튜닝 완료했습니다.
 
 ### 2. 프리미엄 다크 글래스모피즘 웹 어드민 ([admin.html](./frontend/admin.html))

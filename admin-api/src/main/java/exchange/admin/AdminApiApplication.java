@@ -25,7 +25,7 @@ public class AdminApiApplication {
             try (Connection conn = dataSource.getConnection()) {
                 DatabaseMetaData metaData = conn.getMetaData();
                 
-                // Check if 'grade' column exists in 'users' table
+                // 1. Check 'grade' column
                 boolean columnExists = false;
                 try (ResultSet rs = metaData.getColumns(null, null, "users", "grade")) {
                     if (rs.next()) {
@@ -50,8 +50,53 @@ public class AdminApiApplication {
                 } else {
                     System.out.println("Column 'grade' already exists in 'users' table.");
                 }
+
+                // 2. Check 'refresh_token' column
+                boolean tokenColumnExists = false;
+                try (ResultSet rs = metaData.getColumns(null, null, "users", "refresh_token")) {
+                    if (rs.next()) {
+                        tokenColumnExists = true;
+                    }
+                }
+                
+                if (!tokenColumnExists) {
+                    try (ResultSet rs = metaData.getColumns(null, null, "USERS", "REFRESH_TOKEN")) {
+                        if (rs.next()) {
+                            tokenColumnExists = true;
+                        }
+                    }
+                }
+
+                if (!tokenColumnExists) {
+                    System.out.println("Column 'refresh_token' does not exist in 'users' table. Running ALTER TABLE statement...");
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.execute("ALTER TABLE users ADD COLUMN refresh_token VARCHAR(512)");
+                        System.out.println("Column 'refresh_token' added to 'users' table successfully!");
+                    }
+                } else {
+                    System.out.println("Column 'refresh_token' already exists in 'users' table.");
+                }
             } catch (Exception e) {
                 System.err.println("Database schema validation failed: " + e.getMessage());
+                e.printStackTrace();
+            }
+        };
+    }
+
+    @Bean
+    public CommandLineRunner seedAdminUser(exchange.admin.service.UserService userService, exchange.admin.repository.UserRepository userRepository) {
+        return args -> {
+            String adminEmail = "admin@javaf.net";
+            try {
+                if (userRepository.findByEmail(adminEmail).isEmpty()) {
+                    System.out.println("Default admin user does not exist. Seeding default admin user (" + adminEmail + ")...");
+                    userService.registerUser(adminEmail, "admin123", "ADMIN");
+                    System.out.println("Default admin user seeded successfully!");
+                } else {
+                    System.out.println("Default admin user already exists.");
+                }
+            } catch (Exception e) {
+                System.err.println("Default admin user seeding failed: " + e.getMessage());
                 e.printStackTrace();
             }
         };
