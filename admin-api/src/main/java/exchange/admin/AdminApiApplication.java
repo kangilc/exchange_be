@@ -76,6 +76,13 @@ public class AdminApiApplication {
                 } else {
                     System.out.println("Column 'refresh_token' already exists in 'users' table.");
                 }
+
+                // 3. 하드코딩된 시드 데이터로 인해 어긋난 users_user_id_seq 시퀀스를 테이블 최댓값에 맞게 자동 동기화 처리함 (중복 키 오류 방지용)
+                System.out.println("Synchronizing users_user_id_seq sequence...");
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.execute("SELECT setval('users_user_id_seq', COALESCE((SELECT MAX(user_id) FROM users), 0) + 1, false)");
+                    System.out.println("users_user_id_seq sequence synchronized successfully!");
+                }
             } catch (Exception e) {
                 System.err.println("Database schema validation failed: " + e.getMessage());
                 e.printStackTrace();

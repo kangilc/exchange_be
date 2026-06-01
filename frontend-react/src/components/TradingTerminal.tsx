@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useExchangeStore, BTC_SYMBOL_ID, ADA_SYMBOL_ID } from '../store/useExchangeStore';
+import { useExchangeStore, BTC_SYMBOL_ID, ADA_SYMBOL_ID, fetchWithAuth } from '../store/useExchangeStore';
 import { TradingViewChart } from './TradingViewChart';
 import { Layers, Wallet, X } from 'lucide-react';
 
@@ -169,7 +169,7 @@ export const TradingTerminal: React.FC = () => {
     const fetchLiveBalances = async () => {
         if (!isLiveMode) return;
         try {
-            const res = await fetch(`${apiBaseUrl}/admin/wallets/user/1`); // 기본 1번 유저 바인딩
+            const res = await fetchWithAuth(`${apiBaseUrl}/admin/wallets/user/1`); // 기본 1번 유저 바인딩
             if (res.ok) {
                 const data = await res.json();
                 const balMap: any = {};
@@ -436,7 +436,7 @@ export const TradingTerminal: React.FC = () => {
         // Live 백엔드 자산 동기화 (Live 모드 시)
         if (isLiveMode) {
             try {
-                await fetch(`${apiBaseUrl}/admin/users/1/assets/adjust`, {
+                await fetchWithAuth(`${apiBaseUrl}/admin/users/1/assets/adjust`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -444,7 +444,7 @@ export const TradingTerminal: React.FC = () => {
                         amount: selectedSide === 'BUY' ? -totalCost : -qtyVal
                     })
                 });
-                await fetch(`${apiBaseUrl}/admin/users/1/assets/adjust`, {
+                await fetchWithAuth(`${apiBaseUrl}/admin/users/1/assets/adjust`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -495,7 +495,7 @@ export const TradingTerminal: React.FC = () => {
         // DB 백엔드 동기화 (Live 모드 시)
         if (isLiveMode) {
             try {
-                await fetch(`${apiBaseUrl}/admin/users/1/assets/adjust`, {
+                await fetchWithAuth(`${apiBaseUrl}/admin/users/1/assets/adjust`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ currency: modalCurrency, amount: finalAmt })

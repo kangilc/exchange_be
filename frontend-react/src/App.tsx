@@ -73,7 +73,9 @@ export const App: React.FC = () => {
 
     // 검색 및 페이징 상태
     const [userSearch, setUserSearch] = useState('');
+    const [userPage, setUserPage] = useState(0);
     const [walletSearch, setWalletSearch] = useState('');
+    const [walletPage, setWalletPage] = useState(0);
     const [ledgerSearch, setLedgerSearch] = useState('');
     const [ledgerPage, setLedgerPage] = useState(0);
 
@@ -714,21 +716,32 @@ export const App: React.FC = () => {
                             <div className="grid grid-cols-4 gap-6">
                                 {walletsSummary.map(s => {
                                     const total = s.totalBalance + s.totalLocked;
+                                    const isCoin = s.currency === 'BTC' || s.currency === 'ADA';
+                                    const maxDigits = s.currency === 'KRW' ? 0 : (isCoin ? 4 : 2);
+                                    
+                                    const totalText = total.toLocaleString(undefined, { maximumFractionDigits: maxDigits });
+                                    const textSizeClass = totalText.length > 18 ? 'text-base xl:text-lg' : (totalText.length > 12 ? 'text-lg xl:text-xl' : 'text-2xl xl:text-3xl');
 
                                     return (
                                         <div key={s.currency} className="card-custom p-6 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl relative overflow-hidden flex flex-col gap-2">
                                             <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">거래소 내 총 보유 {s.currency}</div>
-                                            <div className="text-3xl font-black font-mono text-white mt-1">
-                                                {total.toLocaleString(undefined, { maximumFractionDigits: 6 })}
-                                            </div>
-                                            <div className="flex justify-between text-[10px] text-slate-400 mt-2 font-semibold border-t border-white/5 pt-2">
-                                                <span>가용: <span className="text-white">{s.totalBalance.toLocaleString(undefined, { maximumFractionDigits: 6 })}</span></span>
-                                                <span>주문 대기: <span className="text-rose-400">{s.totalLocked.toLocaleString(undefined, { maximumFractionDigits: 6 })}</span></span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                            <div className={`${textSizeClass} font-black font-mono text-white mt-1 break-all truncate`}>
+                                                {totalText}
+                                             </div>
+                                             <div className="flex flex-col gap-1 text-[10px] text-slate-400 mt-2 font-semibold border-t border-white/5 pt-2">
+                                                 <div className="flex justify-between items-center gap-2">
+                                                     <span>가용:</span>
+                                                     <span className="text-white font-mono truncate break-all">{s.totalBalance.toLocaleString(undefined, { maximumFractionDigits: maxDigits })}</span>
+                                                 </div>
+                                                 <div className="flex justify-between items-center gap-2">
+                                                     <span>주문 대기:</span>
+                                                     <span className="text-rose-400 font-mono truncate break-all">{s.totalLocked.toLocaleString(undefined, { maximumFractionDigits: maxDigits })}</span>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                     );
+                                 })}
+                             </div>
 
                             {/* 지갑 세부 목록 */}
                             <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl overflow-hidden flex flex-col">
