@@ -126,7 +126,7 @@ export const TradingTerminal: React.FC = () => {
     }, [activeSymbol]);
 
     // 콘솔 로그 유틸리티
-    const appendLog = (type: 'buy' | 'sell' | 'system' | 'warning', message: string) => {
+    const appendLog = (type: 'buy' | 'sell' | 'system' | 'warning' | 'stop', message: string) => {
         const timeStr = new Date().toLocaleTimeString();
         setConsoleLogs(prev => [{ time: timeStr, type, message }, ...prev].slice(0, 50));
     };
@@ -415,7 +415,7 @@ export const TradingTerminal: React.FC = () => {
             };
 
             setStopLimitOrders(prev => [newStopOrder, ...prev]);
-            appendLog('warning', `예약주문 활성화: 감시가 ${stopPriceVal} / 주문가 ${finalPrice} (${qtyVal} ${coin})`);
+            appendLog('stop', `예약주문 활성화: 감시가 ${stopPriceVal} / 주문가 ${finalPrice} (${qtyVal} ${coin})`);
             return;
         }
 
@@ -891,8 +891,8 @@ export const TradingTerminal: React.FC = () => {
                         consoleLogs.map((log, idx) => (
                             <div key={idx} className="flex gap-2">
                                 <span className="text-slate-500">[{log.time}]</span>
-                                <span className={`font-bold ${log.type === 'buy' ? 'text-emerald-400' : log.type === 'sell' ? 'text-rose-400' : log.type === 'warning' ? 'text-amber-500' : 'text-blue-400'}`}>
-                                    {log.type === 'buy' ? '[매수 체결]' : log.type === 'sell' ? '[매도 체결]' : log.type === 'warning' ? '[예약 주문]' : '[시스템]'}
+                                <span className={`font-bold ${log.type === 'buy' ? 'text-emerald-400' : log.type === 'sell' ? 'text-rose-400' : log.type === 'stop' ? 'text-[#c084fc]' : log.type === 'warning' ? 'text-rose-500' : 'text-blue-400'}`}>
+                                    {log.type === 'buy' ? '[매수 체결]' : log.type === 'sell' ? '[매도 체결]' : log.type === 'stop' ? '[예약 주문]' : log.type === 'warning' ? '[경고]' : '[시스템]'}
                                 </span>
                                 <span className="text-slate-300">{log.message}</span>
                             </div>

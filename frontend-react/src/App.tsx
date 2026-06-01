@@ -295,10 +295,10 @@ export const App: React.FC = () => {
                 ) : (
                     <>
                         {/* Sidebar Navigation */}
-                <aside className="w-[260px] bg-[#0a1020]/95 border-r border-white/5 flex flex-col p-6 gap-2 flex-shrink-0">
+                <aside className="w-[280px] bg-[#0a1020]/95 border-r border-white/5 flex flex-col p-6 gap-2 flex-shrink-0">
                     <button
                         onClick={() => setActiveTab('dashboard')}
-                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border ${activeTab === 'dashboard' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
                     >
                         <LayoutDashboard size={18} />
                         <span>통합 현황 분석</span>
@@ -306,7 +306,7 @@ export const App: React.FC = () => {
 
                     <button
                         onClick={() => setActiveTab('market-watch')}
-                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border ${activeTab === 'market-watch' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'market-watch' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
                     >
                         <MonitorPlay size={18} />
                         <span>실시간 마켓 감시</span>
@@ -314,7 +314,7 @@ export const App: React.FC = () => {
 
                     <button
                         onClick={() => setActiveTab('users')}
-                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border ${activeTab === 'users' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'users' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
                     >
                         <Users size={18} />
                         <span>회원 통합 관리</span>
@@ -322,7 +322,7 @@ export const App: React.FC = () => {
 
                     <button
                         onClick={() => setActiveTab('wallets')}
-                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border ${activeTab === 'wallets' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'wallets' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
                     >
                         <Coins size={18} />
                         <span>지갑 및 자산 관리</span>
@@ -330,7 +330,7 @@ export const App: React.FC = () => {
 
                     <button
                         onClick={() => setActiveTab('ledger')}
-                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border ${activeTab === 'ledger' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'ledger' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
                     >
                         <ShieldAlert size={18} />
                         <span>입출금 통합 관리</span>
