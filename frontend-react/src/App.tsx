@@ -84,11 +84,23 @@ export const App: React.FC = () => {
     const [manualCurrency, setManualCurrency] = useState('KRW');
     const [manualType, setManualType] = useState<'DEPOSIT' | 'WITHDRAWAL'>('DEPOSIT');
     const [manualAmount, setManualAmount] = useState('');
+    
+    // 실시간 스트리밍 모니터 일시 정지(Pause) 제어 상태
+    const [isStreamingPaused, setIsStreamingPaused] = useState(false);
+
+    // 일시정지 상태인 경우 렌더링 데이터 업데이트를 차단하거나 안내 행을 띄우지 않고 
+    // 스냅샷으로 보존하여 렌더링 트리 변화를 0으로 고정함
+    const [frozenTradesLog, setFrozenTradesLog] = useState<any[]>([]);
 
     useEffect(() => {
-        // 전역 스토어 초기화 및 웹소켓 연결
         initStore();
     }, [initStore]);
+
+    useEffect(() => {
+        if (!isStreamingPaused) {
+            setFrozenTradesLog(tradesLog);
+        }
+    }, [tradesLog, isStreamingPaused]);
 
     // 1. 회원 통합 관리 탭 전용 데이터 로드 (탭 활성화 시 1회만 트리거)
     useEffect(() => {
@@ -236,6 +248,9 @@ export const App: React.FC = () => {
 
     // 필터링 적용된 목록
     const filteredUsers = users.filter(u => u.email.toLowerCase().includes(userSearch.toLowerCase()));
+    const USER_PAGE_SIZE = 20;
+    const userTotalPages = Math.ceil(filteredUsers.length / USER_PAGE_SIZE);
+    const paginatedUsers = filteredUsers.slice(userPage * USER_PAGE_SIZE, (userPage + 1) * USER_PAGE_SIZE);
     
     // 이메일 또는 통화로 지갑 검색 필터링
     const filteredWallets = wallets.filter(w => 
@@ -243,6 +258,9 @@ export const App: React.FC = () => {
         w.currency.toLowerCase().includes(walletSearch.toLowerCase()) ||
         w.userId.toString().includes(walletSearch)
     );
+    const WALLET_PAGE_SIZE = 20;
+    const walletTotalPages = Math.ceil(filteredWallets.length / WALLET_PAGE_SIZE);
+    const paginatedWallets = filteredWallets.slice(walletPage * WALLET_PAGE_SIZE, (walletPage + 1) * WALLET_PAGE_SIZE);
 
     // 전체 유통 자산 비례 게이지 계산
     const getMaxBalance = () => {
@@ -550,10 +568,18 @@ export const App: React.FC = () => {
                             <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
                                 <div className="flex items-center justify-between border-b border-white/5 pb-2">
                                     <span className="text-sm font-extrabold text-white">실시간 체결 로그 실황 (WebSocket Binary Stream)</span>
-                                    <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold animate-pulse">
-                                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                                        <span>LIVE STREAMING</span>
-                                    </span>
+                                    <div className="flex items-center gap-3">
+                                        <button 
+                                            onClick={() => setIsStreamingPaused(prev => !prev)}
+                                            className={`px-3 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider border transition-all ${isStreamingPaused ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20' : 'bg-white/2 border-white/10 text-slate-300 hover:bg-white/5'}`}
+                                        >
+                                            {isStreamingPaused ? '▶ 실시간 감시 재개' : '⏸ 실시간 감시 일시정지 (성능 절약)'}
+                                        </button>
+                                        <span className={`text-[10px] flex items-center gap-1 font-semibold ${isStreamingPaused ? 'text-amber-400' : 'text-emerald-400 animate-pulse'}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${isStreamingPaused ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                            <span>{isStreamingPaused ? 'PAUSED' : 'LIVE STREAMING'}</span>
+                                        </span>
+                                    </div>
                                 </div>
 
                                 <div className="max-h-[220px] overflow-y-auto w-full bg-black/15 rounded-xl border border-white/5">
@@ -569,14 +595,14 @@ export const App: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-white/5">
-                                            {tradesLog.length === 0 ? (
+                                            {frozenTradesLog.length === 0 ? (
                                                 <tr>
                                                     <td colSpan={6} className="text-center py-8 text-slate-500">
                                                         실시간 체결 대기 중... (바이너리 웹소켓 패킷 디코딩 대기)
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                tradesLog.map((trade) => {
+                                                frozenTradesLog.map((trade) => {
                                                     const isBuy = trade.side === 'BUY';
                                                     return (
                                                         <tr key={trade.tradeId} className="hover:bg-white/2 transition-colors">
@@ -629,7 +655,10 @@ export const App: React.FC = () => {
                                             type="text" 
                                             placeholder="이메일 검색..." 
                                             value={userSearch}
-                                            onChange={(e) => setUserSearch(e.target.value)}
+                                            onChange={(e) => {
+                                                setUserSearch(e.target.value);
+                                                setUserPage(0);
+                                            }}
                                             className="pl-9 pr-4 py-2 bg-slate-950/50 border border-white/10 rounded-xl text-xs font-medium text-white outline-none w-[250px] focus:border-[#00f2fe] focus:shadow-[0_0_10px_rgba(0,242,254,0.15)] transition-all"
                                         />
                                     </div>
@@ -652,7 +681,7 @@ export const App: React.FC = () => {
                                                     <td colSpan={6} className="text-center py-8 text-slate-500">가입된 회원이 존재하지 않습니다.</td>
                                                 </tr>
                                             ) : (
-                                                filteredUsers.map(u => (
+                                                paginatedUsers.map(u => (
                                                     <tr key={u.userId} className="hover:bg-white/2 transition-colors">
                                                         <td className="px-5 py-4 font-mono font-bold text-[#00f2fe]">{u.userId}</td>
                                                         <td className="px-5 py-4 font-semibold text-white">{u.email}</td>
@@ -699,6 +728,27 @@ export const App: React.FC = () => {
                                             )}
                                         </tbody>
                                     </table>
+                                </div>
+                                <div className="p-4 flex justify-between items-center border-t border-white/5 bg-black/10 text-xs">
+                                    <div className="text-slate-400">
+                                        Page <span className="text-white font-bold">{userPage + 1}</span> of <span className="text-white font-bold">{userTotalPages}</span> (Total {filteredUsers.length} users)
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button 
+                                            disabled={userPage === 0}
+                                            onClick={() => setUserPage(prev => Math.max(prev - 1, 0))}
+                                            className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
+                                        >
+                                            ◀ 이전
+                                        </button>
+                                        <button 
+                                            disabled={userPage + 1 >= userTotalPages}
+                                            onClick={() => setUserPage(prev => Math.min(prev + 1, userTotalPages - 1))}
+                                            className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
+                                        >
+                                            다음 ▶
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -753,7 +803,10 @@ export const App: React.FC = () => {
                                             type="text" 
                                             placeholder="이메일 또는 자산명 검색..." 
                                             value={walletSearch}
-                                            onChange={(e) => setWalletSearch(e.target.value)}
+                                            onChange={(e) => {
+                                                setWalletSearch(e.target.value);
+                                                setWalletPage(0);
+                                            }}
                                             className="pl-9 pr-4 py-2 bg-slate-950/50 border border-white/10 rounded-xl text-xs font-medium text-white outline-none w-[250px] focus:border-[#00f2fe] focus:shadow-[0_0_10px_rgba(0,242,254,0.15)] transition-all"
                                         />
                                     </div>
@@ -776,7 +829,7 @@ export const App: React.FC = () => {
                                                     <td colSpan={6} className="text-center py-8 text-slate-500">지갑 데이터가 존재하지 않습니다.</td>
                                                 </tr>
                                             ) : (
-                                                filteredWallets.map(w => {
+                                                paginatedWallets.map(w => {
                                                     const isKrw = w.currency === 'KRW';
                                                     return (
                                                         <tr key={w.walletId} className="hover:bg-white/2 transition-colors">
@@ -799,6 +852,27 @@ export const App: React.FC = () => {
                                             )}
                                         </tbody>
                                     </table>
+                                </div>
+                                <div className="p-4 flex justify-between items-center border-t border-white/5 bg-black/10 text-xs">
+                                    <div className="text-slate-400">
+                                        Page <span className="text-white font-bold">{walletPage + 1}</span> of <span className="text-white font-bold">{walletTotalPages}</span> (Total {filteredWallets.length} wallets)
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button 
+                                            disabled={walletPage === 0}
+                                            onClick={() => setWalletPage(prev => Math.max(prev - 1, 0))}
+                                            className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
+                                        >
+                                            ◀ 이전
+                                        </button>
+                                        <button 
+                                            disabled={walletPage + 1 >= walletTotalPages}
+                                            onClick={() => setWalletPage(prev => Math.min(prev + 1, walletTotalPages - 1))}
+                                            className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
+                                        >
+                                            다음 ▶
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
