@@ -124,6 +124,7 @@ interface ExchangeState {
     fetchLedgerList: (page: number, size: number, email?: string) => Promise<void>;
     fetchUserLedgers: (userId: number, page?: number, size?: number) => Promise<any>;
     fetchUserTrades: (userId: number, page?: number, size?: number) => Promise<any>;
+    fetchSummaryStats: () => Promise<void>;
 }
 
 // 심볼 해시코드 상수
@@ -465,6 +466,21 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 console.error("Failed to fetch user trades", err);
             }
             return { content: [], totalPages: 1, totalElements: 0 };
+        },
+
+        fetchSummaryStats: async () => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/stats/summary`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && typeof data.totalTrades === 'number') {
+                        set({ totalTradesCount: data.totalTrades });
+                        console.log(`[통계 동기화] DB 누적 체결 수 동기화 성공: ${data.totalTrades} 건`);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch summary stats", err);
+            }
         }
     };
 });

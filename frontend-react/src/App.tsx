@@ -35,7 +35,12 @@ export const App: React.FC = () => {
         adjustUserAsset,
         fetchLedgerList,
         fetchUserLedgers,
-        fetchUserTrades
+        fetchUserTrades,
+        fetchSummaryStats,
+        isAuthenticated,
+        login,
+        logout,
+        authEmail
     } = useExchangeStore();
 
     // 탭 변수 확장 ('dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger')
@@ -94,6 +99,12 @@ export const App: React.FC = () => {
 
     useEffect(() => {
         initStore();
+        fetchSummaryStats();
+        // 5초 주기로 누적 거래 수 등 DB 스냅샷 정보를 주기적 갱신 및 동기화한다.
+        const timer = setInterval(() => {
+            fetchSummaryStats();
+        }, 5000);
+        return () => clearInterval(timer);
     }, [initStore]);
 
     useEffect(() => {
@@ -269,6 +280,73 @@ export const App: React.FC = () => {
     };
     const maxBalance = getMaxBalance();
 
+    // 로그인 폼 입력 상태
+    const [loginEmail, setLoginEmail] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
+
+    const handleLoginSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!loginEmail || !loginPassword) {
+            alert('이메일과 비밀번호를 입력해 주세요.');
+            return;
+        }
+        const ok = await login(loginEmail, loginPassword);
+        if (ok) {
+            alert('로그인 성공');
+        } else {
+            alert('로그인 정보가 올바르지 않습니다.');
+        }
+    };
+
+    if (!isAuthenticated) {
+        return (
+            <div className="min-h-screen text-slate-100 flex items-center justify-center font-sans bg-[#070b15] relative overflow-hidden">
+                <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[#8a2be2]/10 rounded-full blur-[120px] pointer-events-none" />
+                <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-[#00f2fe]/10 rounded-full blur-[120px] pointer-events-none" />
+                
+                <div className="relative z-10 w-[420px] bg-slate-900/60 border border-white/5 rounded-3xl p-8 backdrop-blur-2xl shadow-2xl flex flex-col gap-6">
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="logo-glow w-6 h-6 rounded-full bg-gradient-to-r from-[#8a2be2] to-[#00f2fe] shadow-[0_0_20px_#8a2be2] animate-pulse" />
+                        <h1 className="text-2xl font-black tracking-tight text-white mt-2">JavaF 어드민 콘솔</h1>
+                        <p className="text-xs text-slate-400 text-center">보안 구역 로그인이 필요함</p>
+                    </div>
+
+                    <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4 text-xs font-semibold">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-slate-400 uppercase text-[10px]">이메일 계정</label>
+                            <input 
+                                type="email" 
+                                value={loginEmail}
+                                onChange={(e) => setLoginEmail(e.target.value)}
+                                placeholder="admin@example.com"
+                                required
+                                className="w-full p-3.5 bg-slate-950/80 border border-white/10 rounded-xl text-white outline-none focus:border-[#8a2be2] focus:shadow-[0_0_12px_rgba(138,43,226,0.15)] transition-all font-medium"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-slate-400 uppercase text-[10px]">비밀번호</label>
+                            <input 
+                                type="password" 
+                                value={loginPassword}
+                                onChange={(e) => setLoginPassword(e.target.value)}
+                                placeholder="••••••••"
+                                required
+                                className="w-full p-3.5 bg-slate-950/80 border border-white/10 rounded-xl text-white outline-none focus:border-[#8a2be2] focus:shadow-[0_0_12px_rgba(138,43,226,0.15)] transition-all font-medium"
+                            />
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            className="w-full py-4.5 bg-gradient-to-r from-[#8a2be2] to-[#4b0082] rounded-xl text-white font-extrabold text-xs tracking-wider uppercase shadow-xl hover:brightness-110 active:scale-[0.98] transition-all mt-2"
+                        >
+                            콘솔 로그인 인증
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="app-container min-h-screen text-slate-100 flex flex-col font-sans bg-[#070b15]">
             {/* Top Glowing Header */}
@@ -305,6 +383,17 @@ export const App: React.FC = () => {
                     <div className={`status-badge flex items-center gap-2 px-4 py-1.5 rounded-full border transition-all duration-300 ${wsConnected ? 'bg-emerald-500/5 border-emerald-500/35 text-emerald-400' : 'bg-rose-500/5 border-rose-500/35 text-rose-400'}`}>
                         <span className={`status-dot w-1.5 h-1.5 rounded-full ${wsConnected ? 'bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse' : 'bg-rose-500 shadow-[0_0_8px_#ef4444]'}`} />
                         <span>{wsConnected ? 'WS CONNECTED' : 'WS DISCONNECTED'}</span>
+                    </div>
+
+                    {/* 로그인 인증 계정 정보 및 로그아웃 버튼 추가 */}
+                    <div className="auth-user-badge flex items-center bg-white/5 border border-white/10 px-4.5 py-1.5 rounded-full gap-3 text-slate-300 font-bold">
+                        <span className="text-white text-[11px] font-mono">{authEmail}</span>
+                        <button 
+                            onClick={logout}
+                            className="text-[#ff4757] hover:text-[#ff6b81] transition-colors border-l border-white/10 pl-3 uppercase tracking-wider text-[9px] font-black"
+                        >
+                            로그아웃
+                        </button>
                     </div>
                 </div>
             </header>
