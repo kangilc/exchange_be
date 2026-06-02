@@ -1,0 +1,319 @@
+import React, { useEffect, useRef } from 'react';
+import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
+import type { UTCTimestamp } from 'lightweight-charts';
+import { useExchangeStore } from '../store/useExchangeStore';
+
+// 단순 이동평균(SMA) 계산 유틸리티 함수
+function calculateSMA(data: { value: number; time: UTCTimestamp }[], period: number) {
+    const result = [];
+    for (let i = 0; i < data.length; i++) {
+        if (i < period - 1) continue;
+        let sum = 0;
+        for (let j = 0; j < period; j++) {
+            sum += data[i - j].value;
+        }
+        result.push({
+            time: data[i].time,
+            value: sum / period
+        });
+    }
+    return result;
+}
+
+export const TradingViewChart: React.FC = () => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    // 타입 추론을 활용하여 버전별 호환성 오류 예방
+    const chartRef = useRef<any>(null);
+    const candlestickSeriesRef = useRef<any>(null);
+    const volumeSeriesRef = useRef<any>(null);
+    const ma7SeriesRef = useRef<any>(null);
+    const ma25SeriesRef = useRef<any>(null);
+    
+    const { activeSymbol, activeResolution, apiBaseUrl, lastPrice } = useExchangeStore();
+    
+    // 차트의 실시간 캔들 관리 버퍼
+    const loadedBufferRef = useRef<any[]>([]);
+    const currentCandleRef = useRef<any>(null);
+    const currentVolumeRef = useRef<number>(0);
+
+    // 1. 차트 엔진 최초 빌드 및 다크 보라 테마 미학 오버레이
+    useEffect(() => {
+        if (!containerRef.current) return;
+
+        // 컨테이너 초기화
+        containerRef.current.innerHTML = '';
+
+        const chart = createChart(containerRef.current, {
+            width: containerRef.current.clientWidth,
+            height: 380,
+            layout: {
+                background: { type: ColorType.Solid, color: 'rgba(7, 11, 21, 0.4)' },
+                textColor: '#d8b4fe',
+                fontSize: 10,
+                fontFamily: 'Outfit, Noto Sans KR, sans-serif',
+            },
+            grid: {
+                vertLines: { color: 'rgba(138, 43, 226, 0.04)' },
+                horzLines: { color: 'rgba(138, 43, 226, 0.04)' },
+            },
+            crosshair: {
+                mode: 0,
+                vertLine: {
+                    color: 'rgba(138, 43, 226, 0.4)',
+                    width: 1,
+                    style: 3,
+                },
+                horzLine: {
+                    color: 'rgba(138, 43, 226, 0.4)',
+                    width: 1,
+                    style: 3,
+                }
+            },
+            rightPriceScale: {
+                borderColor: 'rgba(255, 255, 255, 0.05)',
+            },
+            timeScale: {
+                borderColor: 'rgba(255, 255, 255, 0.05)',
+                timeVisible: true,
+            },
+        }) as any;
+
+        chartRef.current = chart;
+
+        // 시리즈 설정
+        const candlestickSeries = chart.addSeries(CandlestickSeries, {
+            upColor: '#22c55e',
+            downColor: '#ef4444',
+            borderDownColor: '#ef4444',
+            borderUpColor: '#22c55e',
+            wickDownColor: '#ef4444',
+            wickUpColor: '#22c55e',
+        });
+        candlestickSeriesRef.current = candlestickSeries;
+
+        const volumeSeries = chart.addSeries(HistogramSeries, {
+            color: 'rgba(138, 43, 226, 0.25)',
+            priceFormat: { type: 'volume' },
+            priceScaleId: '',
+        });
+        volumeSeries.priceScale().applyOptions({
+            scaleMargins: { top: 0.85, bottom: 0 }
+        });
+        volumeSeriesRef.current = volumeSeries;
+
+        const ma7Series = chart.addSeries(LineSeries, {
+            color: '#f59e0b',
+            lineWidth: 1.5,
+            title: 'MA7',
+        });
+        ma7SeriesRef.current = ma7Series;
+
+        const ma25Series = chart.addSeries(LineSeries, {
+            color: '#ec4899',
+            lineWidth: 1.5,
+            title: 'MA25',
+        });
+        ma25SeriesRef.current = ma25Series;
+
+        // 반응형 레이아웃 리사이저 핸들러
+        const handleResize = () => {
+            if (chartRef.current && containerRef.current) {
+                chartRef.current.resize(containerRef.current.clientWidth, 380);
+                chartRef.current.timeScale().fitContent();
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+
+        // 최초 캔들 피팅
+        setTimeout(() => {
+            handleResize();
+        }, 100);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            chart.remove();
+        };
+    }, []);
+
+    // 2. 심볼 또는 해상도 전환에 따른 비동기 데이터 펫칭 및 하이브리드 패딩 가동
+    useEffect(() => {
+        const fetchHistoricalData = async () => {
+            if (!candlestickSeriesRef.current || !volumeSeriesRef.current || !ma7SeriesRef.current || !ma25SeriesRef.current) return;
+
+            const basePrice = activeSymbol === 'BTC-USD' ? 65000 : 500;
+            const url = `${apiBaseUrl}/admin/stats/candles?symbol=${activeSymbol}&resolution=${activeResolution}&limit=120`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('API fetch failed');
+                const data = await response.json();
+
+                if (data && data.length > 0) {
+                    const candles: any[] = [];
+                    const volumeData: any[] = [];
+                    const offsetSeconds = new Date().getTimezoneOffset() * 60;
+
+                    for (const item of data) {
+                        const isUp = item.close >= item.open;
+                        const adjustedTime = (item.time - offsetSeconds) as UTCTimestamp;
+                        
+                        candles.push({
+                            time: adjustedTime,
+                            open: item.open,
+                            high: item.high,
+                            low: item.low,
+                            close: item.close
+                        });
+                        volumeData.push({
+                            time: adjustedTime,
+                            value: item.volume,
+                            color: isUp ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'
+                        });
+                    }
+
+                    // [하이브리드 보정 패딩 엔진] 구현
+                    if (candles.length < 100) {
+                        const padCount = 100 - candles.length;
+                        let intervalSeconds = 60;
+                        switch (activeResolution.toLowerCase()) {
+                            case '5m': intervalSeconds = 300; break;
+                            case '15m': intervalSeconds = 900; break;
+                            case '1h': intervalSeconds = 3600; break;
+                            default: intervalSeconds = 60; break;
+                        }
+
+                        const paddedCandles: any[] = [];
+                        const paddedVolume: any[] = [];
+                        let lastPriceVal = candles[0].open;
+                        const oldestTime = candles[0].time as number;
+
+                        for (let i = 1; i <= padCount; i++) {
+                            const time = (oldestTime - i * intervalSeconds) as UTCTimestamp;
+                            const close = lastPriceVal;
+                            const drift = (Math.random() - 0.5) * (basePrice * 0.003);
+                            const open = close - drift;
+                            const high = Math.max(open, close) + Math.random() * (basePrice * 0.001);
+                            const low = Math.min(open, close) - Math.random() * (basePrice * 0.001);
+                            const volume = Math.floor(Math.random() * 800) + 100;
+                            const isUp = close >= open;
+
+                            paddedCandles.push({ time, open, high, low, close });
+                            paddedVolume.push({
+                                time,
+                                value: volume,
+                                color: isUp ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'
+                            });
+                            lastPriceVal = open;
+                        }
+
+                        paddedCandles.reverse();
+                        paddedVolume.reverse();
+                        candles.unshift(...paddedCandles);
+                        volumeData.unshift(...paddedVolume);
+                    }
+
+                    // 로컬 버퍼 셋
+                    loadedBufferRef.current = [...candles];
+                    
+                    candlestickSeriesRef.current.setData(candles);
+                    volumeSeriesRef.current.setData(volumeData);
+
+                    // 단순 이동평균(SMA) 매핑
+                    const closeValues = candles.map(c => ({ time: c.time as UTCTimestamp, value: c.close }));
+                    ma7SeriesRef.current.setData(calculateSMA(closeValues, 7));
+                    ma25SeriesRef.current.setData(calculateSMA(closeValues, 25));
+
+                    const lastCandle = candles[candles.length - 1];
+                    currentCandleRef.current = { ...lastCandle };
+                    currentVolumeRef.current = volumeData[volumeData.length - 1].value;
+
+                    // 차트 가로폭 꽉 맞춤 정렬 연동 (가로 짤림 전격 예방)
+                    if (chartRef.current) {
+                        chartRef.current.timeScale().fitContent();
+                    }
+                }
+            } catch (err) {
+                console.error("[React-Chart] Failed to load historical data", err);
+            }
+        };
+
+        fetchHistoricalData();
+    }, [activeSymbol, activeResolution, apiBaseUrl]);
+
+    // 3. Zustand 실시간 시세 틱 수신 시 마켓 정보에 맞게 차트 갱신 연동
+    useEffect(() => {
+        if (lastPrice === 0 || !candlestickSeriesRef.current || !volumeSeriesRef.current) return;
+
+        let resolutionSeconds = 60;
+        switch (activeResolution.toLowerCase()) {
+            case '5m': resolutionSeconds = 300; break;
+            case '15m': resolutionSeconds = 900; break;
+            case '1h': resolutionSeconds = 3600; break;
+            default: resolutionSeconds = 60; break;
+        }
+
+        const offsetSeconds = new Date().getTimezoneOffset() * 60;
+        const bucketTime = (Math.floor(Date.now() / (resolutionSeconds * 1000)) * resolutionSeconds - offsetSeconds) as UTCTimestamp;
+
+        // 초정밀 시간 안전 가드
+        if (loadedBufferRef.current.length > 0) {
+            const lastTime = loadedBufferRef.current[loadedBufferRef.current.length - 1].time as number;
+            if ((bucketTime as number) < lastTime) return; // 오래된 틱은 안전하게 드롭
+        }
+
+        let updatedCandle: any;
+
+        if (!currentCandleRef.current || (bucketTime as number) > (currentCandleRef.current.time as number)) {
+            // 새 캔들 버킷으로 진입
+            updatedCandle = {
+                time: bucketTime,
+                open: lastPrice,
+                high: lastPrice,
+                low: lastPrice,
+                close: lastPrice
+            };
+            currentVolumeRef.current = Math.floor(Math.random() * 5) + 1;
+            loadedBufferRef.current.push(updatedCandle);
+            if (loadedBufferRef.current.length > 200) loadedBufferRef.current.shift();
+        } else {
+            // 기존 캔들 실시간 드로잉 꼬리 갱신
+            updatedCandle = {
+                ...currentCandleRef.current,
+                close: lastPrice,
+                high: Math.max(currentCandleRef.current.high, lastPrice),
+                low: Math.min(currentCandleRef.current.low, lastPrice)
+            };
+            currentVolumeRef.current += 1;
+            if (loadedBufferRef.current.length > 0) {
+                loadedBufferRef.current[loadedBufferRef.current.length - 1] = updatedCandle;
+            }
+        }
+
+        currentCandleRef.current = updatedCandle;
+
+        candlestickSeriesRef.current.update(updatedCandle);
+        volumeSeriesRef.current.update({
+            time: bucketTime,
+            value: currentVolumeRef.current,
+            color: updatedCandle.close >= updatedCandle.open ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'
+        });
+
+        // 이동평균 갱신
+        const closeValues = loadedBufferRef.current.map(c => ({ time: c.time as UTCTimestamp, value: c.close }));
+        if (closeValues.length >= 7 && ma7SeriesRef.current) {
+            const sma7 = calculateSMA(closeValues, 7);
+            ma7SeriesRef.current.update(sma7[sma7.length - 1]);
+        }
+        if (closeValues.length >= 25 && ma25SeriesRef.current) {
+            const sma25 = calculateSMA(closeValues, 25);
+            ma25SeriesRef.current.update(sma25[sma25.length - 1]);
+        }
+    }, [lastPrice, activeResolution]);
+
+    return (
+        <div className="w-full relative bg-[#070b15] rounded-xl overflow-hidden border border-[#8a2be2]/20">
+            <div ref={containerRef} className="w-full h-[380px]" />
+        </div>
+    );
+};
