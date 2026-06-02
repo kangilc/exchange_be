@@ -35,7 +35,12 @@ export const App: React.FC = () => {
         adjustUserAsset,
         fetchLedgerList,
         fetchUserLedgers,
-        fetchUserTrades
+        fetchUserTrades,
+        fetchSummaryStats,
+        isAuthenticated,
+        login,
+        logout,
+        authEmail
     } = useExchangeStore();
 
     // 탭 변수 확장 ('dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger')
@@ -73,7 +78,9 @@ export const App: React.FC = () => {
 
     // 검색 및 페이징 상태
     const [userSearch, setUserSearch] = useState('');
+    const [userPage, setUserPage] = useState(0);
     const [walletSearch, setWalletSearch] = useState('');
+    const [walletPage, setWalletPage] = useState(0);
     const [ledgerSearch, setLedgerSearch] = useState('');
     const [ledgerPage, setLedgerPage] = useState(0);
 
@@ -82,11 +89,29 @@ export const App: React.FC = () => {
     const [manualCurrency, setManualCurrency] = useState('KRW');
     const [manualType, setManualType] = useState<'DEPOSIT' | 'WITHDRAWAL'>('DEPOSIT');
     const [manualAmount, setManualAmount] = useState('');
+    
+    // 실시간 스트리밍 모니터 일시 정지(Pause) 제어 상태
+    const [isStreamingPaused, setIsStreamingPaused] = useState(false);
+
+    // 일시정지 상태인 경우 렌더링 데이터 업데이트를 차단하거나 안내 행을 띄우지 않고 
+    // 스냅샷으로 보존하여 렌더링 트리 변화를 0으로 고정함
+    const [frozenTradesLog, setFrozenTradesLog] = useState<any[]>([]);
 
     useEffect(() => {
-        // 전역 스토어 초기화 및 웹소켓 연결
         initStore();
+        fetchSummaryStats();
+        // 5초 주기로 누적 거래 수 등 DB 스냅샷 정보를 주기적 갱신 및 동기화한다.
+        const timer = setInterval(() => {
+            fetchSummaryStats();
+        }, 5000);
+        return () => clearInterval(timer);
     }, [initStore]);
+
+    useEffect(() => {
+        if (!isStreamingPaused) {
+            setFrozenTradesLog(tradesLog);
+        }
+    }, [tradesLog, isStreamingPaused]);
 
     // 1. 회원 통합 관리 탭 전용 데이터 로드 (탭 활성화 시 1회만 트리거)
     useEffect(() => {
@@ -234,6 +259,9 @@ export const App: React.FC = () => {
 
     // 필터링 적용된 목록
     const filteredUsers = users.filter(u => u.email.toLowerCase().includes(userSearch.toLowerCase()));
+    const USER_PAGE_SIZE = 20;
+    const userTotalPages = Math.ceil(filteredUsers.length / USER_PAGE_SIZE);
+    const paginatedUsers = filteredUsers.slice(userPage * USER_PAGE_SIZE, (userPage + 1) * USER_PAGE_SIZE);
     
     // 이메일 또는 통화로 지갑 검색 필터링
     const filteredWallets = wallets.filter(w => 
@@ -241,6 +269,9 @@ export const App: React.FC = () => {
         w.currency.toLowerCase().includes(walletSearch.toLowerCase()) ||
         w.userId.toString().includes(walletSearch)
     );
+    const WALLET_PAGE_SIZE = 20;
+    const walletTotalPages = Math.ceil(filteredWallets.length / WALLET_PAGE_SIZE);
+    const paginatedWallets = filteredWallets.slice(walletPage * WALLET_PAGE_SIZE, (walletPage + 1) * WALLET_PAGE_SIZE);
 
     // 전체 유통 자산 비례 게이지 계산
     const getMaxBalance = () => {
@@ -248,6 +279,73 @@ export const App: React.FC = () => {
         return Math.max(...walletsSummary.map(s => s.totalBalance + s.totalLocked));
     };
     const maxBalance = getMaxBalance();
+
+    // 로그인 폼 입력 상태
+    const [loginEmail, setLoginEmail] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
+
+    const handleLoginSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!loginEmail || !loginPassword) {
+            alert('이메일과 비밀번호를 입력해 주세요.');
+            return;
+        }
+        const ok = await login(loginEmail, loginPassword);
+        if (ok) {
+            alert('로그인 성공');
+        } else {
+            alert('로그인 정보가 올바르지 않습니다.');
+        }
+    };
+
+    if (!isAuthenticated) {
+        return (
+            <div className="min-h-screen text-slate-100 flex items-center justify-center font-sans bg-[#070b15] relative overflow-hidden">
+                <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[#8a2be2]/10 rounded-full blur-[120px] pointer-events-none" />
+                <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-[#00f2fe]/10 rounded-full blur-[120px] pointer-events-none" />
+                
+                <div className="relative z-10 w-[420px] bg-slate-900/60 border border-white/5 rounded-3xl p-8 backdrop-blur-2xl shadow-2xl flex flex-col gap-6">
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="logo-glow w-6 h-6 rounded-full bg-gradient-to-r from-[#8a2be2] to-[#00f2fe] shadow-[0_0_20px_#8a2be2] animate-pulse" />
+                        <h1 className="text-2xl font-black tracking-tight text-white mt-2">JavaF 어드민 콘솔</h1>
+                        <p className="text-xs text-slate-400 text-center">보안 구역 로그인이 필요함</p>
+                    </div>
+
+                    <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4 text-xs font-semibold">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-slate-400 uppercase text-[10px]">이메일 계정</label>
+                            <input 
+                                type="email" 
+                                value={loginEmail}
+                                onChange={(e) => setLoginEmail(e.target.value)}
+                                placeholder="admin@example.com"
+                                required
+                                className="w-full p-3.5 bg-slate-950/80 border border-white/10 rounded-xl text-white outline-none focus:border-[#8a2be2] focus:shadow-[0_0_12px_rgba(138,43,226,0.15)] transition-all font-medium"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-slate-400 uppercase text-[10px]">비밀번호</label>
+                            <input 
+                                type="password" 
+                                value={loginPassword}
+                                onChange={(e) => setLoginPassword(e.target.value)}
+                                placeholder="••••••••"
+                                required
+                                className="w-full p-3.5 bg-slate-950/80 border border-white/10 rounded-xl text-white outline-none focus:border-[#8a2be2] focus:shadow-[0_0_12px_rgba(138,43,226,0.15)] transition-all font-medium"
+                            />
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            className="w-full py-4.5 bg-gradient-to-r from-[#8a2be2] to-[#4b0082] rounded-xl text-white font-extrabold text-xs tracking-wider uppercase shadow-xl hover:brightness-110 active:scale-[0.98] transition-all mt-2"
+                        >
+                            콘솔 로그인 인증
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="app-container min-h-screen text-slate-100 flex flex-col font-sans bg-[#070b15]">
@@ -285,6 +383,17 @@ export const App: React.FC = () => {
                     <div className={`status-badge flex items-center gap-2 px-4 py-1.5 rounded-full border transition-all duration-300 ${wsConnected ? 'bg-emerald-500/5 border-emerald-500/35 text-emerald-400' : 'bg-rose-500/5 border-rose-500/35 text-rose-400'}`}>
                         <span className={`status-dot w-1.5 h-1.5 rounded-full ${wsConnected ? 'bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse' : 'bg-rose-500 shadow-[0_0_8px_#ef4444]'}`} />
                         <span>{wsConnected ? 'WS CONNECTED' : 'WS DISCONNECTED'}</span>
+                    </div>
+
+                    {/* 로그인 인증 계정 정보 및 로그아웃 버튼 추가 */}
+                    <div className="auth-user-badge flex items-center bg-white/5 border border-white/10 px-4.5 py-1.5 rounded-full gap-3 text-slate-300 font-bold">
+                        <span className="text-white text-[11px] font-mono">{authEmail}</span>
+                        <button 
+                            onClick={logout}
+                            className="text-[#ff4757] hover:text-[#ff6b81] transition-colors border-l border-white/10 pl-3 uppercase tracking-wider text-[9px] font-black"
+                        >
+                            로그아웃
+                        </button>
                     </div>
                 </div>
             </header>
@@ -548,10 +657,18 @@ export const App: React.FC = () => {
                             <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
                                 <div className="flex items-center justify-between border-b border-white/5 pb-2">
                                     <span className="text-sm font-extrabold text-white">실시간 체결 로그 실황 (WebSocket Binary Stream)</span>
-                                    <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold animate-pulse">
-                                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                                        <span>LIVE STREAMING</span>
-                                    </span>
+                                    <div className="flex items-center gap-3">
+                                        <button 
+                                            onClick={() => setIsStreamingPaused(prev => !prev)}
+                                            className={`px-3 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider border transition-all ${isStreamingPaused ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20' : 'bg-white/2 border-white/10 text-slate-300 hover:bg-white/5'}`}
+                                        >
+                                            {isStreamingPaused ? '▶ 실시간 감시 재개' : '⏸ 실시간 감시 일시정지 (성능 절약)'}
+                                        </button>
+                                        <span className={`text-[10px] flex items-center gap-1 font-semibold ${isStreamingPaused ? 'text-amber-400' : 'text-emerald-400 animate-pulse'}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${isStreamingPaused ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                            <span>{isStreamingPaused ? 'PAUSED' : 'LIVE STREAMING'}</span>
+                                        </span>
+                                    </div>
                                 </div>
 
                                 <div className="max-h-[220px] overflow-y-auto w-full bg-black/15 rounded-xl border border-white/5">
@@ -567,14 +684,14 @@ export const App: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-white/5">
-                                            {tradesLog.length === 0 ? (
+                                            {frozenTradesLog.length === 0 ? (
                                                 <tr>
                                                     <td colSpan={6} className="text-center py-8 text-slate-500">
                                                         실시간 체결 대기 중... (바이너리 웹소켓 패킷 디코딩 대기)
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                tradesLog.map((trade) => {
+                                                frozenTradesLog.map((trade) => {
                                                     const isBuy = trade.side === 'BUY';
                                                     return (
                                                         <tr key={trade.tradeId} className="hover:bg-white/2 transition-colors">
@@ -627,7 +744,10 @@ export const App: React.FC = () => {
                                             type="text" 
                                             placeholder="이메일 검색..." 
                                             value={userSearch}
-                                            onChange={(e) => setUserSearch(e.target.value)}
+                                            onChange={(e) => {
+                                                setUserSearch(e.target.value);
+                                                setUserPage(0);
+                                            }}
                                             className="pl-9 pr-4 py-2 bg-slate-950/50 border border-white/10 rounded-xl text-xs font-medium text-white outline-none w-[250px] focus:border-[#00f2fe] focus:shadow-[0_0_10px_rgba(0,242,254,0.15)] transition-all"
                                         />
                                     </div>
@@ -650,7 +770,7 @@ export const App: React.FC = () => {
                                                     <td colSpan={6} className="text-center py-8 text-slate-500">가입된 회원이 존재하지 않습니다.</td>
                                                 </tr>
                                             ) : (
-                                                filteredUsers.map(u => (
+                                                paginatedUsers.map(u => (
                                                     <tr key={u.userId} className="hover:bg-white/2 transition-colors">
                                                         <td className="px-5 py-4 font-mono font-bold text-[#00f2fe]">{u.userId}</td>
                                                         <td className="px-5 py-4 font-semibold text-white">{u.email}</td>
@@ -698,6 +818,27 @@ export const App: React.FC = () => {
                                         </tbody>
                                     </table>
                                 </div>
+                                <div className="p-4 flex justify-between items-center border-t border-white/5 bg-black/10 text-xs">
+                                    <div className="text-slate-400">
+                                        Page <span className="text-white font-bold">{userPage + 1}</span> of <span className="text-white font-bold">{userTotalPages}</span> (Total {filteredUsers.length} users)
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button 
+                                            disabled={userPage === 0}
+                                            onClick={() => setUserPage(prev => Math.max(prev - 1, 0))}
+                                            className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
+                                        >
+                                            ◀ 이전
+                                        </button>
+                                        <button 
+                                            disabled={userPage + 1 >= userTotalPages}
+                                            onClick={() => setUserPage(prev => Math.min(prev + 1, userTotalPages - 1))}
+                                            className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
+                                        >
+                                            다음 ▶
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -714,21 +855,32 @@ export const App: React.FC = () => {
                             <div className="grid grid-cols-4 gap-6">
                                 {walletsSummary.map(s => {
                                     const total = s.totalBalance + s.totalLocked;
+                                    const isCoin = s.currency === 'BTC' || s.currency === 'ADA';
+                                    const maxDigits = s.currency === 'KRW' ? 0 : (isCoin ? 4 : 2);
+                                    
+                                    const totalText = total.toLocaleString(undefined, { maximumFractionDigits: maxDigits });
+                                    const textSizeClass = totalText.length > 18 ? 'text-base xl:text-lg' : (totalText.length > 12 ? 'text-lg xl:text-xl' : 'text-2xl xl:text-3xl');
 
                                     return (
                                         <div key={s.currency} className="card-custom p-6 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl relative overflow-hidden flex flex-col gap-2">
                                             <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">거래소 내 총 보유 {s.currency}</div>
-                                            <div className="text-3xl font-black font-mono text-white mt-1">
-                                                {total.toLocaleString(undefined, { maximumFractionDigits: 6 })}
-                                            </div>
-                                            <div className="flex justify-between text-[10px] text-slate-400 mt-2 font-semibold border-t border-white/5 pt-2">
-                                                <span>가용: <span className="text-white">{s.totalBalance.toLocaleString(undefined, { maximumFractionDigits: 6 })}</span></span>
-                                                <span>주문 대기: <span className="text-rose-400">{s.totalLocked.toLocaleString(undefined, { maximumFractionDigits: 6 })}</span></span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                            <div className={`${textSizeClass} font-black font-mono text-white mt-1 break-all truncate`}>
+                                                {totalText}
+                                             </div>
+                                             <div className="flex flex-col gap-1 text-[10px] text-slate-400 mt-2 font-semibold border-t border-white/5 pt-2">
+                                                 <div className="flex justify-between items-center gap-2">
+                                                     <span>가용:</span>
+                                                     <span className="text-white font-mono truncate break-all">{s.totalBalance.toLocaleString(undefined, { maximumFractionDigits: maxDigits })}</span>
+                                                 </div>
+                                                 <div className="flex justify-between items-center gap-2">
+                                                     <span>주문 대기:</span>
+                                                     <span className="text-rose-400 font-mono truncate break-all">{s.totalLocked.toLocaleString(undefined, { maximumFractionDigits: maxDigits })}</span>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                     );
+                                 })}
+                             </div>
 
                             {/* 지갑 세부 목록 */}
                             <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl overflow-hidden flex flex-col">
@@ -740,7 +892,10 @@ export const App: React.FC = () => {
                                             type="text" 
                                             placeholder="이메일 또는 자산명 검색..." 
                                             value={walletSearch}
-                                            onChange={(e) => setWalletSearch(e.target.value)}
+                                            onChange={(e) => {
+                                                setWalletSearch(e.target.value);
+                                                setWalletPage(0);
+                                            }}
                                             className="pl-9 pr-4 py-2 bg-slate-950/50 border border-white/10 rounded-xl text-xs font-medium text-white outline-none w-[250px] focus:border-[#00f2fe] focus:shadow-[0_0_10px_rgba(0,242,254,0.15)] transition-all"
                                         />
                                     </div>
@@ -763,7 +918,7 @@ export const App: React.FC = () => {
                                                     <td colSpan={6} className="text-center py-8 text-slate-500">지갑 데이터가 존재하지 않습니다.</td>
                                                 </tr>
                                             ) : (
-                                                filteredWallets.map(w => {
+                                                paginatedWallets.map(w => {
                                                     const isKrw = w.currency === 'KRW';
                                                     return (
                                                         <tr key={w.walletId} className="hover:bg-white/2 transition-colors">
@@ -786,6 +941,27 @@ export const App: React.FC = () => {
                                             )}
                                         </tbody>
                                     </table>
+                                </div>
+                                <div className="p-4 flex justify-between items-center border-t border-white/5 bg-black/10 text-xs">
+                                    <div className="text-slate-400">
+                                        Page <span className="text-white font-bold">{walletPage + 1}</span> of <span className="text-white font-bold">{walletTotalPages}</span> (Total {filteredWallets.length} wallets)
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button 
+                                            disabled={walletPage === 0}
+                                            onClick={() => setWalletPage(prev => Math.max(prev - 1, 0))}
+                                            className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
+                                        >
+                                            ◀ 이전
+                                        </button>
+                                        <button 
+                                            disabled={walletPage + 1 >= walletTotalPages}
+                                            onClick={() => setWalletPage(prev => Math.min(prev + 1, walletTotalPages - 1))}
+                                            className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
+                                        >
+                                            다음 ▶
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

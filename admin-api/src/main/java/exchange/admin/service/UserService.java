@@ -17,11 +17,16 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 @Service
 public class UserService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Autowired
     private WalletRepository walletRepository;
@@ -41,7 +46,7 @@ public class UserService {
     public User registerUser(String email, String password, String grade) {
         User user = new User();
         user.setEmail(email);
-        user.setPasswordHash(hashPassword(password));
+        user.setPasswordHash(passwordEncoder.encode(password));
         user.setGrade(grade != null ? grade : "STANDARD");
         user.setStatus("ACTIVE");
         user.setCreatedAt(LocalDateTime.now());

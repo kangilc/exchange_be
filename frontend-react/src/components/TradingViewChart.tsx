@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
 import type { UTCTimestamp } from 'lightweight-charts';
-import { useExchangeStore } from '../store/useExchangeStore';
+import { useExchangeStore, fetchWithAuth } from '../store/useExchangeStore';
 
 // 단순 이동평균(SMA) 계산 유틸리티 함수
 function calculateSMA(data: { value: number; time: UTCTimestamp }[], period: number) {
@@ -145,7 +145,7 @@ export const TradingViewChart: React.FC = () => {
             const url = `${apiBaseUrl}/admin/stats/candles?symbol=${activeSymbol}&resolution=${activeResolution}&limit=120`;
 
             try {
-                const response = await fetch(url);
+                const response = await fetchWithAuth(url);
                 if (!response.ok) throw new Error('API fetch failed');
                 const data = await response.json();
 
