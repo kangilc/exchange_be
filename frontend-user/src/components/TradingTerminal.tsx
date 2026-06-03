@@ -21,7 +21,8 @@ const OrderBookRow: React.FC<{
     side: 'ask' | 'bid';
     barWidth: number;
     cumVal: number;
-}> = ({ price, qty, side, barWidth, cumVal }) => {
+    onClick?: () => void;
+}> = ({ price, qty, side, barWidth, cumVal, onClick }) => {
     const prevQty = useRef<number>(qty);
     const [flashClass, setFlashClass] = useState<string>('');
 
@@ -45,7 +46,10 @@ const OrderBookRow: React.FC<{
     }, [qty, side]);
 
     return (
-        <div className={`grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150 ${flashClass}`}>
+        <div 
+            onClick={onClick}
+            className={`grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150 cursor-pointer ${flashClass}`}
+        >
             <div className={`absolute right-0 top-0 bottom-0 transition-all duration-300 pointer-events-none ${side === 'ask' ? 'bg-rose-500/8' : 'bg-emerald-500/8'}`} style={{ width: `${barWidth}%` }} />
             <span className={`relative z-10 font-bold ${side === 'ask' ? 'text-rose-400' : 'text-emerald-400'}`}>{(price / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             <span className="text-slate-300 relative z-10 text-right font-semibold">{qty.toLocaleString()}</span>
@@ -590,6 +594,12 @@ export const TradingTerminal: React.FC = () => {
                                             side="ask"
                                             barWidth={barWidth}
                                             cumVal={cumVal}
+                                            onClick={() => {
+                                                setOrderPrice((price / 100.0).toString());
+                                                if (orderType === 'MARKET') {
+                                                    setOrderType('LIMIT');
+                                                }
+                                            }}
                                         />
                                     );
                                 });
@@ -627,6 +637,12 @@ export const TradingTerminal: React.FC = () => {
                                             side="bid"
                                             barWidth={barWidth}
                                             cumVal={cumVal}
+                                            onClick={() => {
+                                                setOrderPrice((price / 100.0).toString());
+                                                if (orderType === 'MARKET') {
+                                                    setOrderType('LIMIT');
+                                                }
+                                            }}
                                         />
                                     );
                                 });

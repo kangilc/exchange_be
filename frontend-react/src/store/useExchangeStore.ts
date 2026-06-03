@@ -284,12 +284,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         setActiveSymbol: (symbol) => {
             set({ activeSymbol: symbol, lastPrice: 0 });
-            console.log(`[심볼 전환] ${symbol} 활성화 완료.`);
+            // console.log(`[심볼 전환] ${symbol} 활성화 완료.`);
         },
 
         setActiveResolution: (res) => {
             set({ activeResolution: res });
-            console.log(`[해상도 전환] ${res} 활성화 완료.`);
+            // console.log(`[해상도 전환] ${res} 활성화 완료.`);
         },
 
         setWsConnected: (connected) => set({ wsConnected: connected }),

@@ -49,6 +49,9 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/admin/auth/**").permitAll() // 로그인/토큰갱신 공개
+                .requestMatchers("/admin/stats/candles").permitAll() // 일반 사용자 차트용 캔들 조회 허용
+                .requestMatchers("/admin/wallets/user/**").permitAll() // 일반 사용자 모의 지갑 조회 허용
+                .requestMatchers("/admin/users/*/assets/adjust").permitAll() // 일반 사용자 모의 자산 조정 허용
                 .requestMatchers("/admin/**").hasRole("ADMIN") // 그 외 관리자 경로는 ADMIN 권한 필수
                 .anyRequest().authenticated()
             )

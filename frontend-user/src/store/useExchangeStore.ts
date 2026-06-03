@@ -42,7 +42,7 @@ interface ExchangeState {
     totalVolumeText: string;
     tradesLog: TradeLog[];
     loadedCandles: CandleData[];
-    
+
     // 액션 메서드 선언
     initStore: () => Promise<void>;
     setActiveSymbol: (symbol: string) => void;
@@ -140,7 +140,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                         const base = config.API_BASE_URL;
                         const host = base.replace(/^https?:\/\//, '').split(':')[0];
                         const wsUrl = `ws://${host}:8088/ws`;
-                        
+
                         set({ apiBaseUrl: base, wsUrl });
                         console.log(`[환경 구성] config.json 로드 성공. API: ${base}, WS: ${wsUrl}`);
                     }
@@ -156,19 +156,19 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         setActiveSymbol: (symbol) => {
             set({ activeSymbol: symbol, lastPrice: 0 });
-            console.log(`[심볼 전환] ${symbol} 활성화 완료.`);
+            // console.log(`[심볼 전환] ${symbol} 활성화 완료.`);
         },
 
         setActiveResolution: (res) => {
             set({ activeResolution: res });
-            console.log(`[해상도 전환] ${res} 활성화 완료.`);
+            // console.log(`[해상도 전환] ${res} 활성화 완료.`);
         },
 
         setWsConnected: (connected) => set({ wsConnected: connected }),
 
         updateTradeStats: (price, qty, side, symbol) => {
             const currentSymbol = get().activeSymbol;
-            
+
             const newLog: TradeLog = {
                 tradeId: Date.now().toString().substring(7) + Math.floor(Math.random() * 10),
                 symbol,
@@ -181,9 +181,9 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             set((state) => {
                 const nextLogs = [newLog, ...state.tradesLog].slice(0, 50);
                 const nextTradesCount = state.totalTradesCount + 1;
-                
+
                 const isMatching = symbol === currentSymbol;
-                
+
                 return {
                     tradesLog: nextLogs,
                     totalTradesCount: nextTradesCount,
