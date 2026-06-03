@@ -127,9 +127,27 @@ interface ExchangeState {
     fetchUserTrades: (userId: number) => Promise<any[]>;
     fetchSummaryStats: () => Promise<void>;
     duplicateLoginBlockEnabled: boolean;
+    btcConfirmations: number;
+    ethConfirmations: number;
+    adaConfirmations: number;
+    cryptoWithdrawals: any[];
+    hotWallets: any[];
+    userCryptoAddresses: any[];
+    pendingDeposits: any[];
+    blockHeight: number;
     fetchSettings: () => Promise<void>;
     toggleDuplicateLoginBlock: (enabled: boolean) => Promise<void>;
+    updateConfirmationsSettings: (btc: number, eth: number, ada: number) => Promise<void>;
     sendWsMessage: (message: any) => boolean;
+    fetchCryptoWithdrawals: () => Promise<void>;
+    fetchHotWallets: () => Promise<void>;
+    fetchUserCryptoAddresses: () => Promise<void>;
+    fetchPendingDeposits: () => Promise<void>;
+    fetchBlockHeight: () => Promise<void>;
+    approveWithdrawal: (id: number) => Promise<boolean>;
+    rejectWithdrawal: (id: number) => Promise<boolean>;
+    rebalanceHotWallet: (id: number, amount: number) => Promise<boolean>;
+    requestCryptoWithdrawal: (userId: number, currency: string, amount: number, toAddress: string) => Promise<boolean>;
 }
 
 // 심볼 해시코드 상수
@@ -216,6 +234,14 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         ledgerTotalCount: 0,
         ledgerTotalPages: 0,
         duplicateLoginBlockEnabled: true,
+        btcConfirmations: 3,
+        ethConfirmations: 12,
+        adaConfirmations: 5,
+        cryptoWithdrawals: [],
+        hotWallets: [],
+        userCryptoAddresses: [],
+        pendingDeposits: [],
+        blockHeight: 0,
 
         // 인증 상태 초기화 값 설정
         isAuthenticated: !!getLocalAccessToken(),
@@ -496,8 +522,13 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/settings`);
                 if (res.ok) {
                     const data = await res.json();
-                    if (data && typeof data.duplicateLoginBlockEnabled === 'boolean') {
-                        set({ duplicateLoginBlockEnabled: data.duplicateLoginBlockEnabled });
+                    if (data) {
+                        set({
+                            duplicateLoginBlockEnabled: !!data.duplicateLoginBlockEnabled,
+                            btcConfirmations: typeof data.btcConfirmations === 'number' ? data.btcConfirmations : 3,
+                            ethConfirmations: typeof data.ethConfirmations === 'number' ? data.ethConfirmations : 12,
+                            adaConfirmations: typeof data.adaConfirmations === 'number' ? data.adaConfirmations : 5
+                        });
                     }
                 }
             } catch (err) {
@@ -524,10 +555,167 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             }
         },
 
+        updateConfirmationsSettings: async (btc: number, eth: number, ada: number) => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        btcConfirmations: btc,
+                        ethConfirmations: eth,
+                        adaConfirmations: ada
+                    })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data) {
+                        set({
+                            btcConfirmations: typeof data.btcConfirmations === 'number' ? data.btcConfirmations : btc,
+                            ethConfirmations: typeof data.ethConfirmations === 'number' ? data.ethConfirmations : eth,
+                            adaConfirmations: typeof data.adaConfirmations === 'number' ? data.adaConfirmations : ada
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to update confirmations settings", err);
+            }
+        },
+
         sendWsMessage: (message: any) => {
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify(message));
                 return true;
+            }
+            return false;
+        },
+
+        fetchCryptoWithdrawals: async () => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/withdrawals`);
+                if (res.ok) {
+                    const data = await res.json();
+                    set({ cryptoWithdrawals: data });
+                }
+            } catch (err) {
+                console.error("Failed to fetch crypto withdrawals", err);
+            }
+        },
+
+        fetchHotWallets: async () => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/hot-wallets`);
+                if (res.ok) {
+                    const data = await res.json();
+                    set({ hotWallets: data });
+                }
+            } catch (err) {
+                console.error("Failed to fetch hot wallets", err);
+            }
+        },
+
+        fetchUserCryptoAddresses: async () => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/addresses`);
+                if (res.ok) {
+                    const data = await res.json();
+                    set({ userCryptoAddresses: data });
+                }
+            } catch (err) {
+                console.error("Failed to fetch user crypto addresses", err);
+            }
+        },
+
+        fetchPendingDeposits: async () => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/pending-deposits`);
+                if (res.ok) {
+                    const data = await res.json();
+                    set({ pendingDeposits: data });
+                }
+            } catch (err) {
+                console.error("Failed to fetch pending deposits", err);
+            }
+        },
+
+        fetchBlockHeight: async () => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/block-height`);
+                if (res.ok) {
+                    const data = await res.json();
+                    set({ blockHeight: data.blockHeight });
+                }
+            } catch (err) {
+                console.error("Failed to fetch block height", err);
+            }
+        },
+
+        approveWithdrawal: async (id: number) => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/withdrawals/${id}/approve`, {
+                    method: 'POST'
+                });
+                if (res.ok) {
+                    get().fetchCryptoWithdrawals();
+                    get().fetchHotWallets();
+                    return true;
+                } else {
+                    const errData = await res.json();
+                    alert("출금 승인 실패: " + (errData.error || "알 수 없는 오류"));
+                }
+            } catch (err) {
+                console.error("Failed to approve withdrawal", err);
+            }
+            return false;
+        },
+
+        rejectWithdrawal: async (id: number) => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/withdrawals/${id}/reject`, {
+                    method: 'POST'
+                });
+                if (res.ok) {
+                    get().fetchCryptoWithdrawals();
+                    return true;
+                }
+            } catch (err) {
+                console.error("Failed to reject withdrawal", err);
+            }
+            return false;
+        },
+
+        rebalanceHotWallet: async (id: number, amount: number) => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/hot-wallets/${id}/rebalance`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount })
+                });
+                if (res.ok) {
+                    get().fetchHotWallets();
+                    return true;
+                }
+            } catch (err) {
+                console.error("Failed to rebalance hot wallet", err);
+            }
+            return false;
+        },
+
+        requestCryptoWithdrawal: async (userId: number, currency: string, amount: number, toAddress: string) => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/withdraw`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, currency, amount, toAddress })
+                });
+                if (res.ok) {
+                    get().fetchCryptoWithdrawals();
+                    return true;
+                } else {
+                    const errData = await res.json();
+                    alert("출금 요청 실패: " + (errData.error || "알 수 없는 오류"));
+                }
+            } catch (err) {
+                console.error("Failed to request crypto withdrawal", err);
             }
             return false;
         }

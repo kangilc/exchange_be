@@ -17,18 +17,44 @@ public class SettingsController {
     @GetMapping
     public ResponseEntity<?> getSettings() {
         return ResponseEntity.ok(Map.of(
-            "duplicateLoginBlockEnabled", AdminSettings.isDuplicateLoginBlockEnabled()
+            "duplicateLoginBlockEnabled", AdminSettings.isDuplicateLoginBlockEnabled(),
+            "btcConfirmations", AdminSettings.getBtcConfirmations(),
+            "ethConfirmations", AdminSettings.getEthConfirmations(),
+            "adaConfirmations", AdminSettings.getAdaConfirmations()
         ));
     }
 
     @PostMapping
-    public ResponseEntity<?> updateSettings(@RequestBody Map<String, Boolean> request) {
-        Boolean enabled = request.get("duplicateLoginBlockEnabled");
-        if (enabled != null) {
-            AdminSettings.setDuplicateLoginBlockEnabled(enabled);
+    public ResponseEntity<?> updateSettings(@RequestBody Map<String, Object> request) {
+        if (request.containsKey("duplicateLoginBlockEnabled")) {
+            Object val = request.get("duplicateLoginBlockEnabled");
+            if (val instanceof Boolean) {
+                AdminSettings.setDuplicateLoginBlockEnabled((Boolean) val);
+            }
+        }
+        if (request.containsKey("btcConfirmations")) {
+            Object val = request.get("btcConfirmations");
+            if (val instanceof Number) {
+                AdminSettings.setBtcConfirmations(((Number) val).intValue());
+            }
+        }
+        if (request.containsKey("ethConfirmations")) {
+            Object val = request.get("ethConfirmations");
+            if (val instanceof Number) {
+                AdminSettings.setEthConfirmations(((Number) val).intValue());
+            }
+        }
+        if (request.containsKey("adaConfirmations")) {
+            Object val = request.get("adaConfirmations");
+            if (val instanceof Number) {
+                AdminSettings.setAdaConfirmations(((Number) val).intValue());
+            }
         }
         return ResponseEntity.ok(Map.of(
-            "duplicateLoginBlockEnabled", AdminSettings.isDuplicateLoginBlockEnabled()
+            "duplicateLoginBlockEnabled", AdminSettings.isDuplicateLoginBlockEnabled(),
+            "btcConfirmations", AdminSettings.getBtcConfirmations(),
+            "ethConfirmations", AdminSettings.getEthConfirmations(),
+            "adaConfirmations", AdminSettings.getAdaConfirmations()
         ));
     }
 }

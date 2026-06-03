@@ -287,5 +287,59 @@ FROM orders
 WHERE order_id BETWEEN 40000001 AND 40050000;
 
 
+-- =====================================================================
+-- [MIGRATION] Blockchain On-Chain Wallet & Coin Integration Tables
+-- =====================================================================
 
+CREATE TABLE IF NOT EXISTS user_crypto_addresses (
+    address_id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    currency VARCHAR(10) NOT NULL,
+    crypto_address VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_user_crypto UNIQUE (user_id, currency)
+);
 
+CREATE TABLE IF NOT EXISTS crypto_withdrawals (
+    withdrawal_id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    currency VARCHAR(10) NOT NULL,
+    amount NUMERIC(36, 18) NOT NULL,
+    to_address VARCHAR(100) NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'APPROVED', 'REJECTED', 'BROADCASTED', 'SUCCESS', 'FAILED'
+    confirmations INT NOT NULL DEFAULT 0,
+    tx_hash VARCHAR(100),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS system_hot_wallets (
+    wallet_id BIGSERIAL PRIMARY KEY,
+    currency VARCHAR(10) NOT NULL UNIQUE,
+    crypto_address VARCHAR(100) NOT NULL,
+    balance NUMERIC(36, 18) NOT NULL DEFAULT 0.0,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Seed System Hot Wallets
+INSERT INTO system_hot_wallets (currency, crypto_address, balance) VALUES
+('BTC', '1BTC_HOT_WALLET_ADDRESS_XXXXXXXX', 50.00000000) ON CONFLICT (currency) DO NOTHING;
+INSERT INTO system_hot_wallets (currency, crypto_address, balance) VALUES
+('ETH', '0xETH_HOT_WALLET_ADDRESS_XXXXXXXX', 1000.00000000) ON CONFLICT (currency) DO NOTHING;
+INSERT INTO system_hot_wallets (currency, crypto_address, balance) VALUES
+('ADA', 'addr1_ADA_HOT_WALLET_ADDRESS_XXXX', 500000.00000000) ON CONFLICT (currency) DO NOTHING;
+
+-- Seed User Deposit Addresses
+INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
+(1, 'BTC', '1BTC_DEPOSIT_ADDR_USER1_XXXXXXXXX') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
+INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
+(1, 'ETH', '0xETH_DEPOSIT_ADDR_USER1_XXXXXXXXX') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
+INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
+(1, 'ADA', 'addr1_ADA_DEPOSIT_ADDR_USER1_XXXX') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
+
+INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
+(2, 'BTC', '1BTC_DEPOSIT_ADDR_USER2_XXXXXXXXX') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
+INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
+(2, 'ETH', '0xETH_DEPOSIT_ADDR_USER2_XXXXXXXXX') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
+INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
+(2, 'ADA', 'addr1_ADA_DEPOSIT_ADDR_USER2_XXXX') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;

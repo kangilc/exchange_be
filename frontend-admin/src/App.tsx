@@ -3,7 +3,7 @@ import { useExchangeStore } from './store/useExchangeStore';
 import { TradingViewChart } from './components/TradingViewChart';
 import { 
     LayoutDashboard, Users, ShieldAlert, MonitorPlay, ArrowDownRight, 
-    ArrowUpRight, Activity, Plus, Search, Coins, X, Settings 
+    ArrowUpRight, Activity, Plus, Search, Coins, X, Settings, Wallet
 } from 'lucide-react';
 import './App.css';
 
@@ -43,11 +43,30 @@ export const App: React.FC = () => {
         duplicateLoginBlockEnabled,
         fetchSettings,
         toggleDuplicateLoginBlock,
-        sendWsMessage
+        sendWsMessage,
+        // custody 관련 추가
+        btcConfirmations,
+        ethConfirmations,
+        adaConfirmations,
+        cryptoWithdrawals,
+        hotWallets,
+        userCryptoAddresses,
+        pendingDeposits,
+        blockHeight,
+        updateConfirmationsSettings,
+        fetchCryptoWithdrawals,
+        fetchHotWallets,
+        fetchUserCryptoAddresses,
+        fetchPendingDeposits,
+        fetchBlockHeight,
+        approveWithdrawal,
+        rejectWithdrawal,
+        rebalanceHotWallet,
+        requestCryptoWithdrawal
     } = useExchangeStore();
 
-    // 탭 변수 확장 ('dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger' | 'settings')
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger' | 'settings'>('market-watch');
+    // 탭 변수 확장 ('dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger' | 'settings' | 'custody')
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger' | 'settings' | 'custody'>('market-watch');
 
 
     // 모달 제어 상태
@@ -94,6 +113,24 @@ export const App: React.FC = () => {
     // 실시간 스트리밍 모니터 일시 정지(Pause) 제어 상태
     const [isStreamingPaused, setIsStreamingPaused] = useState(true);
     const [frozenTradesLog, setFrozenTradesLog] = useState<any[]>([]);
+
+    // 블록 컨펌 수 임시 입력 상태
+    const [btcInput, setBtcInput] = useState<number>(3);
+    const [ethInput, setEthInput] = useState<number>(6);
+    const [adaInput, setAdaInput] = useState<number>(10);
+
+    // 스토어에서 컨펌 수 설정값을 받아오면 로컬 state에 동기화
+    useEffect(() => {
+        setBtcInput(btcConfirmations);
+        setEthInput(ethConfirmations);
+        setAdaInput(adaConfirmations);
+    }, [btcConfirmations, ethConfirmations, adaConfirmations]);
+
+    // 온체인 수동 출금 테스트 상태
+    const [custodyWithdrawUserId, setCustodyWithdrawUserId] = useState('');
+    const [custodyWithdrawCurrency, setCustodyWithdrawCurrency] = useState('BTC');
+    const [custodyWithdrawAmount, setCustodyWithdrawAmount] = useState('');
+    const [custodyWithdrawAddress, setCustodyWithdrawAddress] = useState('');
 
     // 환경 설정 모의 스위치 로컬 상태
     const [mockPlaySound, setMockPlaySound] = useState(true);
@@ -243,9 +280,9 @@ export const App: React.FC = () => {
         }
     }, [tradesLog, isStreamingPaused]);
 
-    // 0. 대시보드 또는 설정 탭 활성화 또는 로그인 성공 시 환경 설정 동기화
+    // 0. 대시보드, 설정 또는 Custody 탭 활성화 또는 로그인 성공 시 환경 설정 동기화
     useEffect(() => {
-        if (isAuthenticated && (activeTab === 'dashboard' || activeTab === 'settings')) {
+        if (isAuthenticated && (activeTab === 'dashboard' || activeTab === 'settings' || activeTab === 'custody')) {
             fetchSettings();
         }
     }, [isAuthenticated, activeTab, fetchSettings]);
@@ -280,6 +317,22 @@ export const App: React.FC = () => {
             fetchSummaryStats();
         }
     }, [activeTab, fetchSummaryStats]);
+
+    // 5. 온체인 입출금 관리(Custody) 탭 전용 데이터 로드 및 3초 주기 폴링
+    useEffect(() => {
+        if (activeTab === 'custody') {
+            const loadData = () => {
+                fetchHotWallets();
+                fetchCryptoWithdrawals();
+                fetchUserCryptoAddresses();
+                fetchPendingDeposits();
+                fetchBlockHeight();
+            };
+            loadData();
+            const interval = setInterval(loadData, 3000);
+            return () => clearInterval(interval);
+        }
+    }, [activeTab, fetchHotWallets, fetchCryptoWithdrawals, fetchUserCryptoAddresses, fetchPendingDeposits, fetchBlockHeight]);
 
     const formatPrice = (val: number) => {
         const unit = activeSymbol === 'BTC-USD' ? '$' : '₩';
@@ -561,6 +614,14 @@ export const App: React.FC = () => {
                     >
                         <ShieldAlert size={18} />
                         <span>입출금 통합 관리</span>
+                    </button>
+
+                    <button
+                        onClick={() => setActiveTab('custody')}
+                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'custody' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                    >
+                        <Wallet size={18} />
+                        <span>온체인 입출금 관리 (Custody)</span>
                     </button>
 
                     <button
@@ -988,14 +1049,17 @@ export const App: React.FC = () => {
                             </div>
 
                             {/* 자산별 유통 요약 */}
-                            <div className="grid grid-cols-4 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6">
                                 {walletsSummary.map(s => {
                                     const total = s.totalBalance + s.totalLocked;
 
                                     return (
-                                        <div key={s.currency} className="card-custom p-6 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl relative overflow-hidden flex flex-col gap-2">
-                                            <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">거래소 내 총 보유 {s.currency}</div>
-                                            <div className="text-3xl font-black font-mono text-white mt-1">
+                                        <div key={s.currency} className="card-custom p-4 sm:p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl relative overflow-hidden flex flex-col gap-1.5">
+                                            <div className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider font-bold">거래소 내 총 보유 {s.currency}</div>
+                                            <div 
+                                                className="text-lg sm:text-xl xl:text-2xl font-black font-mono text-white mt-1 truncate" 
+                                                title={total.toLocaleString(undefined, { maximumFractionDigits: 6 })}
+                                            >
                                                 {total.toLocaleString(undefined, { maximumFractionDigits: 6 })}
                                             </div>
                                             <div className="flex justify-between text-[10px] text-slate-400 mt-2 font-semibold border-t border-white/5 pt-2">
@@ -1326,7 +1390,65 @@ export const App: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* 3. 거래소 운영 모드 설정 */}
+                                {/* 3. 블록 컨펌 수 설정 */}
+                                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                    <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
+                                        <Wallet size={16} className="text-[#8a2be2]" />
+                                        <span>온체인 블록 컨펌 수 설정</span>
+                                    </div>
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex items-center justify-between p-3 bg-slate-900/40 border border-white/5 rounded-xl">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-xs font-bold text-white">BTC 입금 컨펌 수</span>
+                                                <span className="text-[10px] text-slate-400">비트코인 입금 반영을 위한 블록 확인 횟수</span>
+                                            </div>
+                                            <input 
+                                                type="number"
+                                                value={btcInput}
+                                                onChange={(e) => setBtcInput(Number(e.target.value))}
+                                                className="w-20 p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-bold text-center outline-none focus:border-[#8a2be2]"
+                                                min={1}
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between p-3 bg-slate-900/40 border border-white/5 rounded-xl">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-xs font-bold text-white">ETH 입금 컨펌 수</span>
+                                                <span className="text-[10px] text-slate-400">이더리움 입금 반영을 위한 블록 확인 횟수</span>
+                                            </div>
+                                            <input 
+                                                type="number"
+                                                value={ethInput}
+                                                onChange={(e) => setEthInput(Number(e.target.value))}
+                                                className="w-20 p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-bold text-center outline-none focus:border-[#8a2be2]"
+                                                min={1}
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between p-3 bg-slate-900/40 border border-white/5 rounded-xl">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-xs font-bold text-white">ADA 입금 컨펌 수</span>
+                                                <span className="text-[10px] text-slate-400">에이다 입금 반영을 위한 블록 확인 횟수</span>
+                                            </div>
+                                            <input 
+                                                type="number"
+                                                value={adaInput}
+                                                onChange={(e) => setAdaInput(Number(e.target.value))}
+                                                className="w-20 p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-bold text-center outline-none focus:border-[#8a2be2]"
+                                                min={1}
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={async () => {
+                                                await updateConfirmationsSettings(btcInput, ethInput, adaInput);
+                                                alert("블록 컨펌 수 설정이 저장되었습니다.");
+                                            }}
+                                            className="w-full py-2.5 bg-gradient-to-r from-[#8a2be2] to-[#00f2fe] hover:scale-[1.01] transition-transform text-white text-xs font-bold rounded-lg mt-1"
+                                        >
+                                            컨펌 수 설정 저장
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* 4. 거래소 운영 모드 설정 */}
                                 <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4 xl:col-span-2">
                                     <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
                                         <Coins size={16} className="text-amber-500" />
@@ -1537,6 +1659,324 @@ export const App: React.FC = () => {
                             </div>
                         </div>
                     )}
+
+                    {/* TAB 7: CUSTODY MANAGEMENT (온체인 입출금 관리) */}
+                    {activeTab === 'custody' && (
+                        <div className="tab-panel animate-fade-in flex flex-col gap-6">
+                            <div className="section-title text-xl font-black text-white flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Wallet size={20} className="text-[#00f2fe]" />
+                                    <span>온체인 커스터디(Custody) 자산 및 입출금 관리</span>
+                                </div>
+                                <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-1.5 rounded-full text-xs text-slate-300 font-bold">
+                                    <Activity size={14} className="text-[#00f2fe] animate-pulse" />
+                                    <span>시뮬레이션 블록 높이: <span className="text-white font-mono">{blockHeight}</span></span>
+                                </div>
+                            </div>
+
+                            {/* 1. 핫 월렛 보유 현황 & 출금 테스트 */}
+                            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                                {/* 핫 월렛 카드 (2열 차지) */}
+                                <div className="xl:col-span-2 bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                    <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
+                                        <Coins size={16} className="text-[#00f2fe]" />
+                                        <span>시스템 핫 월렛(System Hot Wallet) 잔고</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {hotWallets.map((hw: any) => (
+                                            <div key={hw.id} className="p-4 bg-slate-900/40 border border-white/5 rounded-xl flex flex-col gap-3 justify-between hover:border-[#00f2fe]/30 transition-all duration-300">
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs font-bold text-white">{hw.currency} 핫월렛</span>
+                                                        <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-[#00f2fe]/10 border border-[#00f2fe]/30 text-[#00f2fe]">CUSTODY</span>
+                                                    </div>
+                                                    <span className="text-lg font-black text-white font-mono tracking-wider mt-1">{hw.balance.toLocaleString(undefined, { maximumFractionDigits: hw.currency === 'ADA' ? 2 : 6 })} <span className="text-[10px] text-slate-400 font-bold">{hw.currency}</span></span>
+                                                    <span className="text-[9px] text-slate-500 font-mono break-all mt-1">{hw.address}</span>
+                                                </div>
+                                                <div className="flex flex-col gap-1.5 border-t border-white/5 pt-2">
+                                                    <div className="flex items-center justify-between text-[9px] text-slate-400 font-bold">
+                                                        <span>안전 임계값:</span>
+                                                        <span className="text-amber-400">{hw.thresholdAmount} {hw.currency}</span>
+                                                    </div>
+                                                    {hw.balance < hw.thresholdAmount && (
+                                                        <span className="text-[8px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 rounded text-center">잔고 부족 경고 - 보충 필요</span>
+                                                    )}
+                                                    <button
+                                                        onClick={async () => {
+                                                            const amtStr = prompt(`${hw.currency} 핫월렛에 공급할 수량을 입력하세요:`, (hw.thresholdAmount * 2).toString());
+                                                            if (amtStr && !isNaN(Number(amtStr))) {
+                                                                const success = await rebalanceHotWallet(hw.id, Number(amtStr));
+                                                                if (success) alert(`${hw.currency} 핫월렛에 ${amtStr} 자산이 정상 공급되었습니다.`);
+                                                            }
+                                                        }}
+                                                        className="w-full py-1 bg-white/5 hover:bg-[#00f2fe]/10 hover:text-white transition-all text-slate-400 text-[10px] font-bold rounded-lg mt-1 border border-white/5 hover:border-[#00f2fe]/30"
+                                                    >
+                                                        핫 월렛 자산 공급
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* 출금 테스트 폼 (1열 차지) */}
+                                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                    <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
+                                        <ArrowUpRight size={16} className="text-rose-400" />
+                                        <span>온체인 출금 모의 요청</span>
+                                    </div>
+                                    <div className="flex flex-col gap-3 text-xs font-semibold">
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[10px] text-slate-400">사용자 UID</label>
+                                            <input 
+                                                type="number"
+                                                value={custodyWithdrawUserId}
+                                                onChange={(e) => setCustodyWithdrawUserId(e.target.value)}
+                                                placeholder="예: 1"
+                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono outline-none focus:border-[#8a2be2]"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[10px] text-slate-400">출금 자산</label>
+                                            <select
+                                                value={custodyWithdrawCurrency}
+                                                onChange={(e) => setCustodyWithdrawCurrency(e.target.value)}
+                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
+                                            >
+                                                <option value="BTC">BTC</option>
+                                                <option value="ETH">ETH</option>
+                                                <option value="ADA">ADA</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[10px] text-slate-400">출금 수량</label>
+                                            <input 
+                                                type="number"
+                                                value={custodyWithdrawAmount}
+                                                onChange={(e) => setCustodyWithdrawAmount(e.target.value)}
+                                                placeholder="0.0"
+                                                step="0.0001"
+                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono outline-none focus:border-[#8a2be2]"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[10px] text-slate-400">수신 온체인 주소</label>
+                                            <input 
+                                                type="text"
+                                                value={custodyWithdrawAddress}
+                                                onChange={(e) => setCustodyWithdrawAddress(e.target.value)}
+                                                placeholder="0x... 또는 btc1..."
+                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono outline-none focus:border-[#8a2be2]"
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={async () => {
+                                                if (!custodyWithdrawUserId || !custodyWithdrawAmount || !custodyWithdrawAddress) {
+                                                    alert("모든 필드를 채워주세요.");
+                                                    return;
+                                                }
+                                                const success = await requestCryptoWithdrawal(
+                                                    Number(custodyWithdrawUserId),
+                                                    custodyWithdrawCurrency,
+                                                    Number(custodyWithdrawAmount),
+                                                    custodyWithdrawAddress
+                                                );
+                                                if (success) {
+                                                    alert("온체인 출금 요청이 정상 등록되어 승인 대기열에 추가되었습니다.");
+                                                    setCustodyWithdrawUserId('');
+                                                    setCustodyWithdrawAmount('');
+                                                    setCustodyWithdrawAddress('');
+                                                }
+                                            }}
+                                            className="w-full py-2 bg-gradient-to-r from-rose-600 to-rose-400 hover:scale-[1.01] transition-transform text-white text-xs font-bold rounded-lg mt-1 shadow-lg"
+                                        >
+                                            출금 요청 제출
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 2. 출금 승인/반여 대기열 & 입금 컨펌 진행 상황 */}
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                {/* 출금 대기열 */}
+                                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                    <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <ArrowUpRight size={16} className="text-rose-400" />
+                                            <span>출금 승인 및 반려 대기열</span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-400 font-mono">대기 및 브로드캐스트 상태 목록</span>
+                                    </div>
+                                    <div className="overflow-x-auto min-h-[200px] max-h-[350px]">
+                                        <table className="w-full text-left text-xs">
+                                            <thead>
+                                                <tr className="border-b border-white/5 text-slate-400 font-bold">
+                                                    <th className="py-2.5">ID</th>
+                                                    <th>UID</th>
+                                                    <th>통화</th>
+                                                    <th>출금 수량</th>
+                                                    <th>수신 주소</th>
+                                                    <th>컨펌</th>
+                                                    <th>상태</th>
+                                                    <th className="text-right">액션</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                                                {cryptoWithdrawals.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={8} className="py-8 text-center text-slate-500 font-semibold">대기 중인 출금 요청이 없습니다.</td>
+                                                    </tr>
+                                                ) : (
+                                                    cryptoWithdrawals.map((w: any) => (
+                                                        <tr key={w.id} className="hover:bg-white/2 transition-colors">
+                                                            <td className="py-3 font-mono text-slate-500">{w.id}</td>
+                                                            <td className="font-mono text-slate-400">{w.userId}</td>
+                                                            <td className="font-bold text-white">{w.currency}</td>
+                                                            <td className="font-mono text-white">{w.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
+                                                            <td className="font-mono text-slate-500 text-[10px] break-all max-w-[120px]" title={w.toAddress}>{w.toAddress?.slice(0, 10)}...</td>
+                                                            <td className="font-mono text-slate-400">
+                                                                {w.status === 'BROADCASTED' ? `${w.confirmations} / ${w.currency === 'BTC' ? btcConfirmations : w.currency === 'ETH' ? ethConfirmations : adaConfirmations}` : '-'}
+                                                            </td>
+                                                            <td>
+                                                                {w.status === 'PENDING' && (
+                                                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400">승인대기</span>
+                                                                )}
+                                                                {w.status === 'BROADCASTED' && (
+                                                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#00f2fe]/10 border border-[#00f2fe]/20 text-[#00f2fe] animate-pulse">브로드캐스트</span>
+                                                                )}
+                                                                {(w.status === 'COMPLETED' || w.status === 'SUCCESS') && (
+                                                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">완료됨</span>
+                                                                )}
+                                                                {w.status === 'REJECTED' && (
+                                                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/10 border border-rose-500/20 text-rose-400">반려됨</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="text-right">
+                                                                {w.status === 'PENDING' ? (
+                                                                    <div className="flex justify-end gap-1.5">
+                                                                        <button
+                                                                            onClick={async () => {
+                                                                                if (confirm(`${w.id}번 출금 요청을 승인하시겠습니까?`)) {
+                                                                                    await approveWithdrawal(w.id);
+                                                                                }
+                                                                            }}
+                                                                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-bold transition-all"
+                                                                        >
+                                                                            승인
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={async () => {
+                                                                                if (confirm(`${w.id}번 출금 요청을 반려하시겠습니까?`)) {
+                                                                                    await rejectWithdrawal(w.id);
+                                                                                }
+                                                                            }}
+                                                                            className="px-2 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[10px] font-bold transition-all"
+                                                                        >
+                                                                            반려
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-[10px] text-slate-500 font-bold">-</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* 온체인 입금 모니터링 (Simulated Deposits) */}
+                                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                    <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <ArrowDownRight size={16} className="text-emerald-400" />
+                                            <span>실시간 온체인 입금 모니터링 (컨펌 단계)</span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-400 font-mono">가상 블록체인 입금 감지</span>
+                                    </div>
+                                    <div className="overflow-x-auto min-h-[200px] max-h-[350px]">
+                                        <table className="w-full text-left text-xs">
+                                            <thead>
+                                                <tr className="border-b border-white/5 text-slate-400 font-bold">
+                                                    <th className="py-2.5">TXID</th>
+                                                    <th>수신 주소</th>
+                                                    <th>통화</th>
+                                                    <th>수량</th>
+                                                    <th>진행 블록 컨펌 수</th>
+                                                    <th className="text-right">상태</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                                                {pendingDeposits.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={6} className="py-8 text-center text-slate-500 font-semibold">대기 중이거나 진행 중인 입금 트랜잭션이 없습니다.</td>
+                                                    </tr>
+                                                ) : (
+                                                    pendingDeposits.map((d: any) => (
+                                                        <tr key={d.txHash} className="hover:bg-white/2 transition-colors">
+                                                            <td className="py-3 font-mono text-slate-500 text-[10px] break-all max-w-[120px]" title={d.txHash}>{d.txHash?.slice(0, 15)}...</td>
+                                                            <td className="font-mono text-slate-400 text-[10px] break-all max-w-[100px]" title={d.cryptoAddress}>{d.cryptoAddress?.slice(0, 10)}...</td>
+                                                            <td className="font-bold text-white">{d.currency}</td>
+                                                            <td className="font-mono text-white">{d.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
+                                                            <td className="font-mono">
+                                                                <span className="text-[#00f2fe] font-black">{d.confirmations}</span>
+                                                                <span className="text-slate-500 font-bold"> / {d.currency === 'BTC' ? btcConfirmations : d.currency === 'ETH' ? ethConfirmations : adaConfirmations}</span>
+                                                            </td>
+                                                            <td className="text-right">
+                                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#00f2fe]/10 border border-[#00f2fe]/20 text-[#00f2fe] animate-pulse">컨펌 진행 중</span>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 3. 사용자 온체인 주소 목록 */}
+                            <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
+                                    <Users size={16} className="text-[#00f2fe]" />
+                                    <span>회원 온체인 입금 주소 데이터베이스</span>
+                                </div>
+                                <div className="overflow-x-auto max-h-[300px]">
+                                    <table className="w-full text-left text-xs">
+                                        <thead>
+                                            <tr className="border-b border-white/5 text-slate-400 font-bold">
+                                                <th className="py-2.5">UID</th>
+                                                <th>회원 이메일</th>
+                                                <th>구분</th>
+                                                <th>온체인 지갑 주소</th>
+                                                <th>주소 생성 일시</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                                            {userCryptoAddresses.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={5} className="py-8 text-center text-slate-500 font-semibold">발급된 온체인 주소가 없습니다.</td>
+                                                </tr>
+                                            ) : (
+                                                userCryptoAddresses.map((addr: any, index: number) => (
+                                                    <tr key={index} className="hover:bg-white/2 transition-colors">
+                                                        <td className="py-3 font-mono text-slate-400">{addr.userId}</td>
+                                                        <td className="text-white font-bold">{addr.userEmail}</td>
+                                                        <td className="font-bold text-[#00f2fe]">{addr.currency}</td>
+                                                        <td className="font-mono text-slate-300 break-all">{addr.address}</td>
+                                                        <td className="font-mono text-slate-500">{new Date(addr.createdAt).toLocaleString()}</td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* TAB 6: SYSTEM SETTINGS (시스템 환경 설정) */}
                 </main>
             </>
         </div>
