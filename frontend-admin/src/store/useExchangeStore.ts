@@ -30,6 +30,57 @@ export interface CandleData {
     close: number;
 }
 
+// TODO(security): localStorage is vulnerable to XSS token theft.
+// In a production release, these authentication tokens should be stored in secure, HttpOnly cookies.
+const getLocalAccessToken = () => localStorage.getItem('admin_access_token');
+const getLocalRefreshToken = () => localStorage.getItem('admin_refresh_token');
+const setLocalTokens = (access: string | null, refresh: string | null) => {
+    if (access) localStorage.setItem('admin_access_token', access);
+    else localStorage.removeItem('admin_access_token');
+    if (refresh) localStorage.setItem('admin_refresh_token', refresh);
+    else localStorage.removeItem('admin_refresh_token');
+};
+
+// 동적으로 API 토큰을 가산하고 만료 시 자동 토큰 회전(RTR)을 수행하는 안전한 fetch 래퍼 함수임
+export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
+    let access = getLocalAccessToken();
+    if (!options.headers) {
+        options.headers = {};
+    }
+    if (access) {
+        (options.headers as any)['Authorization'] = `Bearer ${access}`;
+    }
+    
+    let res = await fetch(url, options);
+    
+    // 401 Unauthorized 또는 403 Forbidden 시 Refresh Token 기반 RTR 토큰 교체 자동 개시
+    if ((res.status === 401 || res.status === 403) && getLocalRefreshToken()) {
+        try {
+            console.log("[Auth] 토큰 만료 또는 비인가 요청 차단 감지. Refresh Token으로 갱신 수행 중...");
+            const refreshRes = await fetch('http://localhost:8181/admin/auth/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refreshToken: getLocalRefreshToken() })
+            });
+            if (refreshRes.ok) {
+                const tokens = await refreshRes.json();
+                setLocalTokens(tokens.accessToken, tokens.refreshToken);
+                // 새로 발급받은 Access Token 재주입 후 원래 요청 재시도
+                (options.headers as any)['Authorization'] = `Bearer ${tokens.accessToken}`;
+                res = await fetch(url, options);
+            } else {
+                console.warn("[Auth] Refresh Token 세션 갱신 실패. 강제 로그아웃됨.");
+                setLocalTokens(null, null);
+                localStorage.removeItem('admin_auth_email');
+                window.location.reload(); // 강제 화면 새로고침하여 로그인 화면 유도
+            }
+        } catch (e) {
+            console.error("[Auth] 토큰 갱신 에러", e);
+        }
+    }
+    return res;
+};
+
 // 어드민 중앙 상태 인터페이스
 interface ExchangeState {
     apiBaseUrl: string;
@@ -48,6 +99,12 @@ interface ExchangeState {
     ledgerList: any[];
     ledgerTotalCount: number;
     ledgerTotalPages: number;
+
+    // 인증 관련 상태 및 액션
+    isAuthenticated: boolean;
+    authEmail: string | null;
+    login: (email: string, password: string) => Promise<{ success: boolean; priorLoginExisted?: boolean }>;
+    logout: () => void;
     
     // 액션 메서드 선언
     initStore: () => Promise<void>;
@@ -68,6 +125,10 @@ interface ExchangeState {
     fetchLedgerList: (page: number, size: number, email?: string) => Promise<void>;
     fetchUserLedgers: (userId: number) => Promise<any[]>;
     fetchUserTrades: (userId: number) => Promise<any[]>;
+    fetchSummaryStats: () => Promise<void>;
+    duplicateLoginBlockEnabled: boolean;
+    fetchSettings: () => Promise<void>;
+    toggleDuplicateLoginBlock: (enabled: boolean) => Promise<void>;
 }
 
 // 심볼 해시코드 상수
@@ -153,6 +214,54 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         ledgerList: [],
         ledgerTotalCount: 0,
         ledgerTotalPages: 0,
+        duplicateLoginBlockEnabled: true,
+
+        // 인증 상태 초기화 값 설정
+        isAuthenticated: !!getLocalAccessToken(),
+        authEmail: localStorage.getItem('admin_auth_email') || null,
+
+        // 어드민 로그인 액션 구현
+        login: async (email, password) => {
+            try {
+                const res = await fetch(`${get().apiBaseUrl}/admin/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                if (res.ok) {
+                    const tokens = await res.json();
+                    setLocalTokens(tokens.accessToken, tokens.refreshToken);
+                    localStorage.setItem('admin_auth_email', tokens.email);
+                    set({ isAuthenticated: true, authEmail: tokens.email });
+                    console.log("[Auth] 로그인 성공. 토큰 수립 완료.");
+                    return { success: true, priorLoginExisted: tokens.priorLoginExisted };
+                }
+            } catch (err) {
+                console.error("[Auth] 로그인 처리 실패", err);
+            }
+            return { success: false };
+        },
+
+        // 어드민 로그아웃 액션 구현
+        logout: async () => {
+            try {
+                const email = get().authEmail;
+                if (email) {
+                    await fetch(`${get().apiBaseUrl}/admin/auth/logout`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+                }
+            } catch (err) {
+                console.error("[Auth] 로그아웃 전송 실패", err);
+            }
+            setLocalTokens(null, null);
+            localStorage.removeItem('admin_auth_email');
+            set({ isAuthenticated: false, authEmail: null });
+            console.log("[Auth] 로그아웃 성공. 세션 데이터 파괴.");
+            window.location.reload();
+        },
 
         initStore: async () => {
             try {
@@ -233,7 +342,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         fetchUsers: async () => {
             try {
-                const res = await fetch(`${get().apiBaseUrl}/admin/users`);
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users`);
                 if (res.ok) {
                     const data = await res.json();
                     set({ users: data });
@@ -245,7 +354,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         registerUser: async (email, password, grade) => {
             try {
-                const res = await fetch(`${get().apiBaseUrl}/admin/users`, {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password, grade })
@@ -259,7 +368,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         updateUser: async (userId, email, grade, status) => {
             try {
-                const res = await fetch(`${get().apiBaseUrl}/admin/users/${userId}`, {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/${userId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, grade, status })
@@ -275,8 +384,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 // 두 API 요청을 병렬로 동시에 날려 레이턴시를 50% 감축시킵니다.
                 const [walletsRes, usersRes] = await Promise.all([
-                    fetch(`${get().apiBaseUrl}/admin/wallets`),
-                    fetch(`${get().apiBaseUrl}/admin/users`)
+                    fetchWithAuth(`${get().apiBaseUrl}/admin/wallets`),
+                    fetchWithAuth(`${get().apiBaseUrl}/admin/users`)
                 ]);
 
                 if (walletsRes.ok && usersRes.ok) {
@@ -299,7 +408,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         fetchWalletsSummary: async () => {
             try {
-                const res = await fetch(`${get().apiBaseUrl}/admin/wallets/summary`);
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/wallets/summary`);
                 if (res.ok) {
                     const summary = await res.json();
                     set({ walletsSummary: summary });
@@ -311,7 +420,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         adjustUserAsset: async (userId, currency, amount) => {
             try {
-                const res = await fetch(`${get().apiBaseUrl}/admin/users/${userId}/assets/adjust`, {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/${userId}/assets/adjust`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ currency, amount })
@@ -326,7 +435,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         fetchLedgerList: async (page, size, email) => {
             try {
                 const searchParam = email ? `&email=${encodeURIComponent(email)}` : '';
-                const res = await fetch(`${get().apiBaseUrl}/admin/ledgers?page=${page}&size=${size}${searchParam}`);
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/ledgers?page=${page}&size=${size}${searchParam}`);
                 if (res.ok) {
                     const data = await res.json();
                     set({
@@ -342,7 +451,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         fetchUserLedgers: async (userId) => {
             try {
-                const res = await fetch(`${get().apiBaseUrl}/admin/users/${userId}/ledgers?page=0&size=50`);
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/${userId}/ledgers?page=0&size=50`);
                 if (res.ok) {
                     const data = await res.json();
                     return data.content || [];
@@ -355,7 +464,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         fetchUserTrades: async (userId) => {
             try {
-                const res = await fetch(`${get().apiBaseUrl}/admin/users/${userId}/trades?page=0&size=50`);
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/${userId}/trades?page=0&size=50`);
                 if (res.ok) {
                     const data = await res.json();
                     return data.content || [];
@@ -364,6 +473,54 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 console.error("Failed to fetch user trades", err);
             }
             return [];
+        },
+
+        fetchSummaryStats: async () => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/stats/summary`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && typeof data.totalTrades === 'number') {
+                        set({ totalTradesCount: data.totalTrades });
+                        console.log(`[통계 동기화] DB 누적 체결 수 동기화 성공: ${data.totalTrades} 건`);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch summary stats", err);
+            }
+        },
+
+        fetchSettings: async () => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/settings`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && typeof data.duplicateLoginBlockEnabled === 'boolean') {
+                        set({ duplicateLoginBlockEnabled: data.duplicateLoginBlockEnabled });
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch settings", err);
+            }
+        },
+
+        toggleDuplicateLoginBlock: async (enabled: boolean) => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ duplicateLoginBlockEnabled: enabled })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && typeof data.duplicateLoginBlockEnabled === 'boolean') {
+                        set({ duplicateLoginBlockEnabled: data.duplicateLoginBlockEnabled });
+                        console.log(`[설정 변경] 중복 로그인 차단 상태가 ${enabled}로 변경되었습니다.`);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to toggle duplicate login block", err);
+            }
         }
     };
 });

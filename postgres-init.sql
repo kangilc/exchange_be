@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     status VARCHAR(20) DEFAULT 'ACTIVE',
     grade VARCHAR(20) DEFAULT 'STANDARD',
+    refresh_token VARCHAR(255),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

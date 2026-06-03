@@ -37,17 +37,31 @@ public class JwtTokenProvider {
         }
     }
 
-    public String generateAccessToken(String email, String role) {
+    public String generateAccessToken(String email, String role, String refreshToken) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessTokenExpirationMs);
 
         return Jwts.builder()
                 .subject(email)
                 .claim("role", role)
+                .claim("refreshToken", refreshToken)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(jwtSecretKey, Jwts.SIG.HS256)
                 .compact();
+    }
+
+    public String getRefreshTokenFromToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(jwtSecretKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return claims.get("refreshToken", String.class);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public String generateRefreshToken(String email) {

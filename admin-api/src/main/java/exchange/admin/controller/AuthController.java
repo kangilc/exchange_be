@@ -1,5 +1,6 @@
 package exchange.admin.controller;
 
+import exchange.admin.config.AdminSettings;
 import exchange.admin.model.User;
 import exchange.admin.repository.UserRepository;
 import exchange.admin.security.JwtTokenProvider;
@@ -54,8 +55,12 @@ public class AuthController {
         }
 
         // 토큰 쌍 생성
-        String accessToken = tokenProvider.generateAccessToken(user.getEmail(), user.getGrade());
         String refreshToken = tokenProvider.generateRefreshToken(user.getEmail());
+        String accessToken = tokenProvider.generateAccessToken(user.getEmail(), user.getGrade(), refreshToken);
+
+        // 중복 로그인 여부 판별 (차단 설정이 켜져 있고 이전 리프레시 토큰이 DB에 있으면 이미 로그인된 상태임)
+        boolean priorLoginExisted = AdminSettings.isDuplicateLoginBlockEnabled() 
+            && (user.getRefreshToken() != null && !user.getRefreshToken().trim().isEmpty());
 
         // Refresh Token DB 저장 (RTR 준비)
         user.setRefreshToken(refreshToken);
@@ -66,6 +71,7 @@ public class AuthController {
         response.put("refreshToken", refreshToken);
         response.put("email", user.getEmail());
         response.put("grade", user.getGrade());
+        response.put("priorLoginExisted", priorLoginExisted);
 
         return ResponseEntity.ok(response);
     }
@@ -92,17 +98,16 @@ public class AuthController {
 
         User user = userOpt.get();
 
-        // 2. DB에 기록된 Refresh Token 값과 전송된 토큰 값 대조 (Replay Attack 방어)
+        // 2. DB에 기록된 Refresh Token 값과 전송된 토큰 값 대조
         if (user.getRefreshToken() == null || !user.getRefreshToken().equals(refreshToken)) {
-            // 이미 사용되었거나 비정상적인 접근 감지 시 자격 증명 전체 초기화 (보안 강화)
-            user.setRefreshToken(null);
-            userRepository.save(user);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "비정상적이거나 이미 재사용된 Refresh Token 감지. 강제 로그아웃됩니다."));
+            // 다른 세션에서 로그인하여 토큰이 갱신된 경우이므로 DB의 활성화된 세션 토큰을 무효화하지 않고 
+            // 요청한 예전 토큰에 대해서만 인증 오류를 반환합니다.
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "만료되었거나 이미 교체된 Refresh Token입니다. 강제 로그아웃됩니다."));
         }
 
         // 3. 토큰 회전(RTR) 적용: 새 Access Token 및 새 Refresh Token 발급
-        String newAccessToken = tokenProvider.generateAccessToken(user.getEmail(), user.getGrade());
         String newRefreshToken = tokenProvider.generateRefreshToken(user.getEmail());
+        String newAccessToken = tokenProvider.generateAccessToken(user.getEmail(), user.getGrade(), newRefreshToken);
 
         // 새 Refresh Token 데이터베이스 업데이트
         user.setRefreshToken(newRefreshToken);

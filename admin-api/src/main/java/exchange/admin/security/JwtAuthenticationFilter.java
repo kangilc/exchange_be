@@ -1,5 +1,7 @@
 package exchange.admin.security;
 
+import exchange.admin.model.User;
+import exchange.admin.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,13 +14,16 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Optional;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
+    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider) {
+    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, UserRepository userRepository) {
         this.tokenProvider = tokenProvider;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -30,15 +35,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwt != null && tokenProvider.validateToken(jwt)) {
                 String email = tokenProvider.getEmailFromToken(jwt);
                 String role = tokenProvider.getRoleFromToken(jwt);
+                String refreshToken = tokenProvider.getRefreshTokenFromToken(jwt);
 
-                if (role != null) {
-                    // 완전히 Stateless하게 동작하기 위해 DB 조회를 회피하고 JWT 내 이메일과 권한(ROLE_)으로 직접 인증을 수립합니다.
-                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                            email, null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-                    );
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                if (email != null && role != null && refreshToken != null) {
+                    boolean authenticated = true;
 
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                    // 중복 로그인 차단 기능이 ON인 경우에만 DB의 최신 토큰과 대조 검증 수행
+                    if (exchange.admin.config.AdminSettings.isDuplicateLoginBlockEnabled()) {
+                        Optional<User> userOpt = userRepository.findByEmail(email);
+                        if (userOpt.isEmpty() || !refreshToken.equals(userOpt.get().getRefreshToken())) {
+                            authenticated = false;
+                        }
+                    }
+
+                    if (authenticated) {
+                        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                                email, null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                        );
+                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    } else {
+                        // 중복 로그인 차단 기능이 ON이고 토큰이 유효하지 않으면 인증 거부 (401/403 유발)
+                        SecurityContextHolder.getContext().setAuthentication(null);
+                    }
                 }
             }
         } catch (Exception ex) {

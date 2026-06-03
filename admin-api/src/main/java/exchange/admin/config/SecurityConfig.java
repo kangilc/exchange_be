@@ -2,6 +2,7 @@ package exchange.admin.config;
 
 import exchange.admin.security.JwtAuthenticationFilter;
 import exchange.admin.security.JwtTokenProvider;
+import exchange.admin.repository.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -28,14 +29,16 @@ import java.util.Collections;
 public class SecurityConfig {
 
     private final JwtTokenProvider tokenProvider;
+    private final UserRepository userRepository;
 
-    public SecurityConfig(JwtTokenProvider tokenProvider) {
+    public SecurityConfig(JwtTokenProvider tokenProvider, UserRepository userRepository) {
         this.tokenProvider = tokenProvider;
+        this.userRepository = userRepository;
     }
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter(tokenProvider);
+        return new JwtAuthenticationFilter(tokenProvider, userRepository);
     }
 
     @Bean

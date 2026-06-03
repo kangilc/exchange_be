@@ -34,7 +34,15 @@ export const App: React.FC = () => {
         adjustUserAsset,
         fetchLedgerList,
         fetchUserLedgers,
-        fetchUserTrades
+        fetchUserTrades,
+        fetchSummaryStats,
+        isAuthenticated,
+        login,
+        logout,
+        authEmail,
+        duplicateLoginBlockEnabled,
+        fetchSettings,
+        toggleDuplicateLoginBlock
     } = useExchangeStore();
 
     // 탭 변수 확장 ('dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger')
@@ -70,7 +78,9 @@ export const App: React.FC = () => {
 
     // 검색 및 페이징 상태
     const [userSearch, setUserSearch] = useState('');
+    const [userPage, setUserPage] = useState(0);
     const [walletSearch, setWalletSearch] = useState('');
+    const [walletPage, setWalletPage] = useState(0);
     const [ledgerSearch, setLedgerSearch] = useState('');
     const [ledgerPage, setLedgerPage] = useState(0);
 
@@ -80,10 +90,55 @@ export const App: React.FC = () => {
     const [manualType, setManualType] = useState<'DEPOSIT' | 'WITHDRAWAL'>('DEPOSIT');
     const [manualAmount, setManualAmount] = useState('');
 
+    // 실시간 스트리밍 모니터 일시 정지(Pause) 제어 상태
+    const [isStreamingPaused, setIsStreamingPaused] = useState(true);
+    const [frozenTradesLog, setFrozenTradesLog] = useState<any[]>([]);
+
+    // 로그인 폼 입력 상태
+    const [loginEmail, setLoginEmail] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
+
+    const handleLoginSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!loginEmail || !loginPassword) {
+            alert('이메일과 비밀번호를 입력해 주세요.');
+            return;
+        }
+        const res = await login(loginEmail, loginPassword);
+        if (res.success) {
+            if (res.priorLoginExisted) {
+                alert('⚠️ 다른 기기나 브라우저에서 먼저 로그인했던 관리자 세션이 감지되었습니다. 이전 세션은 즉시 안전하게 로그아웃(세션 파기) 처리됩니다.');
+            } else {
+                alert('로그인 성공');
+            }
+        } else {
+            alert('로그인 정보가 올바르지 않습니다.');
+        }
+    };
+
     useEffect(() => {
         // 전역 스토어 초기화 및 웹소켓 연결
         initStore();
-    }, [initStore]);
+        fetchSummaryStats();
+        // 5초 주기로 누적 거래 수 등 DB 스냅샷 정보를 주기적 갱신 및 동기화한다.
+        const timer = setInterval(() => {
+            fetchSummaryStats();
+        }, 5000);
+        return () => clearInterval(timer);
+    }, [initStore, fetchSummaryStats]);
+
+    useEffect(() => {
+        if (!isStreamingPaused) {
+            setFrozenTradesLog(tradesLog);
+        }
+    }, [tradesLog, isStreamingPaused]);
+
+    // 0. 대시보드 탭 활성화 또는 로그인 성공 시 환경 설정 동기화
+    useEffect(() => {
+        if (isAuthenticated && activeTab === 'dashboard') {
+            fetchSettings();
+        }
+    }, [isAuthenticated, activeTab, fetchSettings]);
 
     // 1. 회원 통합 관리 탭 전용 데이터 로드 (탭 활성화 시 1회만 트리거)
     useEffect(() => {
@@ -112,8 +167,9 @@ export const App: React.FC = () => {
         if (activeTab === 'dashboard') {
             fetchUsers();
             fetchWalletsSummary();
+            fetchSummaryStats();
         }
-    }, [activeTab]);
+    }, [activeTab, fetchSummaryStats]);
 
     const formatPrice = (val: number) => {
         const unit = activeSymbol === 'BTC-USD' ? '$' : '₩';
@@ -231,6 +287,9 @@ export const App: React.FC = () => {
 
     // 필터링 적용된 목록
     const filteredUsers = users.filter(u => u.email.toLowerCase().includes(userSearch.toLowerCase()));
+    const USER_PAGE_SIZE = 20;
+    const userTotalPages = Math.ceil(filteredUsers.length / USER_PAGE_SIZE);
+    const paginatedUsers = filteredUsers.slice(userPage * USER_PAGE_SIZE, (userPage + 1) * USER_PAGE_SIZE);
     
     // 이메일 또는 통화로 지갑 검색 필터링
     const filteredWallets = wallets.filter(w => 
@@ -238,6 +297,9 @@ export const App: React.FC = () => {
         w.currency.toLowerCase().includes(walletSearch.toLowerCase()) ||
         w.userId.toString().includes(walletSearch)
     );
+    const WALLET_PAGE_SIZE = 20;
+    const walletTotalPages = Math.ceil(filteredWallets.length / WALLET_PAGE_SIZE);
+    const paginatedWallets = filteredWallets.slice(walletPage * WALLET_PAGE_SIZE, (walletPage + 1) * WALLET_PAGE_SIZE);
 
     // 전체 유통 자산 비례 게이지 계산
     const getMaxBalance = () => {
@@ -245,6 +307,72 @@ export const App: React.FC = () => {
         return Math.max(...walletsSummary.map(s => s.totalBalance + s.totalLocked));
     };
     const maxBalance = getMaxBalance();
+
+    if (!isAuthenticated) {
+        return (
+            <div className="min-h-screen text-slate-100 flex items-center justify-center font-sans bg-[#070b15] relative overflow-hidden">
+                <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[#8a2be2]/10 rounded-full blur-[120px] pointer-events-none" />
+                <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-[#00f2fe]/10 rounded-full blur-[120px] pointer-events-none" />
+                
+                <div className="relative z-10 w-[420px] bg-slate-900/60 border border-white/5 rounded-3xl p-8 backdrop-blur-2xl shadow-2xl flex flex-col gap-6">
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="logo-glow w-6 h-6 rounded-full bg-gradient-to-r from-[#8a2be2] to-[#00f2fe] shadow-[0_0_20px_#8a2be2] animate-pulse" />
+                        <h1 className="text-2xl font-black tracking-tight text-white mt-2">JavaF 어드민 콘솔</h1>
+                        <p className="text-xs text-slate-400 text-center">보안 구역 로그인이 필요함</p>
+                    </div>
+
+                    <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4 text-xs font-semibold">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-slate-400 uppercase text-[10px]">이메일 계정</label>
+                            <input 
+                                type="email" 
+                                value={loginEmail}
+                                onChange={(e) => setLoginEmail(e.target.value)}
+                                placeholder="admin@example.com"
+                                required
+                                className="w-full p-3.5 bg-slate-950/80 border border-white/10 rounded-xl text-white outline-none focus:border-[#8a2be2] focus:shadow-[0_0_12px_rgba(138,43,226,0.15)] transition-all font-medium"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-slate-400 uppercase text-[10px]">비밀번호</label>
+                            <input 
+                                type="password" 
+                                value={loginPassword}
+                                onChange={(e) => setLoginPassword(e.target.value)}
+                                placeholder="••••••••"
+                                required
+                                className="w-full p-3.5 bg-slate-950/80 border border-white/10 rounded-xl text-white outline-none focus:border-[#8a2be2] focus:shadow-[0_0_12px_rgba(138,43,226,0.15)] transition-all font-medium"
+                            />
+                        </div>
+
+                        {/* 시드 자격증명 원클릭 자동완성 버튼 배지 추가 */}
+                        <div className="flex flex-col gap-1.5 mt-1">
+                            <label className="text-slate-500 uppercase text-[9px] tracking-wider font-bold">빠른 자격 증명 선택</label>
+                            <div className="flex gap-2">
+                                <button 
+                                    type="button"
+                                    onClick={() => {
+                                        setLoginEmail('admin@javaf.net');
+                                        setLoginPassword('admin123');
+                                    }}
+                                    className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[10px] text-slate-300 hover:bg-[#8a2be2]/20 hover:border-[#8a2be2]/40 hover:text-white transition-all font-bold"
+                                >
+                                    🔑 기본 관리자 (admin@javaf.net / admin123)
+                                </button>
+                            </div>
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            className="w-full py-4.5 bg-gradient-to-r from-[#8a2be2] to-[#4b0082] rounded-xl text-white font-extrabold text-xs tracking-wider uppercase shadow-xl hover:brightness-110 active:scale-[0.98] transition-all mt-2"
+                        >
+                            콘솔 로그인 인증
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="app-container min-h-screen text-slate-100 flex flex-col font-sans bg-[#070b15]">
@@ -266,6 +394,17 @@ export const App: React.FC = () => {
                     <div className={`status-badge flex items-center gap-2 px-4 py-1.5 rounded-full border transition-all duration-300 ${wsConnected ? 'bg-emerald-500/5 border-emerald-500/35 text-emerald-400' : 'bg-rose-500/5 border-rose-500/35 text-rose-400'}`}>
                         <span className={`status-dot w-1.5 h-1.5 rounded-full ${wsConnected ? 'bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse' : 'bg-rose-500 shadow-[0_0_8px_#ef4444]'}`} />
                         <span>{wsConnected ? 'WS CONNECTED' : 'WS DISCONNECTED'}</span>
+                    </div>
+
+                    {/* 로그인 인증 계정 정보 및 로그아웃 버튼 추가 */}
+                    <div className="auth-user-badge flex items-center bg-white/5 border border-white/10 px-4.5 py-1.5 rounded-full gap-3 text-slate-300 font-bold">
+                        <span className="text-white text-[11px] font-mono">{authEmail}</span>
+                        <button 
+                            onClick={logout}
+                            className="text-[#ff4757] hover:text-[#ff6b81] transition-colors border-l border-white/10 pl-3 uppercase tracking-wider text-[9px] font-black"
+                        >
+                            로그아웃
+                        </button>
                     </div>
                 </div>
             </header>
@@ -430,6 +569,37 @@ export const App: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* 시스템 환경 설정 */}
+                            <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
+                                    <ShieldAlert size={16} className="text-[#8a2be2]" />
+                                    <span>어드민 보안 및 환경 설정</span>
+                                </div>
+                                <div className="flex items-center justify-between p-4 bg-slate-900/40 border border-white/5 rounded-xl hover:border-[#8a2be2]/30 transition-all duration-300">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                                            중복 로그인 차단 활성화 (Enforce Single Session)
+                                            {duplicateLoginBlockEnabled ? (
+                                                <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-[#8a2be2]/20 border border-[#8a2be2]/45 text-[#c084fc] animate-pulse">ACTIVE</span>
+                                            ) : (
+                                                <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-slate-500/10 border border-slate-500/35 text-slate-400">DISABLED</span>
+                                            )}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400">
+                                            활성화 시 다른 기기나 브라우저에서 중복 로그인할 경우 이전 세션이 즉시 만료 및 로그아웃 처리됩니다.
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center">
+                                        <button 
+                                            onClick={() => toggleDuplicateLoginBlock(!duplicateLoginBlockEnabled)}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${duplicateLoginBlockEnabled ? 'bg-[#8a2be2]' : 'bg-slate-700'}`}
+                                        >
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${duplicateLoginBlockEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -526,10 +696,18 @@ export const App: React.FC = () => {
                             <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
                                 <div className="flex items-center justify-between border-b border-white/5 pb-2">
                                     <span className="text-sm font-extrabold text-white">실시간 체결 로그 실황 (WebSocket Binary Stream)</span>
-                                    <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold animate-pulse">
-                                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                                        <span>LIVE STREAMING</span>
-                                    </span>
+                                    <div className="flex items-center gap-3">
+                                        <button 
+                                            onClick={() => setIsStreamingPaused(prev => !prev)}
+                                            className={`px-3 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider border transition-all ${isStreamingPaused ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20' : 'bg-white/2 border-white/10 text-slate-300 hover:bg-white/5'}`}
+                                        >
+                                            {isStreamingPaused ? '▶ 실시간 감시 재개' : '⏸ 실시간 감시 일시정지 (성능 절약)'}
+                                        </button>
+                                        <span className={`text-[10px] flex items-center gap-1 font-semibold ${isStreamingPaused ? 'text-amber-400' : 'text-emerald-400 animate-pulse'}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${isStreamingPaused ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                            <span>{isStreamingPaused ? 'PAUSED' : 'LIVE STREAMING'}</span>
+                                        </span>
+                                    </div>
                                 </div>
 
                                 <div className="max-h-[220px] overflow-y-auto w-full bg-black/15 rounded-xl border border-white/5">
@@ -545,14 +723,14 @@ export const App: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-white/5">
-                                            {tradesLog.length === 0 ? (
+                                            {frozenTradesLog.length === 0 ? (
                                                 <tr>
                                                     <td colSpan={6} className="text-center py-8 text-slate-500">
                                                         실시간 체결 대기 중... (바이너리 웹소켓 패킷 디코딩 대기)
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                tradesLog.map((trade) => {
+                                                frozenTradesLog.map((trade) => {
                                                     const isBuy = trade.side === 'BUY';
                                                     return (
                                                         <tr key={trade.tradeId} className="hover:bg-white/2 transition-colors">
@@ -605,7 +783,10 @@ export const App: React.FC = () => {
                                             type="text" 
                                             placeholder="이메일 검색..." 
                                             value={userSearch}
-                                            onChange={(e) => setUserSearch(e.target.value)}
+                                            onChange={(e) => {
+                                                setUserSearch(e.target.value);
+                                                setUserPage(0);
+                                            }}
                                             className="pl-9 pr-4 py-2 bg-slate-950/50 border border-white/10 rounded-xl text-xs font-medium text-white outline-none w-[250px] focus:border-[#00f2fe] focus:shadow-[0_0_10px_rgba(0,242,254,0.15)] transition-all"
                                         />
                                     </div>
@@ -628,7 +809,7 @@ export const App: React.FC = () => {
                                                     <td colSpan={6} className="text-center py-8 text-slate-500">가입된 회원이 존재하지 않습니다.</td>
                                                 </tr>
                                             ) : (
-                                                filteredUsers.map(u => (
+                                                paginatedUsers.map(u => (
                                                     <tr key={u.userId} className="hover:bg-white/2 transition-colors">
                                                         <td className="px-5 py-4 font-mono font-bold text-[#00f2fe]">{u.userId}</td>
                                                         <td className="px-5 py-4 font-semibold text-white">{u.email}</td>
@@ -676,6 +857,27 @@ export const App: React.FC = () => {
                                         </tbody>
                                     </table>
                                 </div>
+                                <div className="p-4 flex justify-between items-center border-t border-white/5 bg-black/10 text-xs">
+                                    <div className="text-slate-400">
+                                        Page <span className="text-white font-bold">{userPage + 1}</span> of <span className="text-white font-bold">{userTotalPages || 1}</span> (Total {filteredUsers.length} users)
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button 
+                                            disabled={userPage === 0}
+                                            onClick={() => setUserPage(prev => Math.max(prev - 1, 0))}
+                                            className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
+                                        >
+                                            ◀ 이전
+                                        </button>
+                                        <button 
+                                            disabled={userPage + 1 >= userTotalPages}
+                                            onClick={() => setUserPage(prev => Math.min(prev + 1, userTotalPages - 1))}
+                                            className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
+                                        >
+                                            다음 ▶
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -718,7 +920,10 @@ export const App: React.FC = () => {
                                             type="text" 
                                             placeholder="이메일 또는 자산명 검색..." 
                                             value={walletSearch}
-                                            onChange={(e) => setWalletSearch(e.target.value)}
+                                            onChange={(e) => {
+                                                setWalletSearch(e.target.value);
+                                                setWalletPage(0);
+                                            }}
                                             className="pl-9 pr-4 py-2 bg-slate-950/50 border border-white/10 rounded-xl text-xs font-medium text-white outline-none w-[250px] focus:border-[#00f2fe] focus:shadow-[0_0_10px_rgba(0,242,254,0.15)] transition-all"
                                         />
                                     </div>
@@ -741,7 +946,7 @@ export const App: React.FC = () => {
                                                     <td colSpan={6} className="text-center py-8 text-slate-500">지갑 데이터가 존재하지 않습니다.</td>
                                                 </tr>
                                             ) : (
-                                                filteredWallets.map(w => {
+                                                paginatedWallets.map(w => {
                                                     const isKrw = w.currency === 'KRW';
                                                     return (
                                                         <tr key={w.walletId} className="hover:bg-white/2 transition-colors">
@@ -764,6 +969,27 @@ export const App: React.FC = () => {
                                             )}
                                         </tbody>
                                     </table>
+                                </div>
+                                <div className="p-4 flex justify-between items-center border-t border-white/5 bg-black/10 text-xs">
+                                    <div className="text-slate-400">
+                                        Page <span className="text-white font-bold">{walletPage + 1}</span> of <span className="text-white font-bold">{walletTotalPages || 1}</span> (Total {filteredWallets.length} wallets)
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button 
+                                            disabled={walletPage === 0}
+                                            onClick={() => setWalletPage(prev => Math.max(prev - 1, 0))}
+                                            className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
+                                        >
+                                            ◀ 이전
+                                        </button>
+                                        <button 
+                                            disabled={walletPage + 1 >= walletTotalPages}
+                                            onClick={() => setWalletPage(prev => Math.min(prev + 1, walletTotalPages - 1))}
+                                            className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
+                                        >
+                                            다음 ▶
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
