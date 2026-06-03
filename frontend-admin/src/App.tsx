@@ -1828,8 +1828,8 @@ export const App: React.FC = () => {
                                                     </tr>
                                                 ) : (
                                                     cryptoWithdrawals.map((w: any) => (
-                                                        <tr key={w.id} className="hover:bg-white/2 transition-colors">
-                                                            <td className="py-3 font-mono text-slate-500">{w.id}</td>
+                                                        <tr key={w.withdrawalId} className="hover:bg-white/2 transition-colors">
+                                                            <td className="py-3 font-mono text-slate-500">{w.withdrawalId}</td>
                                                             <td className="font-mono text-slate-400">{w.userId}</td>
                                                             <td className="font-bold text-white">{w.currency}</td>
                                                             <td className="font-mono text-white">{w.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
@@ -1856,8 +1856,8 @@ export const App: React.FC = () => {
                                                                     <div className="flex justify-end gap-1.5">
                                                                         <button
                                                                             onClick={async () => {
-                                                                                if (confirm(`${w.id}번 출금 요청을 승인하시겠습니까?`)) {
-                                                                                    await approveWithdrawal(w.id);
+                                                                                if (confirm(`${w.withdrawalId}번 출금 요청을 승인하시겠습니까?`)) {
+                                                                                    await approveWithdrawal(w.withdrawalId);
                                                                                 }
                                                                             }}
                                                                             className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-bold transition-all"
@@ -1866,8 +1866,8 @@ export const App: React.FC = () => {
                                                                         </button>
                                                                         <button
                                                                             onClick={async () => {
-                                                                                if (confirm(`${w.id}번 출금 요청을 반려하시겠습니까?`)) {
-                                                                                    await rejectWithdrawal(w.id);
+                                                                                if (confirm(`${w.withdrawalId}번 출금 요청을 반려하시겠습니까?`)) {
+                                                                                    await rejectWithdrawal(w.withdrawalId);
                                                                                 }
                                                                             }}
                                                                             className="px-2 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[10px] font-bold transition-all"

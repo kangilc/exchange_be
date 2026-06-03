@@ -322,33 +322,6 @@ public class CryptoWalletController {
         System.out.println(String.format("[핫월렛 충전] %s 핫월렛에 %s 가 충전되었습니다.", hotWallet.getCurrency(), amount));
         return ResponseEntity.ok(saved);
     }
-}.ok(withdrawal);
-    }
 
-    /**
-     * [POST] /admin/crypto/hot-wallets/{id}/rebalance
-     * <p>
-     * 거래소 시스템 핫월렛에 수동으로 가상 온체인 자산을 공급(충전/리밸런싱)하는 시뮬레이션 API입니다.
-     * </p>
-     */
-    @PostMapping("/hot-wallets/{id}/rebalance")
-    @Transactional
-    public ResponseEntity<?> rebalanceHotWallet(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
-        SystemHotWallet hotWallet = systemHotWalletRepository.findById(id).orElse(null);
-        if (hotWallet == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        BigDecimal amount = new BigDecimal(payload.get("amount").toString());
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Rebalance amount must be positive"));
-        }
-
-        hotWallet.setBalance(hotWallet.getBalance().add(amount));
-        hotWallet.setUpdatedAt(LocalDateTime.now());
-        SystemHotWallet saved = systemHotWalletRepository.save(hotWallet);
-        
-        System.out.println(String.format("[핫월렛 충전] %s 핫월렛에 %s 가 충전되었습니다.", hotWallet.getCurrency(), amount));
-        return ResponseEntity.ok(saved);
-    }
 }
+
