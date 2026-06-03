@@ -129,6 +129,7 @@ interface ExchangeState {
     duplicateLoginBlockEnabled: boolean;
     fetchSettings: () => Promise<void>;
     toggleDuplicateLoginBlock: (enabled: boolean) => Promise<void>;
+    sendWsMessage: (message: any) => boolean;
 }
 
 // 심볼 해시코드 상수
@@ -521,6 +522,14 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             } catch (err) {
                 console.error("Failed to toggle duplicate login block", err);
             }
+        },
+
+        sendWsMessage: (message: any) => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(message));
+                return true;
+            }
+            return false;
         }
     };
 });
