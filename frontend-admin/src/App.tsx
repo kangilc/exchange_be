@@ -3,7 +3,7 @@ import { useExchangeStore } from './store/useExchangeStore';
 import { TradingViewChart } from './components/TradingViewChart';
 import { 
     LayoutDashboard, Users, ShieldAlert, MonitorPlay, ArrowDownRight, 
-    ArrowUpRight, Activity, Plus, Search, Coins, X, Settings, Wallet
+    ArrowUpRight, Activity, Plus, Search, Coins, X, Settings
 } from 'lucide-react';
 import './App.css';
 
@@ -620,7 +620,7 @@ export const App: React.FC = () => {
                         onClick={() => setActiveTab('custody')}
                         className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'custody' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
                     >
-                        <Wallet size={18} />
+                        <Coins size={18} className="text-[#8a2be2]" />
                         <span>온체인 입출금 관리 (Custody)</span>
                     </button>
 
@@ -1393,7 +1393,7 @@ export const App: React.FC = () => {
                                 {/* 3. 블록 컨펌 수 설정 */}
                                 <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
                                     <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
-                                        <Wallet size={16} className="text-[#8a2be2]" />
+                                        <Coins size={16} className="text-[#8a2be2]" />
                                         <span>온체인 블록 컨펌 수 설정</span>
                                     </div>
                                     <div className="flex flex-col gap-3">
@@ -1665,11 +1665,11 @@ export const App: React.FC = () => {
                         <div className="tab-panel animate-fade-in flex flex-col gap-6">
                             <div className="section-title text-xl font-black text-white flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <Wallet size={20} className="text-[#00f2fe]" />
+                                    <Coins size={20} className="text-[#8a2be2]" />
                                     <span>온체인 커스터디(Custody) 자산 및 입출금 관리</span>
                                 </div>
                                 <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-1.5 rounded-full text-xs text-slate-300 font-bold">
-                                    <Activity size={14} className="text-[#00f2fe] animate-pulse" />
+                                    <Coins size={14} className="text-[#8a2be2] animate-pulse" />
                                     <span>시뮬레이션 블록 높이: <span className="text-white font-mono">{blockHeight}</span></span>
                                 </div>
                             </div>
@@ -1679,7 +1679,7 @@ export const App: React.FC = () => {
                                 {/* 핫 월렛 카드 (2열 차지) */}
                                 <div className="xl:col-span-2 bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
                                     <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
-                                        <Coins size={16} className="text-[#00f2fe]" />
+                                        <Coins size={16} className="text-[#8a2be2]" />
                                         <span>시스템 핫 월렛(System Hot Wallet) 잔고</span>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
