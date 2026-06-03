@@ -4,7 +4,7 @@ services:
   # =========================================================================
   # 1. 메시징 인프라 (Zookeeper & Kafka)
   # =========================================================================
-  
+
   # ZooKeeper: Kafka 브로커의 메타데이터 관리 및 클러스터 조율을 담당합니다.
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -21,7 +21,7 @@ services:
     depends_on:
       - zookeeper # ZooKeeper가 구동된 후에 카프카가 시작되도록 제어
     ports:
-      - "9092:9092"   # 컨테이너 네트워크 내부용 포트
+      - "9092:9092" # 컨테이너 네트워크 내부용 포트
       - "29092:29092" # 외부 호스트(개발자 머신 등)에서 접근 가능한 포트
     environment:
       KAFKA_BROKER_ID: 1 # 카프카 브로커의 고유 ID
@@ -48,7 +48,7 @@ services:
       - .env.dev # 개발 환경 변수 로드 (.env.dev 파일 기준)
     environment:
       - METRICS_ENABLED=true # 프로메테우스 수집용 메트릭 활성화 여부
-      - METRICS_PORT=9100    # 메트릭 노출용 자체 HTTP 서버 포트 설정
+      - METRICS_PORT=9100 # 메트릭 노출용 자체 HTTP 서버 포트 설정
     ports:
       - "9999:9999" # 주문(New/Cancel)을 수신받는 TCP 커맨드 입력 포트
       - "9998:9998" # 체결/호가 이벤트를 전송(Broadcast)하는 TCP 이벤트 출력 포트
@@ -56,8 +56,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1"     # 매칭 엔진의 극단적인 지연(Latency) 방지를 위해 CPU 최대 1코어로 제한
-          memory: 2g    # 인메모리 주문 데이터 저장을 고려하여 최대 메모리 2GB 제한
+          cpus: "1" # 매칭 엔진의 극단적인 지연(Latency) 방지를 위해 CPU 최대 1코어로 제한
+          memory: 2g # 인메모리 주문 데이터 저장을 고려하여 최대 메모리 2GB 제한
 
   # kafka-adapter-btc: 엔진의 실시간 TCP 이벤트를 구독하여 카프카 토픽으로 안전하게 퍼블리싱하는 어댑터
   kafka-adapter-btc:
@@ -67,11 +67,11 @@ services:
     container_name: kafka-adapter-btc
     depends_on:
       - engine-btc # 매칭 엔진 구동 후 실행
-      - kafka      # 카프카 브로커 구동 후 실행
+      - kafka # 카프카 브로커 구동 후 실행
     environment:
       - KAFKA_BROKER=kafka:9092 # 카프카 브로커 주소
-      - ENGINE_HOST=engine-btc   # 통신 대상 비트코인 엔진 호스트명
-      - ENGINE_PORT=9998         # 비트코인 엔진의 TCP 이벤트 출력 포트
+      - ENGINE_HOST=engine-btc # 통신 대상 비트코인 엔진 호스트명
+      - ENGINE_PORT=9998 # 비트코인 엔진의 TCP 이벤트 출력 포트
     restart: on-failure # 에러 발생 시 자동으로 어댑터 재시작
 
   # =========================================================================
@@ -85,11 +85,11 @@ services:
       dockerfile: engine-core/Dockerfile
     container_name: matching-engine-ada
     environment:
-      - SYMBOL=ADA-KRW       # 타겟 마켓 심볼 지정
-      - COMMAND_PORT=9997    # ADA 엔진용 커맨드 입력 포트
-      - ENGINE_PORT=9996     # ADA 엔진용 이벤트 출력 포트
+      - SYMBOL=ADA-KRW # 타겟 마켓 심볼 지정
+      - COMMAND_PORT=9997 # ADA 엔진용 커맨드 입력 포트
+      - ENGINE_PORT=9996 # ADA 엔진용 이벤트 출력 포트
       - METRICS_ENABLED=true # 메트릭 노출 활성화
-      - METRICS_PORT=9101    # ADA 엔진 전용 메트릭 포트
+      - METRICS_PORT=9101 # ADA 엔진 전용 메트릭 포트
     ports:
       - "9997:9997"
       - "9996:9996"
@@ -97,8 +97,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1"     # 에이다 마켓은 CPU 최대 1코어로 자원 제한
-          memory: 2g    # 메모리 한도 2GB 지정
+          cpus: "1" # 에이다 마켓은 CPU 최대 1코어로 자원 제한
+          memory: 2g # 메모리 한도 2GB 지정
 
   # kafka-adapter-ada: 에이다 엔진의 실시간 TCP 이벤트를 카프카 토픽으로 중계하는 어댑터
   kafka-adapter-ada:
@@ -138,21 +138,21 @@ services:
     restart: on-failure
 
   # order-generator: 시스템 부하 테스트 및 활발한 거래 시뮬레이션을 위해 대량의 모의 주문을 자동 생성하는 에이전트
-  order-generator:
-    build:
-      context: .
-      dockerfile: order-generator/Dockerfile
-    container_name: order-generator
-    depends_on:
-      - engine-btc
-      - engine-ada
-    env_file:
-      - .env.dev
-    environment:
-      - ADA_COMMAND_PORT=9997 # ADA 엔진 주문 입력을 위한 타겟 포트
-      - ADA_ENGINE_HOST=engine-ada
-      - MAX_ORDERS=10000000
-    restart: on-failure
+  # order-generator:
+  #   build:
+  #     context: .
+  #     dockerfile: order-generator/Dockerfile
+  #   container_name: order-generator
+  #   depends_on:
+  #     - engine-btc
+  #     - engine-ada
+  #   env_file:
+  #     - .env.dev
+  #   environment:
+  #     - ADA_COMMAND_PORT=9997 # ADA 엔진 주문 입력을 위한 타겟 포트
+  #     - ADA_ENGINE_HOST=engine-ada
+  #     - MAX_ORDERS=10000000
+  #   restart: on-failure
 
   # =========================================================================
   # 5. 모니터링 시스템 (Prometheus & Grafana)
@@ -182,10 +182,10 @@ services:
       - "3000:3000" # 그라파나 대시보드 접속 포트 (기본 로그인 계정 - admin / admin)
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin # 기본 관리자 비밀번호 강제 설정
-      - GF_USERS_ALLOW_SIGN_UP=false     # 신규 사용자 회원가입 차단
+      - GF_USERS_ALLOW_SIGN_UP=false # 신규 사용자 회원가입 차단
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning # 데이터소스 및 대시보드 자동 연동 설정
-      - ./grafana/dashboards:/etc/grafana/dashboards     # 미리 구성된 대시보드 JSON 템플릿 마운트
+      - ./grafana/dashboards:/etc/grafana/dashboards # 미리 구성된 대시보드 JSON 템플릿 마운트
     depends_on:
       - prometheus
     restart: always
@@ -213,7 +213,6 @@ services:
       - "8182:8182"
     restart: always
 
-
   # =========================================================================
 
   # 6. 영속성 및 정산 시스템 (PostgreSQL & Db Persister)
@@ -226,8 +225,8 @@ services:
     ports:
       - "5432:5432" # 데이터베이스 접속 포트
     environment:
-      - POSTGRES_DB=exchange       # 데이터베이스 명칭
-      - POSTGRES_USER=postgres     # 데이터베이스 사용자명
+      - POSTGRES_DB=exchange # 데이터베이스 명칭
+      - POSTGRES_USER=postgres # 데이터베이스 사용자명
       - POSTGRES_PASSWORD=postgres # 데이터베이스 암호
     volumes:
       - ./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql # 테이블 스키마 및 초기 가상 자산 데이터 스크립트 마운트
@@ -275,7 +274,7 @@ services:
     container_name: audit-volume
     volumes:
       - ./audit/reports:/audit # 호스트의 audit/reports 경로를 마운트
-    command: ["sh", "-c", "tail -f /dev/null"] # 컨테이너가 죽지 않고 무한 대기하도록 설정
+    command: [ "sh", "-c", "tail -f /dev/null" ] # 컨테이너가 죽지 않고 무한 대기하도록 설정
 
   # frontend-react: React 18 + TS + Vite 기반의 고성능 실시간 관제 어드민 터미널 컨테이너
   frontend-react:
