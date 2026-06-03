@@ -25,6 +25,14 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+/**
+ * <h1>WalletDaemonService</h1>
+ * 가상 온체인 블록체인 네트워크의 동작을 시뮬레이션하는 백그라운드 데몬 서비스입니다.
+ * <p>
+ * 실환경의 비트코인(BTC), 이더리움(ETH), 에이다(ADA) 노드 및 RPC 연동 없이,
+ * 주기적으로 블록 높이(Block Height)를 증가시키고 입출금 트랜잭션의 블록 확인(Confirmation)을 수행합니다.
+ * </p>
+ */
 @Service
 public class WalletDaemonService {
 
@@ -46,18 +54,35 @@ public class WalletDaemonService {
     @Autowired
     private UserService userService;
 
+    /** 임의의 입금 이벤트를 발생시키기 위한 난수 생성기 */
     private final Random random = new Random();
+
+    /** 현재 블록체인 컨펌 단계에 진입하여 대기 중인 가상 입금 트랜잭션 대기열 (쓰기 안전한 동시성 리스트) */
     private final List<PendingDeposit> pendingDeposits = new CopyOnWriteArrayList<>();
+
+    /** 시뮬레이션용 현재 가상 블록체인 높이 (초기 시드 번호에서 스케줄러당 1씩 증가) */
     private long simulatedBlockHeight = 12045300L;
 
+    /**
+     * <h2>PendingDeposit</h2>
+     * 블록 컨펌 진행 중인 입금 트랜잭션 정보를 담는 내부 데이터 모델입니다.
+     */
     public static class PendingDeposit {
+        /** 입금 대상 사용자의 고유 UID */
         private final Long userId;
+        /** 입금 화폐 구분 (BTC, ETH, ADA) */
         private final String currency;
+        /** 입금 수량 */
         private final BigDecimal amount;
+        /** 가상으로 생성된 온체인 트랜잭션 해시 (TXID) */
         private final String txHash;
+        /** 입금이 감지된 사용자의 온체인 수신 주소 */
         private final String cryptoAddress;
+        /** 현재까지 진행된 블록 확인 횟수 (Confirmations) */
         private int confirmations;
+        /** 입금 확정을 위해 요구되는 최소 블록 확인 임계값 */
         private final int requiredConfirmations;
+        /** 가상 입금이 최초 감지되어 대기열에 등록된 일시 */
         private final LocalDateTime createdAt;
 
         public PendingDeposit(Long userId, String currency, BigDecimal amount, String txHash, String cryptoAddress, int requiredConfirmations) {
@@ -77,44 +102,63 @@ public class WalletDaemonService {
         public String getTxHash() { return txHash; }
         public String getCryptoAddress() { return cryptoAddress; }
         public int getConfirmations() { return confirmations; }
+
+        /** 블록이 새로 생성될 때마다 트랜잭션의 컨펌수를 1씩 증가시킵니다. */
         public void incrementConfirmations() { this.confirmations++; }
         public int getRequiredConfirmations() { return requiredConfirmations; }
         public LocalDateTime getCreatedAt() { return createdAt; }
     }
 
+    /**
+     * @return 현재 컨펌이 완료되지 않고 대기 중인 모든 가상 입금 목록을 반환합니다.
+     */
     public List<PendingDeposit> getPendingDeposits() {
         return new ArrayList<>(pendingDeposits);
     }
 
+    /**
+     * @return 현재 가상 블록체인의 높이(Block Height)를 반환합니다.
+     */
     public long getSimulatedBlockHeight() {
         return simulatedBlockHeight;
     }
 
     /**
-     * 5초마다 가상의 블록 생성을 시뮬레이션하고, 입출금 트랜잭션의 컨펌수를 가산하여 완료 처리한다.
+     * <h2>processBlockGenerations</h2>
+     * 5초 주기로 백그라운드에서 실행되며 가상의 블록 생성을 트리거합니다.
+     * <ol>
+     *   <li>가상 블록 번호를 1 증가시킵니다.</li>
+     *   <li>5%의 확률로 임의의 입금 이벤트를 시뮬레이션하여 대기열에 추가합니다.</li>
+     *   <li>대기 중인 가상 입금들의 컨펌수를 증가시키고, 완료 시 자산에 반영합니다.</li>
+     *   <li>승인되어 브로드캐스트된 출금 트랜잭션의 컨펌수를 증가시키고, 완료 시 자산 잠금을 해제하고 핫월렛에서 차감합니다.</li>
+     * </ol>
      */
     @Scheduled(fixedDelay = 5000)
     @Transactional
     public void processBlockGenerations() {
         simulatedBlockHeight++;
         
-        // 1. 가상 입금 생성 시뮬레이션 (5% 확률로 임의의 사용자에게 입금 이벤트 생성)
+        // 1. 5%의 확률로 임의의 사용자에게 입금 이벤트 시뮬레이션 수행
         if (random.nextInt(100) < 5) {
             simulateIncomingDeposit();
         }
 
-        // 2. 가상 입금(Pending Deposit) 컨펌 수 가산 및 최종 처리
+        // 2. 가상 입금(Pending Deposit) 컨펌 수 가산 및 도달 시 정산 최종 처리
         processPendingDeposits();
 
-        // 3. 가상 출금(Withdrawal) 컨펌 수 가산 및 최종 처리
+        // 3. 가상 출금(Withdrawal) 컨펌 수 가산 및 최종 성공 완료 처리
         processPendingWithdrawals();
     }
 
+    /**
+     * <h2>simulateIncomingDeposit</h2>
+     * 등록된 유저들의 지갑 주소 DB를 조회하여 임의로 입금 감지 이벤트를 발송합니다.
+     */
     private void simulateIncomingDeposit() {
         List<UserCryptoAddress> allAddresses = userCryptoAddressRepository.findAll();
         if (allAddresses.isEmpty()) return;
 
-        // 임의의 유저 지갑 주소 선택
+        // DB에 발급되어 있는 주소 중 무작위로 대상 주소 1개를 선택
         UserCryptoAddress targetAddr = allAddresses.get(random.nextInt(allAddresses.size()));
         
         // 통화별 가격 및 수량 범위 설정
@@ -133,8 +177,10 @@ public class WalletDaemonService {
             return; // 지원하지 않는 통화 무시
         }
 
+        // 임의의 가상 온체인 TXID(Transaction Hash) 생성
         String txHash = "0x" + UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "").substring(0, 32);
         
+        // 대기열 객체 생성
         PendingDeposit deposit = new PendingDeposit(
             targetAddr.getUserId(),
             targetAddr.getCurrency(),
@@ -144,11 +190,16 @@ public class WalletDaemonService {
             reqConfirmations
         );
 
+        // 컨펌 대기 리스트에 주입
         pendingDeposits.add(deposit);
         System.out.println(String.format("[블록체인 시뮬레이터] 신규 가상 입금 감지! %s @ %s -> 컨펌 대기 시작 (Target: %d)", 
             amount, targetAddr.getCryptoAddress(), reqConfirmations));
     }
 
+    /**
+     * <h2>processPendingDeposits</h2>
+     * 현재 컨펌 중인 입금 내역의 블록 확인수를 증가시키고, 기준 충족 시 실제 잔고에 정산합니다.
+     */
     private void processPendingDeposits() {
         List<PendingDeposit> completed = new ArrayList<>();
 
@@ -167,9 +218,14 @@ public class WalletDaemonService {
             }
         }
 
+        // 완료 처리된 트랜잭션은 대기열에서 안전하게 소멸시킵니다.
         pendingDeposits.removeAll(completed);
     }
 
+    /**
+     * <h2>processPendingWithdrawals</h2>
+     * 어드민에 의해 승인되어 브로드캐스트 상태가 된 가상 출금들의 컨펌수를 증가시키고, 최종 성공 처리합니다.
+     */
     private void processPendingWithdrawals() {
         // 출금 트랜잭션 중 BROADCASTED(블록체인 망에 전송되어 컨펌을 기다리는 상태) 조회
         List<CryptoWithdrawal> broadcasted = cryptoWithdrawalRepository.findByStatus("BROADCASTED");
