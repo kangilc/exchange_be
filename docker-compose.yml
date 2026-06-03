@@ -230,6 +230,11 @@ services:
       - POSTGRES_PASSWORD=postgres # 데이터베이스 암호
     volumes:
       - ./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql # 테이블 스키마 및 초기 가상 자산 데이터 스크립트 마운트
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d exchange"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: always
 
   # db-persister: 매칭 엔진의 쓰기 병목을 제거하기 위해 카프카 이벤트를 비동기로 컨슘하여 DB에 원자적으로 정산(Settle) 처리하는 데몬
@@ -261,7 +266,8 @@ services:
     ports:
       - "8181:8181" # 관리 시스템 REST API 포트
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       - DB_URL=jdbc:postgresql://postgres:5432/exchange
       - DB_USER=postgres
@@ -276,17 +282,33 @@ services:
       - ./audit/reports:/audit # 호스트의 audit/reports 경로를 마운트
     command: [ "sh", "-c", "tail -f /dev/null" ] # 컨테이너가 죽지 않고 무한 대기하도록 설정
 
-  # frontend-react: React 18 + TS + Vite 기반의 고성능 실시간 관제 어드민 터미널 컨테이너
-  frontend-react:
+  # frontend-user: React 18 + TS + Vite 기반의 회원 거래소 전용 컨테이너 (포트 5173)
+  frontend-user:
     build:
-      context: ./frontend-react
+      context: ./frontend-user
       dockerfile: Dockerfile
-    container_name: frontend-react
+    container_name: frontend-user
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend-react:/app
+      - ./frontend-user:/app
       - /app/node_modules
     environment:
       - NODE_ENV=development
     restart: on-failure
+
+  # frontend-admin: React 18 + TS + Vite 기반의 어드민 콘솔 전용 컨테이너 (포트 5174)
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
+    container_name: frontend-admin
+    ports:
+      - "5174:5174"
+    volumes:
+      - ./frontend-admin:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    restart: on-failure
+
