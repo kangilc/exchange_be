@@ -85,7 +85,8 @@ export const TradingTerminal: React.FC = () => {
         KRW: 1000000000,
         USD: 10000,
         BTC: 10,
-        ADA: 100000
+        ADA: 100000,
+        JAF: 0
     });
 
     // 실시간 인메모리 호가 장부 (rAF/성능 최적화용 레퍼런스 유지)
@@ -830,9 +831,13 @@ export const TradingTerminal: React.FC = () => {
                                 <span className="text-slate-400">보유 BTC</span>
                                 <span className="text-[#00f2fe] font-bold">{balances.BTC.toLocaleString(undefined, { minimumFractionDigits: 8 })} BTC</span>
                             </div>
-                            <div className="flex justify-between pb-1">
+                            <div className="flex justify-between border-b border-dashed border-white/5 pb-2">
                                 <span className="text-slate-400">보유 ADA</span>
                                 <span className="text-[#c084fc] font-bold">{balances.ADA.toLocaleString(undefined, { minimumFractionDigits: 8 })} ADA</span>
+                            </div>
+                            <div className="flex justify-between pb-1">
+                                <span className="text-slate-400">보유 JAF</span>
+                                <span className="text-[#3b82f6] font-bold">{(balances.JAF || 0).toLocaleString(undefined, { minimumFractionDigits: 8 })} JAF</span>
                             </div>
                         </div>
                         <div className="flex gap-3 text-[10px] font-bold mt-1">
@@ -950,6 +955,7 @@ export const TradingTerminal: React.FC = () => {
                                         <option value="USD">USD (달러)</option>
                                         <option value="BTC">BTC (비트코인)</option>
                                         <option value="ADA">ADA (에이다)</option>
+                                        <option value="JAF">JAF (자바에프)</option>
                                     </select>
                                 </div>
                                 <div className="flex flex-col gap-1.5">

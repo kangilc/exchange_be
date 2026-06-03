@@ -9,6 +9,7 @@ import exchange.admin.repository.SystemHotWalletRepository;
 import exchange.admin.repository.UserCryptoAddressRepository;
 import exchange.admin.repository.WalletRepository;
 import exchange.admin.service.WalletDaemonService;
+import exchange.admin.service.JAFTokenService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +50,9 @@ public class CryptoWalletController {
     /** 블록체인 시뮬레이션 데몬 및 입금 대기열 관리를 위한 서비스 */
     @Autowired
     private WalletDaemonService walletDaemonService;
+
+    @Autowired
+    private JAFTokenService jafTokenService;
 
     /**
      * [GET] /admin/crypto/withdrawals
@@ -221,8 +225,21 @@ public class CryptoWalletController {
             return ResponseEntity.badRequest().body(Map.of("error", "Insufficient hot wallet on-chain balance."));
         }
 
-        // 4. 가상 트랜잭션 서명 및 브로드캐스트 모사 (TXID 해시 생성)
-        String txHash = "0x" + UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "").substring(0, 32);
+        // 4. 가상 트랜잭션 서명 및 브로드캐스트 모사 (TXID 해시 생성) 또는 실물 JAF 토큰 전송
+        String txHash;
+        if (withdrawal.getCurrency().equalsIgnoreCase("JAF")) {
+            try {
+                if (jafTokenService.isInitialized()) {
+                    txHash = jafTokenService.transfer(withdrawal.getToAddress(), withdrawal.getAmount());
+                } else {
+                    return ResponseEntity.badRequest().body(Map.of("error", "JAFTokenService is not initialized yet."));
+                }
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of("error", "JAF On-chain transfer failed: " + e.getMessage()));
+            }
+        } else {
+            txHash = "0x" + UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "").substring(0, 32);
+        }
         withdrawal.setTxHash(txHash);
         withdrawal.setStatus("BROADCASTED"); // 블록체인 네트워크에 전송된 상태로 변경
         withdrawal.setConfirmations(0);      // 확인수 0부터 시작

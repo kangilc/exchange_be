@@ -855,7 +855,7 @@ export const App: React.FC = () => {
                             <div className="grid grid-cols-4 gap-6">
                                 {walletsSummary.map(s => {
                                     const total = s.totalBalance + s.totalLocked;
-                                    const isCoin = s.currency === 'BTC' || s.currency === 'ADA';
+                                    const isCoin = s.currency === 'BTC' || s.currency === 'ADA' || s.currency === 'JAF';
                                     const maxDigits = s.currency === 'KRW' ? 0 : (isCoin ? 4 : 2);
                                     
                                     const totalText = total.toLocaleString(undefined, { maximumFractionDigits: maxDigits });
@@ -1004,6 +1004,7 @@ export const App: React.FC = () => {
                                                 <option value="USD">USD (달러)</option>
                                                 <option value="BTC">BTC (비트코인)</option>
                                                 <option value="ADA">ADA (에이다)</option>
+                                                <option value="JAF">JAF (자바에프)</option>
                                             </select>
                                         </div>
                                         <div className="flex flex-col gap-1.5">
@@ -1264,6 +1265,7 @@ export const App: React.FC = () => {
                                             <option value="USD">USD (미국 달러)</option>
                                             <option value="BTC">BTC (비트코인)</option>
                                             <option value="ADA">ADA (에이다)</option>
+                                            <option value="JAF">JAF (자바에프)</option>
                                         </select>
                                     </div>
                                     <div className="flex flex-col gap-1.5">

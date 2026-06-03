@@ -231,7 +231,7 @@ services:
     volumes:
       - ./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql # 테이블 스키마 및 초기 가상 자산 데이터 스크립트 마운트
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d exchange"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d exchange" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -268,6 +268,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ganache:
+        condition: service_started
     environment:
       - DB_URL=jdbc:postgresql://postgres:5432/exchange
       - DB_USER=postgres
@@ -281,6 +283,15 @@ services:
     volumes:
       - ./audit/reports:/audit # 호스트의 audit/reports 경로를 마운트
     command: [ "sh", "-c", "tail -f /dev/null" ] # 컨테이너가 죽지 않고 무한 대기하도록 설정
+
+  # ganache: 개발 및 테스트용 로컬 가상 EVM 블록체인 네트워크 노드
+  ganache:
+    image: trufflesuite/ganache:v7.9.1
+    container_name: ganache
+    ports:
+      - "8545:8545" # 외부 배포 도구 및 메타마스크 연동을 위해 호스트에 포트 오픈
+    command: [ "--host", "0.0.0.0", "--deterministic", "--networkId", "1337", "--chain.chainId", "1337" ]
+    restart: always
 
   # frontend-user: React 18 + TS + Vite 기반의 회원 거래소 전용 컨테이너 (포트 5173)
   frontend-user:
@@ -310,5 +321,7 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
+    depends_on:
+      admin-api:
+        condition: service_started # admin-api 컨테이너가 시작되면 frontend-admin을 실행합니다.
     restart: on-failure
-

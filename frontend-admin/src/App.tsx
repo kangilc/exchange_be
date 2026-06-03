@@ -1193,6 +1193,7 @@ export const App: React.FC = () => {
                                                 <option value="USD">USD (달러)</option>
                                                 <option value="BTC">BTC (비트코인)</option>
                                                 <option value="ADA">ADA (에이다)</option>
+                                                <option value="JAF">JAF (자바에프)</option>
                                             </select>
                                         </div>
                                         <div className="flex flex-col gap-1.5">
@@ -1746,6 +1747,7 @@ export const App: React.FC = () => {
                                                 <option value="BTC">BTC</option>
                                                 <option value="ETH">ETH</option>
                                                 <option value="ADA">ADA</option>
+                                                <option value="JAF">JAF</option>
                                             </select>
                                         </div>
                                         <div className="flex flex-col gap-1">
@@ -1835,7 +1837,7 @@ export const App: React.FC = () => {
                                                             <td className="font-mono text-white">{w.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
                                                             <td className="font-mono text-slate-500 text-[10px] break-all max-w-[120px]" title={w.toAddress}>{w.toAddress?.slice(0, 10)}...</td>
                                                             <td className="font-mono text-slate-400">
-                                                                {w.status === 'BROADCASTED' ? `${w.confirmations} / ${w.currency === 'BTC' ? btcConfirmations : w.currency === 'ETH' ? ethConfirmations : adaConfirmations}` : '-'}
+                                                                {w.status === 'BROADCASTED' ? `${w.confirmations} / ${w.currency === 'BTC' ? btcConfirmations : w.currency === 'ETH' || w.currency === 'JAF' ? ethConfirmations : adaConfirmations}` : '-'}
                                                             </td>
                                                             <td>
                                                                 {w.status === 'PENDING' && (
@@ -1922,7 +1924,7 @@ export const App: React.FC = () => {
                                                             <td className="font-mono text-white">{d.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
                                                             <td className="font-mono">
                                                                 <span className="text-[#00f2fe] font-black">{d.confirmations}</span>
-                                                                <span className="text-slate-500 font-bold"> / {d.currency === 'BTC' ? btcConfirmations : d.currency === 'ETH' ? ethConfirmations : adaConfirmations}</span>
+                                                                <span className="text-slate-500 font-bold"> / {d.currency === 'BTC' ? btcConfirmations : d.currency === 'ETH' || d.currency === 'JAF' ? ethConfirmations : adaConfirmations}</span>
                                                             </td>
                                                             <td className="text-right">
                                                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#00f2fe]/10 border border-[#00f2fe]/20 text-[#00f2fe] animate-pulse">컨펌 진행 중</span>
@@ -2120,6 +2122,7 @@ export const App: React.FC = () => {
                                             <option value="USD">USD (미국 달러)</option>
                                             <option value="BTC">BTC (비트코인)</option>
                                             <option value="ADA">ADA (에이다)</option>
+                                            <option value="JAF">JAF (자바에프)</option>
                                         </select>
                                     </div>
                                     <div className="flex flex-col gap-1.5">

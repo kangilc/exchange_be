@@ -12,4 +12,5 @@ public interface UserCryptoAddressRepository extends JpaRepository<UserCryptoAdd
     List<UserCryptoAddress> findByUserId(Long userId);
     Optional<UserCryptoAddress> findByUserIdAndCurrency(Long userId, String currency);
     Optional<UserCryptoAddress> findByCryptoAddress(String cryptoAddress);
+    Optional<UserCryptoAddress> findByCryptoAddressIgnoreCase(String cryptoAddress);
 }

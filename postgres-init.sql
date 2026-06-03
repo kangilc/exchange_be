@@ -128,7 +128,8 @@ CROSS JOIN (
     VALUES 
         ('KRW', 1000000000.000000000000000000),
         ('BTC', 10.000000000000000000),
-        ('ADA', 100000.000000000000000000)
+        ('ADA', 100000.000000000000000000),
+        ('JAF', 0.000000000000000000)
 ) AS c(currency, initial_balance)
 ON CONFLICT (user_id, currency) DO NOTHING;
 
@@ -328,6 +329,8 @@ INSERT INTO system_hot_wallets (currency, crypto_address, balance) VALUES
 ('ETH', '0xETH_HOT_WALLET_ADDRESS_XXXXXXXX', 1000.00000000) ON CONFLICT (currency) DO NOTHING;
 INSERT INTO system_hot_wallets (currency, crypto_address, balance) VALUES
 ('ADA', 'addr1_ADA_HOT_WALLET_ADDRESS_XXXX', 500000.00000000) ON CONFLICT (currency) DO NOTHING;
+INSERT INTO system_hot_wallets (currency, crypto_address, balance) VALUES
+('JAF', '0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1', 1000000.00000000) ON CONFLICT (currency) DO NOTHING;
 
 -- Seed User Deposit Addresses
 INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
@@ -336,6 +339,8 @@ INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
 (1, 'ETH', '0xETH_DEPOSIT_ADDR_USER1_XXXXXXXXX') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
 INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
 (1, 'ADA', 'addr1_ADA_DEPOSIT_ADDR_USER1_XXXX') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
+INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
+(1, 'JAF', '0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
 
 INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
 (2, 'BTC', '1BTC_DEPOSIT_ADDR_USER2_XXXXXXXXX') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
@@ -343,3 +348,5 @@ INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
 (2, 'ETH', '0xETH_DEPOSIT_ADDR_USER2_XXXXXXXXX') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
 INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
 (2, 'ADA', 'addr1_ADA_DEPOSIT_ADDR_USER2_XXXX') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
+INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
+(2, 'JAF', '0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
