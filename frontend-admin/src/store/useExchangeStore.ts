@@ -50,9 +50,9 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
     if (access) {
         (options.headers as any)['Authorization'] = `Bearer ${access}`;
     }
-    
+
     let res = await fetch(url, options);
-    
+
     // 401 Unauthorized 또는 403 Forbidden 시 Refresh Token 기반 RTR 토큰 교체 자동 개시
     if ((res.status === 401 || res.status === 403) && getLocalRefreshToken()) {
         try {
@@ -105,7 +105,7 @@ interface ExchangeState {
     authEmail: string | null;
     login: (email: string, password: string) => Promise<{ success: boolean; priorLoginExisted?: boolean }>;
     logout: () => void;
-    
+
     // 액션 메서드 선언
     initStore: () => Promise<void>;
     setActiveSymbol: (symbol: string) => void;
@@ -273,7 +273,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                         const base = config.API_BASE_URL;
                         const host = base.replace(/^https?:\/\//, '').split(':')[0];
                         const wsUrl = `ws://${host}:8088/ws`;
-                        
+
                         set({ apiBaseUrl: base, wsUrl });
                         console.log(`[환경 구성] config.json 로드 성공. API: ${base}, WS: ${wsUrl}`);
                     }
@@ -301,7 +301,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         updateTradeStats: (price, qty, side, symbol) => {
             const currentSymbol = get().activeSymbol;
-            
+
             // 실시간 체결 로그 데이터 주입
             const newLog: TradeLog = {
                 tradeId: Date.now().toString().substring(7) + Math.floor(Math.random() * 10),
@@ -315,10 +315,10 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             set((state) => {
                 const nextLogs = [newLog, ...state.tradesLog].slice(0, 50); // 최대 50건 유지
                 const nextTradesCount = state.totalTradesCount + 1;
-                
+
                 // 현재 활성화된 마켓 정보와 매칭되는 틱 정보만 전역 수치에 반영
                 const isMatching = symbol === currentSymbol;
-                
+
                 return {
                     tradesLog: nextLogs,
                     totalTradesCount: nextTradesCount,
@@ -482,7 +482,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     const data = await res.json();
                     if (data && typeof data.totalTrades === 'number') {
                         set({ totalTradesCount: data.totalTrades });
-                        console.log(`[통계 동기화] DB 누적 체결 수 동기화 성공: ${data.totalTrades} 건`);
+                        // console.log(`[통계 동기화] DB 누적 체결 수 동기화 성공: ${data.totalTrades} 건`);
                     }
                 }
             } catch (err) {

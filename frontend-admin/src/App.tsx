@@ -3,7 +3,7 @@ import { useExchangeStore } from './store/useExchangeStore';
 import { TradingViewChart } from './components/TradingViewChart';
 import { 
     LayoutDashboard, Users, ShieldAlert, MonitorPlay, ArrowDownRight, 
-    ArrowUpRight, Activity, Plus, Search, Coins, X 
+    ArrowUpRight, Activity, Plus, Search, Coins, X, Settings 
 } from 'lucide-react';
 import './App.css';
 
@@ -45,8 +45,8 @@ export const App: React.FC = () => {
         toggleDuplicateLoginBlock
     } = useExchangeStore();
 
-    // 탭 변수 확장 ('dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger')
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger'>('market-watch');
+    // 탭 변수 확장 ('dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger' | 'settings')
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger' | 'settings'>('market-watch');
 
 
     // 모달 제어 상태
@@ -94,6 +94,12 @@ export const App: React.FC = () => {
     const [isStreamingPaused, setIsStreamingPaused] = useState(true);
     const [frozenTradesLog, setFrozenTradesLog] = useState<any[]>([]);
 
+    // 환경 설정 모의 스위치 로컬 상태
+    const [mockPlaySound, setMockPlaySound] = useState(true);
+    const [mockEmailAlert, setMockEmailAlert] = useState(false);
+    const [mockMatchingEngineMode, setMockMatchingEngineMode] = useState<'FIFO' | 'LIFO'>('FIFO');
+    const [mockMaintenanceMode, setMockMaintenanceMode] = useState(false);
+
     // 로그인 폼 입력 상태
     const [loginEmail, setLoginEmail] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
@@ -133,9 +139,9 @@ export const App: React.FC = () => {
         }
     }, [tradesLog, isStreamingPaused]);
 
-    // 0. 대시보드 탭 활성화 또는 로그인 성공 시 환경 설정 동기화
+    // 0. 대시보드 또는 설정 탭 활성화 또는 로그인 성공 시 환경 설정 동기화
     useEffect(() => {
-        if (isAuthenticated && activeTab === 'dashboard') {
+        if (isAuthenticated && (activeTab === 'dashboard' || activeTab === 'settings')) {
             fetchSettings();
         }
     }, [isAuthenticated, activeTab, fetchSettings]);
@@ -452,6 +458,14 @@ export const App: React.FC = () => {
                         <ShieldAlert size={18} />
                         <span>입출금 통합 관리</span>
                     </button>
+
+                    <button
+                        onClick={() => setActiveTab('settings')}
+                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'settings' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                    >
+                        <Settings size={18} />
+                        <span>시스템 환경 설정</span>
+                    </button>
                 </aside>
 
                 {/* Main Workspace */}
@@ -463,32 +477,40 @@ export const App: React.FC = () => {
                                 <LayoutDashboard size={20} className="text-[#8a2be2]" />
                                 <span>종합 데이터 대시보드</span>
                             </div>
-                            <div className="grid grid-cols-4 gap-6">
-                                <div className="card-custom p-6 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl relative overflow-hidden flex flex-col gap-2">
-                                    <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">전체 등록 회원</div>
-                                    <div className="text-3xl font-black font-mono text-white mt-1">{users.length} 명</div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                                <div className="card-custom p-4 sm:p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl relative overflow-hidden flex flex-col justify-between min-h-[120px]">
+                                    <div>
+                                        <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">전체 등록 회원</div>
+                                        <div className="text-xl sm:text-2xl xl:text-3xl font-black font-mono text-white mt-1 whitespace-nowrap">{users.length} 명</div>
+                                    </div>
                                     <div className="text-[10px] text-slate-400">실시간 등록 회원 원장 수</div>
                                 </div>
 
-                                <div className="card-custom p-6 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl relative overflow-hidden flex flex-col gap-2">
-                                    <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">누적 체결 거래 수</div>
-                                    <div className="text-3xl font-black font-mono text-[#00f2fe] mt-1">{totalTradesCount} 건</div>
-                                    <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold mt-1">
+                                <div className="card-custom p-4 sm:p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl relative overflow-hidden flex flex-col justify-between min-h-[120px]">
+                                    <div>
+                                        <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">누적 체결 거래 수</div>
+                                        <div className="text-xl sm:text-2xl xl:text-3xl font-black font-mono text-[#00f2fe] mt-1 whitespace-nowrap">{totalTradesCount} 건</div>
+                                    </div>
+                                    <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold">
                                         <Activity size={10} />
                                         <span>WebSocket 수신 실황</span>
                                     </div>
                                 </div>
 
-                                <div className="card-custom p-6 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl relative overflow-hidden flex flex-col gap-2">
-                                    <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">감시 마켓 현재가</div>
-                                    <div className="text-3xl font-black font-mono text-white mt-1">{lastPrice > 0 ? formatPrice(lastPrice) : '-'}</div>
+                                <div className="card-custom p-4 sm:p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl relative overflow-hidden flex flex-col justify-between min-h-[120px]">
+                                    <div>
+                                        <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">감시 마켓 현재가</div>
+                                        <div className="text-xl sm:text-2xl xl:text-3xl font-black font-mono text-white mt-1 whitespace-nowrap">{lastPrice > 0 ? formatPrice(lastPrice) : '-'}</div>
+                                    </div>
                                     <div className="text-[10px] text-slate-400">{activeSymbol} 시황 데이터</div>
                                 </div>
 
-                                <div className="card-custom p-6 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl relative overflow-hidden flex flex-col gap-2">
-                                    <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">24H 등락폭</div>
-                                    <div className={`text-xl font-black font-mono mt-1.5 ${change24h.isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {lastPrice > 0 ? change24h.text : '-'}
+                                <div className="card-custom p-4 sm:p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl relative overflow-hidden flex flex-col justify-between min-h-[120px]">
+                                    <div>
+                                        <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">24H 등락폭</div>
+                                        <div className={`text-sm sm:text-base xl:text-lg font-black font-mono mt-1 whitespace-nowrap ${change24h.isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {lastPrice > 0 ? change24h.text : '-'}
+                                        </div>
                                     </div>
                                     <div className="text-[10px] text-slate-400">전일 종가 대비 등락 추이</div>
                                 </div>
@@ -570,36 +592,7 @@ export const App: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* 시스템 환경 설정 */}
-                            <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
-                                <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
-                                    <ShieldAlert size={16} className="text-[#8a2be2]" />
-                                    <span>어드민 보안 및 환경 설정</span>
-                                </div>
-                                <div className="flex items-center justify-between p-4 bg-slate-900/40 border border-white/5 rounded-xl hover:border-[#8a2be2]/30 transition-all duration-300">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                                            중복 로그인 차단 활성화 (Enforce Single Session)
-                                            {duplicateLoginBlockEnabled ? (
-                                                <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-[#8a2be2]/20 border border-[#8a2be2]/45 text-[#c084fc] animate-pulse">ACTIVE</span>
-                                            ) : (
-                                                <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-slate-500/10 border border-slate-500/35 text-slate-400">DISABLED</span>
-                                            )}
-                                        </span>
-                                        <span className="text-[10px] text-slate-400">
-                                            활성화 시 다른 기기나 브라우저에서 중복 로그인할 경우 이전 세션이 즉시 만료 및 로그아웃 처리됩니다.
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center">
-                                        <button 
-                                            onClick={() => toggleDuplicateLoginBlock(!duplicateLoginBlockEnabled)}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${duplicateLoginBlockEnabled ? 'bg-[#8a2be2]' : 'bg-slate-700'}`}
-                                        >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${duplicateLoginBlockEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+
                         </div>
                     )}
 
@@ -1141,6 +1134,133 @@ export const App: React.FC = () => {
                                                 className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
                                             >
                                                 다음 ▶
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* TAB 6: SYSTEM SETTINGS (시스템 환경 설정) */}
+                    {activeTab === 'settings' && (
+                        <div className="tab-panel animate-fade-in flex flex-col gap-6">
+                            <div className="section-title text-xl font-black text-white flex items-center gap-2">
+                                <Settings size={20} className="text-[#8a2be2]" />
+                                <span>시스템 환경 설정</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                {/* 1. 어드민 보안 설정 */}
+                                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                    <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
+                                        <ShieldAlert size={16} className="text-[#8a2be2]" />
+                                        <span>어드민 보안 설정</span>
+                                    </div>
+                                    <div className="flex items-center justify-between p-4 bg-slate-900/40 border border-white/5 rounded-xl hover:border-[#8a2be2]/30 transition-all duration-300">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                                                중복 로그인 차단 활성화 (Enforce Single Session)
+                                                {duplicateLoginBlockEnabled ? (
+                                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-[#8a2be2]/20 border border-[#8a2be2]/45 text-[#c084fc] animate-pulse">ACTIVE</span>
+                                                ) : (
+                                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-slate-500/10 border border-slate-500/35 text-slate-400">DISABLED</span>
+                                                )}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400">
+                                                활성화 시 다른 기기나 브라우저에서 중복 로그인할 경우 이전 세션이 즉시 만료 및 로그아웃 처리됩니다.
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <button 
+                                                onClick={() => toggleDuplicateLoginBlock(!duplicateLoginBlockEnabled)}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${duplicateLoginBlockEnabled ? 'bg-[#8a2be2]' : 'bg-slate-700'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${duplicateLoginBlockEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 2. 모니터링 및 알림 설정 */}
+                                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                    <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
+                                        <Activity size={16} className="text-[#00f2fe]" />
+                                        <span>모니터링 및 알림 설정 (시뮬레이션)</span>
+                                    </div>
+                                    
+                                    {/* 소리 알림 */}
+                                    <div className="flex items-center justify-between p-4 bg-slate-900/40 border border-white/5 rounded-xl hover:border-[#00f2fe]/30 transition-all duration-300">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-xs font-bold text-white">실시간 체결 알림 효과음 재생</span>
+                                            <span className="text-[10px] text-slate-400">신규 거래 체결 시 브라우저 오디오 효과음 알림을 재생합니다.</span>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <button 
+                                                onClick={() => setMockPlaySound(!mockPlaySound)}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${mockPlaySound ? 'bg-[#00f2fe]' : 'bg-slate-700'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${mockPlaySound ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* 이메일 알림 */}
+                                    <div className="flex items-center justify-between p-4 bg-slate-900/40 border border-white/5 rounded-xl hover:border-[#00f2fe]/30 transition-all duration-300">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-xs font-bold text-white">시스템 오류 및 이상 징후 이메일 긴급 전송</span>
+                                            <span className="text-[10px] text-slate-400">시스템 예외 발생 시 관리자 이메일 계정({authEmail})으로 오류 보고서를 발송합니다.</span>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <button 
+                                                onClick={() => setMockEmailAlert(!mockEmailAlert)}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${mockEmailAlert ? 'bg-[#00f2fe]' : 'bg-slate-700'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${mockEmailAlert ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 3. 거래소 운영 모드 설정 */}
+                                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4 xl:col-span-2">
+                                    <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
+                                        <Coins size={16} className="text-amber-500" />
+                                        <span>거래소 운영 정책 구성 (시뮬레이션)</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {/* 매칭 규칙 선택 */}
+                                        <div className="p-4 bg-slate-900/40 border border-white/5 rounded-xl flex flex-col gap-2">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-xs font-bold text-white">매칭 엔진 오더북 체결 규칙</span>
+                                                <span className="text-[10px] text-slate-400">거래 엔진의 매칭 우선순위 알고리즘을 선택합니다.</span>
+                                            </div>
+                                            <div className="flex gap-2 mt-2">
+                                                {(['FIFO', 'LIFO'] as const).map(mode => (
+                                                    <button
+                                                        key={mode}
+                                                        type="button"
+                                                        onClick={() => setMockMatchingEngineMode(mode)}
+                                                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all border ${mockMatchingEngineMode === mode ? 'bg-amber-500/20 border-amber-500 text-amber-400' : 'bg-transparent border-white/10 text-slate-400 hover:text-white'}`}
+                                                    >
+                                                        {mode} (선입선출 우선)
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* 유지보수 모드 */}
+                                        <div className="p-4 bg-slate-900/40 border border-white/5 rounded-xl flex items-center justify-between">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-xs font-bold text-white">거래소 점검 모드 활성화</span>
+                                                <span className="text-[10px] text-slate-400">활성화 시 일반 사용자 거래 터미널 접속 및 주문 요청이 차단됩니다.</span>
+                                            </div>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setMockMaintenanceMode(!mockMaintenanceMode)}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${mockMaintenanceMode ? 'bg-amber-500' : 'bg-slate-700'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${mockMaintenanceMode ? 'translate-x-6' : 'translate-x-1'}`} />
                                             </button>
                                         </div>
                                     </div>
