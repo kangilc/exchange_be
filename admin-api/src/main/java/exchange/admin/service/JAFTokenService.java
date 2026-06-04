@@ -1,6 +1,7 @@
 package exchange.admin.service;
 
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.web3j.abi.FunctionEncoder;
 import org.web3j.abi.FunctionReturnDecoder;
@@ -29,6 +30,15 @@ import java.util.List;
 @Service
 public class JAFTokenService {
 
+    @Value("${ethereum.rpc-url}")
+    private String defaultRpcUrl;
+
+    @Value("${ethereum.rpc-url-docker}")
+    private String dockerRpcUrl;
+
+    @Value("${ethereum.private-key}")
+    private String privateKey;
+
     private Web3j web3j;
     private Credentials credentials;
     private String contractAddress;
@@ -44,24 +54,22 @@ public class JAFTokenService {
             int retries = 10;
             while (retries > 0) {
                 try {
-                    System.out.println("[JAFTokenService] 로컬 EVM 노드(Ganache) 연결을 시도합니다... (남은 횟수: " + retries + ")");
-                    // 컨테이너 구동 시 'ganache' 호스트로 접속 시도. 만약 로컬 직접 빌드 시 localhost로 접속 처리
-                    String rpcUrl = "http://ganache:8545";
+                    System.out.println("[JAFTokenService] 로컬 EVM 노드 연결을 시도합니다... (남은 횟수: " + retries + ")");
+                    String rpcUrl = dockerRpcUrl;
                     try {
                         web3j = Web3j.build(new HttpService(rpcUrl));
                         // 기본 버전 조회로 연결 여부 테스트
                         web3j.web3ClientVersion().send();
                         System.out.println("[JAFTokenService] Ganache 컨테이너 연결 성공! (" + rpcUrl + ")");
                     } catch (Exception e) {
-                        rpcUrl = "http://localhost:8545";
+                        rpcUrl = defaultRpcUrl;
                         web3j = Web3j.build(new HttpService(rpcUrl));
                         web3j.web3ClientVersion().send();
                         System.out.println("[JAFTokenService] Ganache 로컬 호스트 연결 성공! (" + rpcUrl + ")");
                     }
 
-                    // Ganache 0번 계정 Credentials 로드 (deterministic 모드로 항상 동일)
-                    credentials = Credentials
-                            .create("0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d");
+                    // Ganache 0번 계정 Credentials 로드 (설정 파일의 private-key 주입)
+                    credentials = Credentials.create(privateKey);
 
                     // JAF ERC-20 스마트 컨트랙트 배포 진행 (초기 공급량: 1억 JAF)
                     deployJafContract();
