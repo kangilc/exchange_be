@@ -2,7 +2,6 @@ package exchange.admin.controller;
 
 import exchange.admin.model.CryptoWithdrawal;
 import exchange.admin.model.SystemHotWallet;
-import exchange.admin.model.UserCryptoAddress;
 import exchange.admin.model.Wallet;
 import exchange.admin.repository.CryptoWithdrawalRepository;
 import exchange.admin.repository.SystemHotWalletRepository;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -133,14 +131,16 @@ public class CryptoWalletController {
      * 본 API는 트랜잭션 범위 내에서 안전하게 자산을 잠금 처리합니다.
      * </p>
      * <ol>
-     *   <li>요청 파라미터(사용자 ID, 자산 통화 종류, 출금 수량, 대상 지갑 주소)를 수신합니다.</li>
-     *   <li>출금 수량이 0보다 큰지 유효성 검사를 수행합니다.</li>
-     *   <li>사용자의 가상 자산 지갑을 조회하고, 가용 잔고가 출금 요청액보다 많은지 검증합니다.</li>
-     *   <li>가용 잔고(balance)에서 출금액을 차감하고, 출금 심사 중 자산 유실을 방지하기 위해 잠금 잔고(lockedBalance)에 임시로 가산합니다.</li>
-     *   <li>초기 상태가 {@code PENDING}인 신규 출금 데이터(CryptoWithdrawal)를 생성 및 저장합니다.</li>
+     * <li>요청 파라미터(사용자 ID, 자산 통화 종류, 출금 수량, 대상 지갑 주소)를 수신합니다.</li>
+     * <li>출금 수량이 0보다 큰지 유효성 검사를 수행합니다.</li>
+     * <li>사용자의 가상 자산 지갑을 조회하고, 가용 잔고가 출금 요청액보다 많은지 검증합니다.</li>
+     * <li>가용 잔고(balance)에서 출금액을 차감하고, 출금 심사 중 자산 유실을 방지하기 위해 잠금 잔고(lockedBalance)에
+     * 임시로 가산합니다.</li>
+     * <li>초기 상태가 {@code PENDING}인 신규 출금 데이터(CryptoWithdrawal)를 생성 및 저장합니다.</li>
      * </ol>
      *
-     * @param payload 사용자 ID(userId), 통화(currency), 수량(amount), 대상 주소(toAddress)를 포함하는 맵
+     * @param payload 사용자 ID(userId), 통화(currency), 수량(amount), 대상 주소(toAddress)를
+     *                포함하는 맵
      * @return 200 OK와 함께 저장 완료된 출금 정보 객체 반환, 또는 400 Bad Request 에러 반환
      */
     @PostMapping("/withdraw")
@@ -160,7 +160,7 @@ public class CryptoWalletController {
         // 2. 가상 지갑 정보 조회
         Wallet wallet = walletRepository.findByUserIdAndCurrency(userId, currency)
                 .orElse(null);
-        
+
         // 3. 가상 지갑이 존재하지 않거나, 가용 잔고(Balance)가 출금 요청 금액보다 작은 경우 잔고 부족 에러 처리
         if (wallet == null || wallet.getBalance().compareTo(amount) < 0) {
             return ResponseEntity.badRequest().body(Map.of("error", "Insufficient virtual balance"));
@@ -179,7 +179,7 @@ public class CryptoWalletController {
         withdrawal.setAmount(amount);
         withdrawal.setToAddress(toAddress);
         withdrawal.setStatus("PENDING"); // 어드민의 승인 대기 상태
-        withdrawal.setConfirmations(0);  // 현재 온체인 컨펌수는 0
+        withdrawal.setConfirmations(0); // 현재 온체인 컨펌수는 0
         withdrawal.setCreatedAt(LocalDateTime.now());
         withdrawal.setUpdatedAt(LocalDateTime.now());
 
@@ -194,15 +194,16 @@ public class CryptoWalletController {
      * 관리자가 대기 중인 출금 요청을 승인하여 온체인 네트워크로 트랜잭션을 전송(Broadcasting)합니다.
      * </p>
      * <ol>
-     *   <li>출금 ID를 통해 대상 출금 내역을 조회합니다.</li>
-     *   <li>출금 상태가 오직 {@code PENDING}(대기)인 경우에만 승인을 진행합니다.</li>
-     *   <li>거래소 시스템 핫월렛의 가용 온체인 잔고가 승인할 출금 수량보다 많은지 사전 검증합니다.</li>
-     *   <li>가상 TXID 해시(0x로 시작하는 랜덤 해시값)를 자동 발급합니다.</li>
-     *   <li>출금의 상태를 {@code BROADCASTED}로 갱신하여 백그라운드 블록 컨펌 감시 대기열에 진입하도록 처리합니다.</li>
+     * <li>출금 ID를 통해 대상 출금 내역을 조회합니다.</li>
+     * <li>출금 상태가 오직 {@code PENDING}(대기)인 경우에만 승인을 진행합니다.</li>
+     * <li>거래소 시스템 핫월렛의 가용 온체인 잔고가 승인할 출금 수량보다 많은지 사전 검증합니다.</li>
+     * <li>가상 TXID 해시(0x로 시작하는 랜덤 해시값)를 자동 발급합니다.</li>
+     * <li>출금의 상태를 {@code BROADCASTED}로 갱신하여 백그라운드 블록 컨펌 감시 대기열에 진입하도록 처리합니다.</li>
      * </ol>
      *
      * @param id 승인하고자 하는 출금 신청 ID
-     * @return 200 OK와 함께 변경된 출금 내역 반환, 존재하지 않는 경우 404 Not Found, 예외 상황 시 400 Bad Request
+     * @return 200 OK와 함께 변경된 출금 내역 반환, 존재하지 않는 경우 404 Not Found, 예외 상황 시 400 Bad
+     *         Request
      */
     @PostMapping("/withdrawals/{id}/approve")
     @Transactional
@@ -235,14 +236,16 @@ public class CryptoWalletController {
                     return ResponseEntity.badRequest().body(Map.of("error", "JAFTokenService is not initialized yet."));
                 }
             } catch (Exception e) {
-                return ResponseEntity.badRequest().body(Map.of("error", "JAF On-chain transfer failed: " + e.getMessage()));
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "JAF On-chain transfer failed: " + e.getMessage()));
             }
         } else {
-            txHash = "0x" + UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "").substring(0, 32);
+            txHash = "0x" + UUID.randomUUID().toString().replace("-", "")
+                    + UUID.randomUUID().toString().replace("-", "").substring(0, 32);
         }
         withdrawal.setTxHash(txHash);
         withdrawal.setStatus("BROADCASTED"); // 블록체인 네트워크에 전송된 상태로 변경
-        withdrawal.setConfirmations(0);      // 확인수 0부터 시작
+        withdrawal.setConfirmations(0); // 확인수 0부터 시작
         withdrawal.setUpdatedAt(LocalDateTime.now());
 
         // 5. 변경 데이터 저장
@@ -257,14 +260,16 @@ public class CryptoWalletController {
      * 관리자가 대기 중인 출금 요청을 반려(Reject)하고 잠겨 있던 유저 자산을 원상 복구합니다.
      * </p>
      * <ol>
-     *   <li>출금 ID를 통해 대상 출금 내역을 조회합니다.</li>
-     *   <li>출금 상태가 오직 {@code PENDING}(대기)인 경우에만 반려 처리를 진행합니다.</li>
-     *   <li>출금 내역의 상태를 {@code REJECTED}로 변경하여 반려 완료 처리합니다.</li>
-     *   <li>유저의 가상 지갑(Wallet)을 조회하여, 묶여 있던 잠금 잔고(lockedBalance)에서 출금액을 차감하고, 이를 다시 사용 가능한 가용 잔고(balance)로 복원합니다.</li>
+     * <li>출금 ID를 통해 대상 출금 내역을 조회합니다.</li>
+     * <li>출금 상태가 오직 {@code PENDING}(대기)인 경우에만 반려 처리를 진행합니다.</li>
+     * <li>출금 내역의 상태를 {@code REJECTED}로 변경하여 반려 완료 처리합니다.</li>
+     * <li>유저의 가상 지갑(Wallet)을 조회하여, 묶여 있던 잠금 잔고(lockedBalance)에서 출금액을 차감하고, 이를 다시 사용
+     * 가능한 가용 잔고(balance)로 복원합니다.</li>
      * </ol>
      *
      * @param id 반려하고자 하는 출금 신청 ID
-     * @return 200 OK와 함께 변경된 출금 내역 반환, 존재하지 않는 경우 404 Not Found, 예외 상황 시 400 Bad Request
+     * @return 200 OK와 함께 변경된 출금 내역 반환, 존재하지 않는 경우 404 Not Found, 예외 상황 시 400 Bad
+     *         Request
      */
     @PostMapping("/withdrawals/{id}/reject")
     @Transactional
@@ -290,8 +295,9 @@ public class CryptoWalletController {
                 .orElse(null);
         if (wallet != null) {
             BigDecimal nextLocked = wallet.getLockedBalance().subtract(withdrawal.getAmount());
-            if (nextLocked.compareTo(BigDecimal.ZERO) < 0) nextLocked = BigDecimal.ZERO; // 음수 방지 예외 처리
-            
+            if (nextLocked.compareTo(BigDecimal.ZERO) < 0)
+                nextLocked = BigDecimal.ZERO; // 음수 방지 예외 처리
+
             wallet.setLockedBalance(nextLocked);
             wallet.setBalance(wallet.getBalance().add(withdrawal.getAmount()));
             wallet.setUpdatedAt(LocalDateTime.now());
@@ -307,14 +313,15 @@ public class CryptoWalletController {
      * 거래소 시스템 핫월렛에 수동으로 가상 온체인 자산을 공급(충전/리밸런싱)하는 시뮬레이션 API입니다.
      * </p>
      * <ol>
-     *   <li>핫월렛 ID를 통해 충전할 시스템 핫월렛을 조회합니다.</li>
-     *   <li>요청 바디에서 충전 수량(amount)을 수신한 뒤, 양수인지 유효성 체크를 진행합니다.</li>
-     *   <li>해당 시스템 핫월렛의 잔고(balance)에 충전 수량을 가산한 뒤 저장합니다.</li>
+     * <li>핫월렛 ID를 통해 충전할 시스템 핫월렛을 조회합니다.</li>
+     * <li>요청 바디에서 충전 수량(amount)을 수신한 뒤, 양수인지 유효성 체크를 진행합니다.</li>
+     * <li>해당 시스템 핫월렛의 잔고(balance)에 충전 수량을 가산한 뒤 저장합니다.</li>
      * </ol>
      *
-     * @param id 충전하고자 하는 시스템 핫월렛의 ID
+     * @param id      충전하고자 하는 시스템 핫월렛의 ID
      * @param payload 충전 금액(amount)을 포함한 맵
-     * @return 200 OK와 함께 충전 완료된 핫월렛 정보 반환, 존재하지 않는 경우 404 Not Found, 예외 상황 시 400 Bad Request
+     * @return 200 OK와 함께 충전 완료된 핫월렛 정보 반환, 존재하지 않는 경우 404 Not Found, 예외 상황 시 400
+     *         Bad Request
      */
     @PostMapping("/hot-wallets/{id}/rebalance")
     @Transactional
@@ -335,10 +342,9 @@ public class CryptoWalletController {
         hotWallet.setBalance(hotWallet.getBalance().add(amount));
         hotWallet.setUpdatedAt(LocalDateTime.now());
         SystemHotWallet saved = systemHotWalletRepository.save(hotWallet);
-        
+
         System.out.println(String.format("[핫월렛 충전] %s 핫월렛에 %s 가 충전되었습니다.", hotWallet.getCurrency(), amount));
         return ResponseEntity.ok(saved);
     }
 
 }
-

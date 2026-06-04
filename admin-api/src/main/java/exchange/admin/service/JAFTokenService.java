@@ -23,9 +23,7 @@ import org.web3j.utils.Numeric;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -62,7 +60,8 @@ public class JAFTokenService {
                     }
 
                     // Ganache 0번 계정 Credentials 로드 (deterministic 모드로 항상 동일)
-                    credentials = Credentials.create("0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d");
+                    credentials = Credentials
+                            .create("0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d");
 
                     // JAF ERC-20 스마트 컨트랙트 배포 진행 (초기 공급량: 1억 JAF)
                     deployJafContract();
@@ -71,19 +70,24 @@ public class JAFTokenService {
                 } catch (Exception e) {
                     System.err.println("[JAFTokenService] 연결 또는 배포 실패: " + e.getMessage() + ". 3초 후 재시도...");
                     retries--;
-                    try { Thread.sleep(3000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                    try {
+                        Thread.sleep(3000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
                 }
             }
 
             if (!initialized) {
-                System.err.println("[JAFTokenService] 경고: Ganache EVM 노드 연결 실패. JAF 토큰 기능은 Mock 시뮬레이션으로 대체 작동될 수 있습니다.");
+                System.err
+                        .println("[JAFTokenService] 경고: Ganache EVM 노드 연결 실패. JAF 토큰 기능은 Mock 시뮬레이션으로 대체 작동될 수 있습니다.");
             }
         }).start();
     }
 
     private void deployJafContract() throws Exception {
         System.out.println("[JAFTokenService] JAF ERC-20 토큰 컨트랙트 배포 중...");
-        
+
         EthGetTransactionCount ethGetTransactionCount = web3j.ethGetTransactionCount(
                 credentials.getAddress(), DefaultBlockParameterName.LATEST).send();
         BigInteger nonce = ethGetTransactionCount.getTransactionCount();
@@ -151,8 +155,8 @@ public class JAFTokenService {
             Function function = new Function(
                     "balanceOf",
                     Arrays.asList(new Address(address)),
-                    Arrays.asList(new TypeReference<Uint256>() {})
-            );
+                    Arrays.asList(new TypeReference<Uint256>() {
+                    }));
             String encodedFunction = FunctionEncoder.encode(function);
 
             EthCall response = web3j.ethCall(
@@ -182,12 +186,12 @@ public class JAFTokenService {
 
         System.out.println("[JAFTokenService] JAF 송금 요청: " + amount + " JAF -> " + toAddress);
         BigInteger rawAmount = amount.multiply(BigDecimal.TEN.pow(18)).toBigInteger();
-        
+
         Function function = new Function(
                 "transfer",
                 Arrays.asList(new Address(toAddress), new Uint256(rawAmount)),
-                Arrays.asList(new TypeReference<Bool>() {})
-        );
+                Arrays.asList(new TypeReference<Bool>() {
+                }));
         String encodedFunction = FunctionEncoder.encode(function);
 
         EthGetTransactionCount ethGetTransactionCount = web3j.ethGetTransactionCount(
@@ -205,7 +209,8 @@ public class JAFTokenService {
 
         EthSendTransaction ethSendTransaction = web3j.ethSendRawTransaction(hexValue).send();
         if (ethSendTransaction.hasError()) {
-            throw new RuntimeException("JAF transfer transaction failed: " + ethSendTransaction.getError().getMessage());
+            throw new RuntimeException(
+                    "JAF transfer transaction failed: " + ethSendTransaction.getError().getMessage());
         }
 
         String txHash = ethSendTransaction.getTransactionHash();

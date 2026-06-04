@@ -4,8 +4,6 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
 import exchange.engine.book.OrderBook;
-import exchange.engine.domain.Order;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -23,7 +21,8 @@ public final class MetricsServer {
         return INSTANCE;
     }
 
-    private MetricsServer() {}
+    private MetricsServer() {
+    }
 
     public void incrementOrders() {
         totalOrders.incrementAndGet();
@@ -138,7 +137,7 @@ public final class MetricsServer {
             sb.append("{");
             sb.append("\"symbol\":\"").append(ConfigLoader.get("SYMBOL", "BTC-USD")).append("\",");
             sb.append("\"seq\":").append(seq).append(",");
-            
+
             // Serialize aggregated bids
             sb.append("\"bids\":[");
             boolean firstBid = true;
@@ -150,7 +149,8 @@ public final class MetricsServer {
                         qtySum += order.qty;
                     }
                     if (qtySum > 0) {
-                        if (!firstBid) sb.append(",");
+                        if (!firstBid)
+                            sb.append(",");
                         sb.append("[").append(price).append(",").append(qtySum).append("]");
                         firstBid = false;
                     }
@@ -169,7 +169,8 @@ public final class MetricsServer {
                         qtySum += order.qty;
                     }
                     if (qtySum > 0) {
-                        if (!firstAsk) sb.append(",");
+                        if (!firstAsk)
+                            sb.append(",");
                         sb.append("[").append(price).append(",").append(qtySum).append("]");
                         firstAsk = false;
                     }
