@@ -347,4 +347,31 @@ public class CryptoWalletController {
         return ResponseEntity.ok(saved);
     }
 
+    @PostMapping("/test-jaf-deposit")
+    public ResponseEntity<?> testJafDeposit(@RequestBody Map<String, Object> payload) {
+        try {
+            Long userId = Long.valueOf(payload.get("userId").toString());
+            BigDecimal amount = new BigDecimal(payload.get("amount").toString());
+            
+            var userAddr = userCryptoAddressRepository.findByUserId(userId).stream()
+                    .filter(a -> a.getCurrency().equalsIgnoreCase("JAF"))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("User JAF address not found"));
+
+            if (jafTokenService.isInitialized()) {
+                String txHash = jafTokenService.transfer(userAddr.getCryptoAddress(), amount);
+                System.out.println("[테스트 입금 API] JAF 온체인 전송 완료. 수신주소: " + userAddr.getCryptoAddress() + ", TxHash: " + txHash);
+                return ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "txHash", txHash,
+                        "toAddress", userAddr.getCryptoAddress(),
+                        "amount", amount
+                ));
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("error", "JAFTokenService is not initialized."));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
 }
