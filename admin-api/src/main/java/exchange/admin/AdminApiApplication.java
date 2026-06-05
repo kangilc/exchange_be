@@ -1,5 +1,6 @@
 package exchange.admin;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -12,6 +13,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.Statement;
 
+@Slf4j
 @SpringBootApplication
 @EnableScheduling
 public class AdminApiApplication {
@@ -23,7 +25,7 @@ public class AdminApiApplication {
     @Bean
     public CommandLineRunner initDatabase(DataSource dataSource) {
         return args -> {
-            System.out.println("Running automatic database schema validation...");
+            log.info("Running automatic database schema validation...");
             try (Connection conn = dataSource.getConnection()) {
                 DatabaseMetaData metaData = conn.getMetaData();
                 
@@ -44,13 +46,13 @@ public class AdminApiApplication {
                 }
 
                 if (!columnExists) {
-                    System.out.println("Column 'grade' does not exist in 'users' table. Running ALTER TABLE statement...");
+                    log.info("Column 'grade' does not exist in 'users' table. Running ALTER TABLE statement...");
                     try (Statement stmt = conn.createStatement()) {
                         stmt.execute("ALTER TABLE users ADD COLUMN grade VARCHAR(20) DEFAULT 'STANDARD'");
-                        System.out.println("Column 'grade' added to 'users' table successfully!");
+                        log.info("Column 'grade' added to 'users' table successfully!");
                     }
                 } else {
-                    System.out.println("Column 'grade' already exists in 'users' table.");
+                    log.info("Column 'grade' already exists in 'users' table.");
                 }
 
                 // 2. Check 'refresh_token' column
@@ -70,24 +72,23 @@ public class AdminApiApplication {
                 }
 
                 if (!tokenColumnExists) {
-                    System.out.println("Column 'refresh_token' does not exist in 'users' table. Running ALTER TABLE statement...");
+                    log.info("Column 'refresh_token' does not exist in 'users' table. Running ALTER TABLE statement...");
                     try (Statement stmt = conn.createStatement()) {
                         stmt.execute("ALTER TABLE users ADD COLUMN refresh_token VARCHAR(512)");
-                        System.out.println("Column 'refresh_token' added to 'users' table successfully!");
+                        log.info("Column 'refresh_token' added to 'users' table successfully!");
                     }
                 } else {
-                    System.out.println("Column 'refresh_token' already exists in 'users' table.");
+                    log.info("Column 'refresh_token' already exists in 'users' table.");
                 }
 
                 // 3. 하드코딩된 시드 데이터로 인해 어긋난 users_user_id_seq 시퀀스를 테이블 최댓값에 맞게 자동 동기화 처리함 (중복 키 오류 방지용)
-                System.out.println("Synchronizing users_user_id_seq sequence...");
+                log.info("Synchronizing users_user_id_seq sequence...");
                 try (Statement stmt = conn.createStatement()) {
                     stmt.execute("SELECT setval('users_user_id_seq', COALESCE((SELECT MAX(user_id) FROM users), 0) + 1, false)");
-                    System.out.println("users_user_id_seq sequence synchronized successfully!");
+                    log.info("users_user_id_seq sequence synchronized successfully!");
                 }
             } catch (Exception e) {
-                System.err.println("Database schema validation failed: " + e.getMessage());
-                e.printStackTrace();
+                log.error("Database schema validation failed", e);
             }
         };
     }
@@ -98,15 +99,14 @@ public class AdminApiApplication {
             String adminEmail = "admin@javaf.net";
             try {
                 if (userRepository.findByEmail(adminEmail).isEmpty()) {
-                    System.out.println("Default admin user does not exist. Seeding default admin user (" + adminEmail + ")...");
+                    log.info("Default admin user does not exist. Seeding default admin user ({})...", adminEmail);
                     userService.registerUser(adminEmail, "admin123", "ADMIN");
-                    System.out.println("Default admin user seeded successfully!");
+                    log.info("Default admin user seeded successfully!");
                 } else {
-                    System.out.println("Default admin user already exists.");
+                    log.info("Default admin user already exists.");
                 }
             } catch (Exception e) {
-                System.err.println("Default admin user seeding failed: " + e.getMessage());
-                e.printStackTrace();
+                log.error("Default admin user seeding failed", e);
             }
         };
     }

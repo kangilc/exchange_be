@@ -18,4 +18,12 @@ dependencies {
 
     // Web3j for local EVM/Ethereum RPC integration
     implementation 'org.web3j:core:4.10.0'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+
+    // SpringDoc OpenAPI for Swagger UI
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
 }
+

@@ -48,6 +48,7 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll() // Swagger UI 및 OpenAPI 스펙 허용
                 .requestMatchers("/admin/auth/**").permitAll() // 로그인/토큰갱신 공개
                 .requestMatchers("/admin/stats/candles").permitAll() // 일반 사용자 차트용 캔들 조회 허용
                 .requestMatchers("/admin/wallets/user/**").permitAll() // 일반 사용자 모의 지갑 조회 허용

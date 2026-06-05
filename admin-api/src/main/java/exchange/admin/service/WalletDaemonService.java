@@ -1,5 +1,6 @@
 package exchange.admin.service;
 
+import lombok.extern.slf4j.Slf4j;
 import exchange.admin.config.AdminSettings;
 import exchange.admin.model.CryptoWithdrawal;
 import exchange.admin.model.LedgerJournal;
@@ -39,6 +40,7 @@ import org.web3j.utils.Numeric;
  * 주기적으로 블록 높이(Block Height)를 증가시키고 입출금 트랜잭션의 블록 확인(Confirmation)을 수행합니다.
  * </p>
  */
+@Slf4j
 @Service
 public class WalletDaemonService {
 
@@ -196,18 +198,18 @@ public class WalletDaemonService {
             // 실물 JAF 토큰의 경우, 핫월렛(Account 0)에서 사용자 주소로 실제 온체인 트랜잭션을 전송합니다.
             try {
                 if (jafTokenService.isInitialized()) {
-                    System.out.println("[블록체인 시뮬레이터] 시뮬레이션 입금을 위한 JAF 온체인 전송 수행...");
+                    log.info("[블록체인 시뮬레이터] 시뮬레이션 입금을 위한 JAF 온체인 전송 수행...");
                     String txHash = jafTokenService.transfer(targetAddr.getCryptoAddress(), amount);
-                    System.out.println("[블록체인 시뮬레이터] JAF 온체인 전송 완료. TxHash: " + txHash);
+                    log.info("[블록체인 시뮬레이터] JAF 온체인 전송 완료. TxHash: {}", txHash);
                     // 온체인 전송 성공 시, block scanner가 이 트랜잭션을 다음 블록에서 감지할 것이므로
                     // 여기서는 pendingDeposits에 직접 넣지 않고 온체인 이벤트를 자연스럽게 스캔하도록 리턴합니다.
                     return;
                 } else {
-                    System.err.println("[블록체인 시뮬레이터] JAFTokenService가 초기화되지 않아 JAF 입금 시뮬레이션을 건너뜁니다.");
+                    log.error("[블록체인 시뮬레이터] JAFTokenService가 초기화되지 않아 JAF 입금 시뮬레이션을 건너뜁니다.");
                     return;
                 }
             } catch (Exception e) {
-                System.err.println("[블록체인 시뮬레이터] JAF 온체인 전송 실패: " + e.getMessage());
+                log.error("[블록체인 시뮬레이터] JAF 온체인 전송 실패: {}", e.getMessage());
                 return;
             }
         } else {
@@ -229,8 +231,8 @@ public class WalletDaemonService {
 
         // 컨펌 대기 리스트에 주입
         pendingDeposits.add(deposit);
-        System.out.println(String.format("[블록체인 시뮬레이터] 신규 가상 입금 감지! %s @ %s -> 컨펌 대기 시작 (Target: %d)", 
-            amount, targetAddr.getCryptoAddress(), reqConfirmations));
+        log.info("[블록체인 시뮬레이터] 신규 가상 입금 감지! {} @ {} -> 컨펌 대기 시작 (Target: {})", 
+            amount, targetAddr.getCryptoAddress(), reqConfirmations);
     }
 
     /**
@@ -247,10 +249,10 @@ public class WalletDaemonService {
                 try {
                     userService.adjustAsset(dep.getUserId(), dep.getCurrency(), dep.getAmount());
                     completed.add(dep);
-                    System.out.println(String.format("[블록체인 시뮬레이터] 입금 컨펌 완료! User %d / %s %s -> 가상 지갑 정산 성공", 
-                        dep.getUserId(), dep.getAmount(), dep.getCurrency()));
+                    log.info("[블록체인 시뮬레이터] 입금 컨펌 완료! User {} / {} {} -> 가상 지갑 정산 성공", 
+                        dep.getUserId(), dep.getAmount(), dep.getCurrency());
                 } catch (Exception e) {
-                    System.err.println("Failed to credit pending deposit: " + e.getMessage());
+                    log.error("Failed to credit pending deposit: {}", e.getMessage());
                 }
             }
         }
@@ -323,8 +325,8 @@ public class WalletDaemonService {
                 journal.setCreatedAt(LocalDateTime.now());
                 ledgerJournalRepository.save(journal);
 
-                System.out.println(String.format("[블록체인 시뮬레이터] 출금 완료! ID: %d / %s %s 송금 최종 성공", 
-                    withdrawal.getWithdrawalId(), withdrawal.getAmount(), withdrawal.getCurrency()));
+                log.info("[블록체인 시뮬레이터] 출금 완료! ID: {} / {} {} 송금 최종 성공", 
+                    withdrawal.getWithdrawalId(), withdrawal.getAmount(), withdrawal.getCurrency());
             }
             
             cryptoWithdrawalRepository.save(withdrawal);
@@ -344,7 +346,7 @@ public class WalletDaemonService {
             BigInteger latestBlock = jafTokenService.getWeb3j().ethBlockNumber().send().getBlockNumber();
             if (lastScannedJAFBlock == null) {
                 lastScannedJAFBlock = latestBlock;
-                System.out.println("[WalletDaemonService] JAF block scanner initialized at block " + lastScannedJAFBlock);
+                log.info("[WalletDaemonService] JAF block scanner initialized at block {}", lastScannedJAFBlock);
                 return;
             }
 
@@ -361,24 +363,24 @@ public class WalletDaemonService {
 
                 EthLog ethLog = jafTokenService.getWeb3j().ethGetLogs(filter).send();
                 if (ethLog.hasError()) {
-                    System.err.println("[WalletDaemonService] EthGetLogs error: " + ethLog.getError().getMessage());
+                    log.error("[WalletDaemonService] EthGetLogs error: {}", ethLog.getError().getMessage());
                     return;
                 }
 
                 List<EthLog.LogResult> logs = ethLog.getLogs();
                 for (EthLog.LogResult logResult : logs) {
-                    org.web3j.protocol.core.methods.response.Log log = (org.web3j.protocol.core.methods.response.Log) logResult.get();
-                    List<String> topics = log.getTopics();
+                    org.web3j.protocol.core.methods.response.Log web3jLog = (org.web3j.protocol.core.methods.response.Log) logResult.get();
+                    List<String> topics = web3jLog.getTopics();
                     if (topics.size() >= 3) {
                         String toAddress = "0x" + topics.get(2).substring(26);
-                        String txHash = log.getTransactionHash();
+                        String txHash = web3jLog.getTransactionHash();
 
                         // DB의 사용자 입금 주소 목록 매핑 시도
                         Optional<UserCryptoAddress> userAddrOpt = userCryptoAddressRepository.findByCryptoAddressIgnoreCase(toAddress);
                         if (userAddrOpt.isPresent()) {
                             UserCryptoAddress userAddr = userAddrOpt.get();
                             if (userAddr.getCurrency().equalsIgnoreCase("JAF")) {
-                                BigInteger value = Numeric.toBigInt(log.getData());
+                                BigInteger value = Numeric.toBigInt(web3jLog.getData());
                                 BigDecimal amount = new BigDecimal(value).divide(BigDecimal.TEN.pow(18), 8, RoundingMode.HALF_UP);
 
                                 boolean alreadyPending = pendingDeposits.stream().anyMatch(d -> d.getTxHash().equalsIgnoreCase(txHash));
@@ -394,8 +396,8 @@ public class WalletDaemonService {
                                     );
                                     pendingDeposits.add(deposit);
                                     processedDepositTxHashes.add(txHash);
-                                    System.out.println(String.format("[WalletDaemonService] 온체인 JAF 입금 감지! TxHash: %s, 수량: %s JAF, 수신처: %s -> 컨펌 대기 대기열 진입",
-                                            txHash, amount, userAddr.getCryptoAddress()));
+                                    log.info("[WalletDaemonService] 온체인 JAF 입금 감지! TxHash: {}, 수량: {} JAF, 수신처: {} -> 컨펌 대기 대기열 진입",
+                                            txHash, amount, userAddr.getCryptoAddress());
                                 }
                             }
                         }
@@ -404,7 +406,7 @@ public class WalletDaemonService {
                 lastScannedJAFBlock = toBlock;
             }
         } catch (Exception e) {
-            System.err.println("[WalletDaemonService] JAF 입금 스캔 중 에러 발생: " + e.getMessage());
+            log.error("[WalletDaemonService] JAF 입금 스캔 중 에러 발생: {}", e.getMessage());
         }
     }
 }

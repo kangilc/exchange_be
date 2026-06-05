@@ -1,5 +1,6 @@
 package exchange.admin.controller;
 
+import lombok.extern.slf4j.Slf4j;
 import exchange.admin.model.CryptoWithdrawal;
 import exchange.admin.model.SystemHotWallet;
 import exchange.admin.model.Wallet;
@@ -25,6 +26,7 @@ import java.util.UUID;
  * <p>
  * 모든 요청은 {@code /admin/crypto} 경로 하위에서 매핑
  */
+@Slf4j
 @RestController
 @RequestMapping("/admin/crypto")
 public class CryptoWalletController {
@@ -250,7 +252,7 @@ public class CryptoWalletController {
 
         // 5. 변경 데이터 저장
         CryptoWithdrawal saved = cryptoWithdrawalRepository.save(withdrawal);
-        System.out.println(String.format("[출금 승인] 출금 ID: %d 승인 완료. TxHash 생성: %s", id, txHash));
+        log.info("[출금 승인] 출금 ID: {} 승인 완료. TxHash 생성: {}", id, txHash);
         return ResponseEntity.ok(saved);
     }
 
@@ -343,7 +345,7 @@ public class CryptoWalletController {
         hotWallet.setUpdatedAt(LocalDateTime.now());
         SystemHotWallet saved = systemHotWalletRepository.save(hotWallet);
 
-        System.out.println(String.format("[핫월렛 충전] %s 핫월렛에 %s 가 충전되었습니다.", hotWallet.getCurrency(), amount));
+        log.info("[핫월렛 충전] {} 핫월렛에 {} 가 충전되었습니다.", hotWallet.getCurrency(), amount);
         return ResponseEntity.ok(saved);
     }
 
@@ -360,7 +362,7 @@ public class CryptoWalletController {
 
             if (jafTokenService.isInitialized()) {
                 String txHash = jafTokenService.transfer(userAddr.getCryptoAddress(), amount);
-                System.out.println("[테스트 입금 API] JAF 온체인 전송 완료. 수신주소: " + userAddr.getCryptoAddress() + ", TxHash: " + txHash);
+                log.info("[테스트 입금 API] JAF 온체인 전송 완료. 수신주소: {}, TxHash: {}", userAddr.getCryptoAddress(), txHash);
                 return ResponseEntity.ok(Map.of(
                         "success", true,
                         "txHash", txHash,

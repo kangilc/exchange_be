@@ -1,6 +1,7 @@
 package exchange.admin.service;
 
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.web3j.abi.FunctionEncoder;
@@ -27,6 +28,7 @@ import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.List;
 
+@Slf4j
 @Service
 public class JAFTokenService {
 
@@ -54,18 +56,18 @@ public class JAFTokenService {
             int retries = 10;
             while (retries > 0) {
                 try {
-                    System.out.println("[JAFTokenService] 로컬 EVM 노드 연결을 시도합니다... (남은 횟수: " + retries + ")");
+                    log.info("[JAFTokenService] 로컬 EVM 노드 연결을 시도합니다... (남은 횟수: {})", retries);
                     String rpcUrl = dockerRpcUrl;
                     try {
                         web3j = Web3j.build(new HttpService(rpcUrl));
                         // 기본 버전 조회로 연결 여부 테스트
                         web3j.web3ClientVersion().send();
-                        System.out.println("[JAFTokenService] Ganache 컨테이너 연결 성공! (" + rpcUrl + ")");
+                        log.info("[JAFTokenService] Ganache 컨테이너 연결 성공! ({})", rpcUrl);
                     } catch (Exception e) {
                         rpcUrl = defaultRpcUrl;
                         web3j = Web3j.build(new HttpService(rpcUrl));
                         web3j.web3ClientVersion().send();
-                        System.out.println("[JAFTokenService] Ganache 로컬 호스트 연결 성공! (" + rpcUrl + ")");
+                        log.info("[JAFTokenService] Ganache 로컬 호스트 연결 성공! ({})", rpcUrl);
                     }
 
                     // Ganache 0번 계정 Credentials 로드 (설정 파일의 private-key 주입)
@@ -76,7 +78,7 @@ public class JAFTokenService {
                     initialized = true;
                     break;
                 } catch (Exception e) {
-                    System.err.println("[JAFTokenService] 연결 또는 배포 실패: " + e.getMessage() + ". 3초 후 재시도...");
+                    log.error("[JAFTokenService] 연결 또는 배포 실패: {}. 3초 후 재시도...", e.getMessage());
                     retries--;
                     try {
                         Thread.sleep(3000);
@@ -87,14 +89,13 @@ public class JAFTokenService {
             }
 
             if (!initialized) {
-                System.err
-                        .println("[JAFTokenService] 경고: Ganache EVM 노드 연결 실패. JAF 토큰 기능은 Mock 시뮬레이션으로 대체 작동될 수 있습니다.");
+                log.warn("[JAFTokenService] 경고: Ganache EVM 노드 연결 실패. JAF 토큰 기능은 Mock 시뮬레이션으로 대체 작동될 수 있습니다.");
             }
         }).start();
     }
 
     private void deployJafContract() throws Exception {
-        System.out.println("[JAFTokenService] JAF ERC-20 토큰 컨트랙트 배포 중...");
+        log.info("[JAFTokenService] JAF ERC-20 토큰 컨트랙트 배포 중...");
 
         EthGetTransactionCount ethGetTransactionCount = web3j.ethGetTransactionCount(
                 credentials.getAddress(), DefaultBlockParameterName.LATEST).send();
@@ -120,7 +121,7 @@ public class JAFTokenService {
         }
 
         String txHash = ethSendTransaction.getTransactionHash();
-        System.out.println("[JAFTokenService] 배포 트랜잭션 전송 완료. TXID: " + txHash);
+        log.info("[JAFTokenService] 배포 트랜잭션 전송 완료. TXID: {}", txHash);
 
         // 영수증 수신 대기 (최대 10초)
         TransactionReceipt receipt = null;
@@ -138,8 +139,8 @@ public class JAFTokenService {
         }
 
         contractAddress = receipt.getContractAddress();
-        System.out.println("[JAFTokenService] JAF ERC-20 토큰 계약 배포 성공! CA: " + contractAddress);
-        System.out.println("[JAFTokenService] 초기 1억 JAF 토큰이 핫월렛 계정(" + credentials.getAddress() + ")으로 민팅되었습니다.");
+        log.info("[JAFTokenService] JAF ERC-20 토큰 계약 배포 성공! CA: {}", contractAddress);
+        log.info("[JAFTokenService] 초기 1억 JAF 토큰이 핫월렛 계정({})으로 민팅되었습니다.", credentials.getAddress());
     }
 
     public boolean isInitialized() {
@@ -182,7 +183,7 @@ public class JAFTokenService {
             BigInteger rawBalance = (BigInteger) values.get(0).getValue();
             return new BigDecimal(rawBalance).divide(BigDecimal.TEN.pow(18), 8, RoundingMode.HALF_UP);
         } catch (Exception e) {
-            System.err.println("[JAFTokenService] 잔고 조회 실패 (" + address + "): " + e.getMessage());
+            log.error("[JAFTokenService] 잔고 조회 실패 ({}): {}", address, e.getMessage());
             return BigDecimal.ZERO;
         }
     }
@@ -192,7 +193,7 @@ public class JAFTokenService {
             throw new IllegalStateException("JAFTokenService is not initialized or contract not deployed.");
         }
 
-        System.out.println("[JAFTokenService] JAF 송금 요청: " + amount + " JAF -> " + toAddress);
+        log.info("[JAFTokenService] JAF 송금 요청: {} JAF -> {}", amount, toAddress);
         BigInteger rawAmount = amount.multiply(BigDecimal.TEN.pow(18)).toBigInteger();
 
         Function function = new Function(
@@ -222,7 +223,7 @@ public class JAFTokenService {
         }
 
         String txHash = ethSendTransaction.getTransactionHash();
-        System.out.println("[JAFTokenService] JAF 송금 트랜잭션 브로드캐스트 성공. TXID: " + txHash);
+        log.info("[JAFTokenService] JAF 송금 트랜잭션 브로드캐스트 성공. TXID: {}", txHash);
         return txHash;
     }
 }

@@ -330,3 +330,38 @@ services:
       admin-api:
         condition: service_started # admin-api 컨테이너가 시작되면 frontend-admin을 실행합니다.
     restart: on-failure
+
+  # =========================================================================
+  # 8. 로그 통합 수집 및 카프카 모니터링 (Loki, Promtail, Kafka Exporter)
+  # =========================================================================
+
+  loki:
+    image: grafana/loki:2.9.2
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: always
+
+  promtail:
+    image: grafana/promtail:2.9.2
+    container_name: promtail
+    volumes:
+      - ./grafana/promtail-config.yml:/etc/promtail/config.yml
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: always
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.7.0
+    container_name: kafka-exporter
+    command: ["--kafka.server=kafka:9092"]
+    ports:
+      - "9308:9308"
+    depends_on:
+      - kafka
+    restart: always
+
