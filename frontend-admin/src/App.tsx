@@ -1492,170 +1492,185 @@ export const App: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
 
-                                {/* 4. 실시간 웹 모의 주문 생성기 (Web Order Generator) */}
-                                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4 xl:col-span-2">
-                                    <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center justify-between">
+                            {/* 4. 실시간 웹 모의 주문 생성기 설정 (Web Order Generator Settings) - 단독 블록 카드 */}
+                            <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4 mt-6">
+                                <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Activity size={16} className="text-[#00f2fe]" />
+                                        <span>실시간 웹 모의 주문 생성기 설정 (Web Order Generator Settings)</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[10px] font-bold">
+                                        <span className={`w-2 h-2 rounded-full ${webGenActive ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-rose-500'}`} />
+                                        <span className={webGenActive ? 'text-emerald-400' : 'text-rose-400'}>
+                                            {webGenActive ? '동작 중 (RUNNING)' : '정지됨 (STOPPED)'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* 설정 필드 그리드 */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-semibold text-slate-300">
+                                    {/* 대상 마켓 선택 */}
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-slate-400 uppercase text-[10px]">대상 마켓 심볼</label>
+                                        <select 
+                                            value={webGenSymbol}
+                                            onChange={(e) => setWebGenSymbol(e.target.value as any)}
+                                            className="p-2.5 bg-slate-950 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
+                                        >
+                                            <option value="BTC-USD">BTC-USD (비트코인)</option>
+                                            <option value="ADA-KRW">ADA-KRW (에이다)</option>
+                                        </select>
+                                    </div>
+
+                                    {/* 매칭 측면 선택 */}
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-slate-400 uppercase text-[10px]">주문 방향 (Side)</label>
+                                        <select 
+                                            value={webGenSide}
+                                            onChange={(e) => setWebGenSide(e.target.value as any)}
+                                            className="p-2.5 bg-slate-950 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
+                                        >
+                                            <option value="RANDOM">RANDOM (매수/매도 반반)</option>
+                                            <option value="BUY">BUY (매수 전용)</option>
+                                            <option value="SELL">SELL (매도 전용)</option>
+                                        </select>
+                                    </div>
+
+                                    {/* 생성 주기 선택 */}
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-slate-400 uppercase text-[10px]">주문 생성 주기 (속도)</label>
+                                        <select 
+                                            value={webGenInterval}
+                                            onChange={(e) => setWebGenInterval(Number(e.target.value))}
+                                            className="p-2.5 bg-slate-950 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
+                                        >
+                                            <option value={50}>50ms (초당 20건 - 고부하)</option>
+                                            <option value={100}>100ms (초당 10건 - 고부하)</option>
+                                            <option value={300}>300ms (초당 3.3건 - 표준)</option>
+                                            <option value={500}>500ms (초당 2건 - 표준)</option>
+                                            <option value={1000}>1000ms (초당 1건 - 저부하)</option>
+                                            <option value={2000}>2000ms (2초당 1건 - 저부하)</option>
+                                        </select>
+                                    </div>
+
+                                    {/* 사용자 UID 범위 */}
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-slate-400 uppercase text-[10px]">유저 UID 범위</label>
                                         <div className="flex items-center gap-2">
-                                            <Activity size={16} className="text-[#00f2fe]" />
-                                            <span>실시간 웹 모의 주문 생성기 (Web Order Generator)</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-[10px] font-bold">
-                                            <span className={`w-2 h-2 rounded-full ${webGenActive ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-rose-500'}`} />
-                                            <span className={webGenActive ? 'text-emerald-400' : 'text-rose-400'}>
-                                                {webGenActive ? '동작 중 (RUNNING)' : '정지됨 (STOPPED)'}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                        {/* 설정 필드 영역 (좌측 2개 열) */}
-                                        <div className="lg:col-span-2 grid grid-cols-2 gap-4 text-xs font-semibold text-slate-300">
-                                            {/* 대상 마켓 선택 */}
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-slate-400 uppercase text-[10px]">대상 마켓 심볼</label>
-                                                <select 
-                                                    value={webGenSymbol}
-                                                    onChange={(e) => setWebGenSymbol(e.target.value as any)}
-                                                    className="p-2.5 bg-slate-950 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
-                                                >
-                                                    <option value="BTC-USD">BTC-USD (비트코인)</option>
-                                                    <option value="ADA-KRW">ADA-KRW (에이다)</option>
-                                                </select>
-                                            </div>
-
-                                            {/* 매칭 측면 선택 */}
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-slate-400 uppercase text-[10px]">주문 방향 (Side)</label>
-                                                <select 
-                                                    value={webGenSide}
-                                                    onChange={(e) => setWebGenSide(e.target.value as any)}
-                                                    className="p-2.5 bg-slate-950 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
-                                                >
-                                                    <option value="RANDOM">RANDOM (매수/매도 반반)</option>
-                                                    <option value="BUY">BUY (매수 전용)</option>
-                                                    <option value="SELL">SELL (매도 전용)</option>
-                                                </select>
-                                            </div>
-
-                                            {/* 생성 주기 선택 */}
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-slate-400 uppercase text-[10px]">주문 생성 주기 (속도)</label>
-                                                <select 
-                                                    value={webGenInterval}
-                                                    onChange={(e) => setWebGenInterval(Number(e.target.value))}
-                                                    className="p-2.5 bg-slate-950 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
-                                                >
-                                                    <option value={50}>50ms (초당 20건 - 고부하)</option>
-                                                    <option value={100}>100ms (초당 10건 - 고부하)</option>
-                                                    <option value={300}>300ms (초당 3.3건 - 표준)</option>
-                                                    <option value={500}>500ms (초당 2건 - 표준)</option>
-                                                    <option value={1000}>1000ms (초당 1건 - 저부하)</option>
-                                                    <option value={2000}>2000ms (2초당 1건 - 저부하)</option>
-                                                </select>
-                                            </div>
-
-                                            {/* 사용자 UID 범위 */}
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-slate-400 uppercase text-[10px]">유저 UID 범위</label>
-                                                <div className="flex items-center gap-2">
-                                                    <input 
-                                                        type="number" 
-                                                        value={webGenMinUserId} 
-                                                        onChange={(e) => setWebGenMinUserId(e.target.value)}
-                                                        placeholder="최소" 
-                                                        className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
-                                                    />
-                                                    <span className="text-slate-500">~</span>
-                                                    <input 
-                                                        type="number" 
-                                                        value={webGenMaxUserId} 
-                                                        onChange={(e) => setWebGenMaxUserId(e.target.value)}
-                                                        placeholder="최대" 
-                                                        className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* 가격 범위 */}
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-slate-400 uppercase text-[10px]">주문 생성 가격 범위 (Min ~ Max)</label>
-                                                <div className="flex items-center gap-2">
-                                                    <input 
-                                                        type="number" 
-                                                        value={webGenMinPrice} 
-                                                        onChange={(e) => setWebGenMinPrice(e.target.value)}
-                                                        placeholder="최소 가격" 
-                                                        className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
-                                                    />
-                                                    <span className="text-slate-500">~</span>
-                                                    <input 
-                                                        type="number" 
-                                                        value={webGenMaxPrice} 
-                                                        onChange={(e) => setWebGenMaxPrice(e.target.value)}
-                                                        placeholder="최대 가격" 
-                                                        className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* 수량 범위 */}
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-slate-400 uppercase text-[10px]">주문 수량 범위 (Min ~ Max)</label>
-                                                <div className="flex items-center gap-2">
-                                                    <input 
-                                                        type="number" 
-                                                        value={webGenMinQty} 
-                                                        onChange={(e) => setWebGenMinQty(e.target.value)}
-                                                        placeholder="최소" 
-                                                        className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
-                                                    />
-                                                    <span className="text-slate-500">~</span>
-                                                    <input 
-                                                        type="number" 
-                                                        value={webGenMaxQty} 
-                                                        onChange={(e) => setWebGenMaxQty(e.target.value)}
-                                                        placeholder="최대" 
-                                                        className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* 실시간 웹로그 출력 영역 (우측 1개 열) */}
-                                        <div className="flex flex-col gap-1.5 h-full">
-                                            <label className="text-slate-400 uppercase text-[10px] font-bold">생성 로그 콘솔</label>
-                                            <div className="flex-1 min-h-[150px] bg-black/40 border border-white/5 rounded-xl p-3 font-mono text-[9px] text-slate-300 overflow-y-auto flex flex-col gap-1 max-h-[220px]">
-                                                {webGenLogs.length === 0 ? (
-                                                    <span className="text-slate-500">생성기가 대기 중입니다. 시작 버튼을 클릭해 주세요.</span>
-                                                ) : (
-                                                    webGenLogs.map((log, idx) => (
-                                                        <div key={idx} className="whitespace-nowrap overflow-hidden text-ellipsis text-left">
-                                                            {log}
-                                                        </div>
-                                                    ))
-                                                )}
-                                            </div>
+                                            <input 
+                                                type="number" 
+                                                value={webGenMinUserId} 
+                                                onChange={(e) => setWebGenMinUserId(e.target.value)}
+                                                placeholder="최소" 
+                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
+                                            />
+                                            <span className="text-slate-500">~</span>
+                                            <input 
+                                                type="number" 
+                                                value={webGenMaxUserId} 
+                                                onChange={(e) => setWebGenMaxUserId(e.target.value)}
+                                                placeholder="최대" 
+                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
+                                            />
                                         </div>
                                     </div>
 
-                                    {/* 시작 / 종료 토글 제어 버튼 */}
-                                    <div className="flex justify-end gap-3 mt-2 border-t border-white/5 pt-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => setWebGenLogs([])}
-                                            className="px-4 py-2 border border-white/10 rounded-xl font-bold text-xs text-slate-400 hover:text-white transition-all"
-                                        >
-                                            로그 지우기
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setWebGenActive(!webGenActive)}
-                                            className={`px-6 py-2 rounded-xl font-extrabold text-xs text-white shadow-lg transition-all hover:scale-[1.01] ${webGenActive ? 'bg-gradient-to-r from-rose-600 to-rose-400' : 'bg-gradient-to-r from-[#8a2be2] to-[#00f2fe]'}`}
-                                        >
-                                            {webGenActive ? '시뮬레이터 정지' : '웹 시뮬레이터 시작'}
-                                        </button>
+                                    {/* 가격 범위 */}
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-slate-400 uppercase text-[10px]">주문 생성 가격 범위 (Min ~ Max)</label>
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="number" 
+                                                value={webGenMinPrice} 
+                                                onChange={(e) => setWebGenMinPrice(e.target.value)}
+                                                placeholder="최소 가격" 
+                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
+                                            />
+                                            <span className="text-slate-500">~</span>
+                                            <input 
+                                                type="number" 
+                                                value={webGenMaxPrice} 
+                                                onChange={(e) => setWebGenMaxPrice(e.target.value)}
+                                                placeholder="최대 가격" 
+                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
+                                            />
+                                        </div>
                                     </div>
+
+                                    {/* 수량 범위 */}
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-slate-400 uppercase text-[10px]">주문 수량 범위 (Min ~ Max)</label>
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="number" 
+                                                value={webGenMinQty} 
+                                                onChange={(e) => setWebGenMinQty(e.target.value)}
+                                                placeholder="최소" 
+                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
+                                            />
+                                            <span className="text-slate-500">~</span>
+                                            <input 
+                                                type="number" 
+                                                value={webGenMaxQty} 
+                                                onChange={(e) => setWebGenMaxQty(e.target.value)}
+                                                placeholder="최대" 
+                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 시작 / 종료 토글 제어 버튼 */}
+                                <div className="flex justify-end gap-3 mt-2 border-t border-white/5 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setWebGenActive(!webGenActive)}
+                                        className={`px-6 py-2 rounded-xl font-extrabold text-xs text-white shadow-lg transition-all hover:scale-[1.01] ${webGenActive ? 'bg-gradient-to-r from-rose-600 to-rose-400' : 'bg-gradient-to-r from-[#8a2be2] to-[#00f2fe]'}`}
+                                    >
+                                        {webGenActive ? '시뮬레이터 정지' : '웹 시뮬레이터 시작'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* 5. 실시간 웹 모의 주문 생성 로그 콘솔 (Web Order Generator Log Console) - 완전 분리된 독립 카드 */}
+                            <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4 mt-6">
+                                <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Activity size={16} className="text-[#00f2fe]" />
+                                        <span>실시간 웹 모의 주문 생성 로그 콘솔 (Web Order Generator Logs)</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setWebGenLogs([])}
+                                        className="px-4 py-1.5 border border-white/10 rounded-xl font-bold text-xs text-slate-400 hover:text-white transition-all"
+                                    >
+                                        로그 비우기
+                                    </button>
+                                </div>
+
+                                <div style={{ display: 'block', width: '100%' }}>
+                                    <textarea
+                                        readOnly
+                                        value={webGenLogs.length === 0 ? '생성기가 대기 중입니다. 시작 버튼을 클릭해 주세요.' : webGenLogs.join('\n')}
+                                        style={{
+                                            height: '240px',
+                                            width: '100%',
+                                            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                                            borderRadius: '12px',
+                                            padding: '12px',
+                                            boxSizing: 'border-box',
+                                            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                                            fontSize: '11px',
+                                            lineHeight: '1.6',
+                                            color: '#cbd5e1',
+                                            resize: 'none',
+                                            outline: 'none',
+                                            display: 'block'
+                                        }}
+                                    />
                                 </div>
                             </div>
                         </div>
