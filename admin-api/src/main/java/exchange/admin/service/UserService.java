@@ -49,7 +49,6 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(password));
         user.setGrade(grade != null ? grade : "STANDARD");
         user.setStatus("ACTIVE");
-        user.setCreatedAt(LocalDateTime.now());
         
         User savedUser = userRepository.save(user);
 
