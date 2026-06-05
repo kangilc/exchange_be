@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "wallets", uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "currency"}))
-public class Wallet {
+public class Wallet extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,9 +25,6 @@ public class Wallet {
     @Column(name = "locked_balance", nullable = false, precision = 36, scale = 18)
     private BigDecimal lockedBalance = BigDecimal.ZERO;
 
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt = LocalDateTime.now();
-
     public Wallet() {}
 
     public Long getWalletId() { return walletId; }
@@ -44,7 +41,4 @@ public class Wallet {
 
     public BigDecimal getLockedBalance() { return lockedBalance; }
     public void setLockedBalance(BigDecimal lockedBalance) { this.lockedBalance = lockedBalance; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

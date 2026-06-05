@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "trades")
-public class Trade {
+public class Trade extends BaseEntity {
 
     @Id
     @Column(name = "trade_id")
@@ -26,9 +26,6 @@ public class Trade {
     @Column(name = "qty", nullable = false)
     private Long qty;
 
-    @Column(name = "executed_at", nullable = false)
-    private LocalDateTime executedAt = LocalDateTime.now();
-
     public Trade() {}
 
     public Long getTradeId() { return tradeId; }
@@ -48,7 +45,4 @@ public class Trade {
 
     public Long getQty() { return qty; }
     public void setQty(Long qty) { this.qty = qty; }
-
-    public LocalDateTime getExecutedAt() { return executedAt; }
-    public void setExecutedAt(LocalDateTime executedAt) { this.executedAt = executedAt; }
 }

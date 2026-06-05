@@ -81,7 +81,59 @@ public class AdminApiApplication {
                     log.info("Column 'refresh_token' already exists in 'users' table.");
                 }
 
-                // 3. 하드코딩된 시드 데이터로 인해 어긋난 users_user_id_seq 시퀀스를 테이블 최댓값에 맞게 자동 동기화 처리함 (중복 키 오류 방지용)
+                // 3. 다중 테이블 공통 오디팅 컬럼 검증 및 생성 (users, wallets, ledger_journal, crypto_withdrawals, user_crypto_addresses, system_hot_wallets, trades)
+                String[] tables = {"users", "wallets", "ledger_journal", "crypto_withdrawals", "user_crypto_addresses", "system_hot_wallets", "trades"};
+                for (String table : tables) {
+                    // created_at (trades와 user_crypto_addresses, ledger_journal 등의 기존 룰 매핑 및 생성)
+                    boolean createdAtExists = false;
+                    try (ResultSet rs = metaData.getColumns(null, null, table, "created_at")) {
+                        if (rs.next()) createdAtExists = true;
+                    }
+                    if (!createdAtExists) {
+                        try (Statement stmt = conn.createStatement()) {
+                            stmt.execute("ALTER TABLE " + table + " ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
+                            log.info("Column 'created_at' added to '" + table + "' table successfully!");
+                        }
+                    }
+
+                    // updated_at
+                    boolean updatedAtExists = false;
+                    try (ResultSet rs = metaData.getColumns(null, null, table, "updated_at")) {
+                        if (rs.next()) updatedAtExists = true;
+                    }
+                    if (!updatedAtExists) {
+                        try (Statement stmt = conn.createStatement()) {
+                            stmt.execute("ALTER TABLE " + table + " ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
+                            log.info("Column 'updated_at' added to '" + table + "' table successfully!");
+                        }
+                    }
+
+                    // created_by
+                    boolean createdByExists = false;
+                    try (ResultSet rs = metaData.getColumns(null, null, table, "created_by")) {
+                        if (rs.next()) createdByExists = true;
+                    }
+                    if (!createdByExists) {
+                        try (Statement stmt = conn.createStatement()) {
+                            stmt.execute("ALTER TABLE " + table + " ADD COLUMN created_by VARCHAR(100)");
+                            log.info("Column 'created_by' added to '" + table + "' table successfully!");
+                        }
+                    }
+
+                    // updated_by
+                    boolean updatedByExists = false;
+                    try (ResultSet rs = metaData.getColumns(null, null, table, "updated_by")) {
+                        if (rs.next()) updatedByExists = true;
+                    }
+                    if (!updatedByExists) {
+                        try (Statement stmt = conn.createStatement()) {
+                            stmt.execute("ALTER TABLE " + table + " ADD COLUMN updated_by VARCHAR(100)");
+                            log.info("Column 'updated_by' added to '" + table + "' table successfully!");
+                        }
+                    }
+                }
+
+                // 4. 하드코딩된 시드 데이터로 인해 어긋난 users_user_id_seq 시퀀스를 테이블 최댓값에 맞게 자동 동기화 처리함 (중복 키 오류 방지용)
                 log.info("Synchronizing users_user_id_seq sequence...");
                 try (Statement stmt = conn.createStatement()) {
                     stmt.execute("SELECT setval('users_user_id_seq', COALESCE((SELECT MAX(user_id) FROM users), 0) + 1, false)");

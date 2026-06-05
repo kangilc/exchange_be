@@ -8,7 +8,10 @@ CREATE TABLE IF NOT EXISTS users (
     status VARCHAR(20) DEFAULT 'ACTIVE',
     grade VARCHAR(20) DEFAULT 'STANDARD',
     refresh_token VARCHAR(255),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100)
 );
 
 -- 2. 자산 지갑 테이블 (Wallets)
@@ -18,7 +21,10 @@ CREATE TABLE IF NOT EXISTS wallets (
     currency VARCHAR(10) NOT NULL,
     balance NUMERIC(36, 18) NOT NULL DEFAULT 0.0,
     locked_balance NUMERIC(36, 18) NOT NULL DEFAULT 0.0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100),
     CONSTRAINT uq_user_currency UNIQUE (user_id, currency)
 );
 
@@ -32,7 +38,10 @@ CREATE TABLE IF NOT EXISTS orders (
     qty BIGINT NOT NULL,
     remaining_qty BIGINT NOT NULL,
     status VARCHAR(20) NOT NULL, -- 'NEW', 'PARTIALLY_FILLED', 'FILLED', 'CANCELLED'
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100)
 );
 
 -- 4. 체결 내역 테이블 (Trades)
@@ -43,7 +52,10 @@ CREATE TABLE IF NOT EXISTS trades (
     sell_order_id BIGINT NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
     price BIGINT NOT NULL,
     qty BIGINT NOT NULL,
-    executed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100)
 );
 
 -- 5. 자산 변경 이력 (Ledger Journal)
@@ -54,7 +66,10 @@ CREATE TABLE IF NOT EXISTS ledger_journal (
     amount NUMERIC(36, 18) NOT NULL,
     type VARCHAR(30) NOT NULL, -- 'DEPOSIT', 'WITHDRAWAL', 'ORDER_HOLD', 'TRADE_SETTLE', 'CANCEL_RELEASE'
     reference_id BIGINT,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100)
 );
 
 -- 테이블 및 컬럼 코멘트(COMMENT) 설정
@@ -288,16 +303,15 @@ FROM orders
 WHERE order_id BETWEEN 40000001 AND 40050000;
 
 
--- =====================================================================
--- [MIGRATION] Blockchain On-Chain Wallet & Coin Integration Tables
--- =====================================================================
-
 CREATE TABLE IF NOT EXISTS user_crypto_addresses (
     address_id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     currency VARCHAR(10) NOT NULL,
     crypto_address VARCHAR(100) NOT NULL UNIQUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100),
     CONSTRAINT uq_user_crypto UNIQUE (user_id, currency)
 );
 
@@ -311,7 +325,9 @@ CREATE TABLE IF NOT EXISTS crypto_withdrawals (
     confirmations INT NOT NULL DEFAULT 0,
     tx_hash VARCHAR(100),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100)
 );
 
 CREATE TABLE IF NOT EXISTS system_hot_wallets (
@@ -319,7 +335,10 @@ CREATE TABLE IF NOT EXISTS system_hot_wallets (
     currency VARCHAR(10) NOT NULL UNIQUE,
     crypto_address VARCHAR(100) NOT NULL,
     balance NUMERIC(36, 18) NOT NULL DEFAULT 0.0,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100)
 );
 
 -- Seed System Hot Wallets

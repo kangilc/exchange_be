@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "system_hot_wallets")
-public class SystemHotWallet {
+public class SystemHotWallet extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,9 +22,6 @@ public class SystemHotWallet {
     @Column(name = "balance", nullable = false, precision = 36, scale = 18)
     private BigDecimal balance = BigDecimal.ZERO;
 
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt = LocalDateTime.now();
-
     public SystemHotWallet() {}
 
     public Long getWalletId() { return walletId; }
@@ -38,7 +35,4 @@ public class SystemHotWallet {
 
     public BigDecimal getBalance() { return balance; }
     public void setBalance(BigDecimal balance) { this.balance = balance; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

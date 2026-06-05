@@ -95,11 +95,12 @@ graph TD
     *   **안전한 하이브리드 비밀번호 인코더:** 신규 비밀번호는 솔트가 가미된 강력한 `BCrypt` 알고리즘으로 암호화하여 저장하며, 데이터베이스 내 기존 1,000명의 레거시 SHA-256 및 시드 목(Mock) 데이터 비밀번호도 안전하게 호환 대조되도록 구현함.
     *   **기본 관리자 계정 자동 시딩:** 시스템 기동 시 기본 관리자 계정(`admin@javaf.net` / `admin123`, `ADMIN` 등급)의 존재 여부를 자동 검사하고, 부재 시 안전하게 지갑 자산 초기화와 함께 계정을 자동 주입함.
 *   **JPA Auditing 및 AOP 기반 스레드 안전 등록자/수정자 자동 이원화 주입 아키텍처 (🌟 신규):**
-    *   **JPA Auditing 표준 도입 (`BaseEntity`):** 모든 엔티티의 공통 관심사인 생성 시간/수정 시간(`createdAt`, `updatedAt`) 및 생성자/수정자(`createdBy`, `updatedBy`) 처리를 `BaseEntity`로 묶고 JPA Auditing과 연동하여 완전 자동화함.
+    *   **전체 테이블 Auditing 확장:** `users`뿐만 아니라 `wallets`, `ledger_journal`, `crypto_withdrawals`, `user_crypto_addresses`, `system_hot_wallets`, `trades` 등 전체 영속성 엔티티가 `BaseEntity`를 공동 상속하게 설계하여 오디팅 컬럼(`createdAt`, `updatedAt`, `createdBy`, `updatedBy`) 구성을 전체 테이블에 일괄 이식함.
     *   **AOP 기반 스레드 안전 이원화 기록 (`@SystemAuditor`):** 
         *   **사용자 주체 작업:** 어드민 대시보드 API 호출 등 로그인한 사용자가 요청할 때는 Spring Security의 Principal(이메일 등) 정보가 `createdBy` / `updatedBy`에 자동으로 주입됩니다.
         *   **시스템 주체 작업:** 백그라운드 데몬, 스케줄러, 카프카 컨슈머 등 백그라운드 시스템이 작업을 유발할 때는 `@SystemAuditor("시스템식별자")` 어노테이션을 부착하여 스레드 안전하게 ThreadLocal을 관리하며, 이를 통해 등록자/수정자에 `"SYSTEM:시스템식별자"`가 자동 기록됩니다.
         *   **메모리 누수 방지 가드:** AOP Aspect 내의 `finally` 절에서 ThreadLocal 리소스를 강제 해제(`remove()`)함으로써 WAS 스레드 풀 환경에서의 오염이나 OOM(Memory Leak) 리스크를 원천 제거하였습니다.
+    *   **시작 시 DDL 자동 마이그레이션 적용:** 서버 최초 기동 시 데이터베이스 테이블들을 역동적으로 검사하여 누락된 오디팅 관련 컬럼을 자동 생성(`ALTER TABLE`)하고 동기화하도록 `AdminApiApplication` 실행 주기를 고도화함.
 *   **PostgreSQL 성능 최적화:** 500 에러를 유발할 수 있는 복잡한 Native Time-Bucket Parameter Binding 문제점을 표준적인 `GROUP BY 1, 2, 3` 및 `ORDER BY 1 DESC` 인덱스 기법으로 튜닝 완료했습니다.
 
 ### 2. 프리미엄 다크 글래스모피즘 웹 어드민 ([admin.html](./frontend/admin.html))
