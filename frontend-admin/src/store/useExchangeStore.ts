@@ -128,6 +128,7 @@ interface ExchangeState {
     fetchSummaryStats: () => Promise<void>;
     duplicateLoginBlockEnabled: boolean;
     onChainDepositMonitoringEnabled: boolean;
+    walletSimulationEnabled: boolean;
     btcConfirmations: number;
     ethConfirmations: number;
     adaConfirmations: number;
@@ -139,6 +140,7 @@ interface ExchangeState {
     fetchSettings: () => Promise<void>;
     toggleDuplicateLoginBlock: (enabled: boolean) => Promise<void>;
     toggleOnChainDepositMonitoring: (enabled: boolean) => Promise<void>;
+    toggleWalletSimulation: (enabled: boolean) => Promise<void>;
     updateConfirmationsSettings: (btc: number, eth: number, ada: number) => Promise<void>;
     sendWsMessage: (message: any) => boolean;
     fetchCryptoWithdrawals: () => Promise<void>;
@@ -237,6 +239,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         ledgerTotalPages: 0,
         duplicateLoginBlockEnabled: true,
         onChainDepositMonitoringEnabled: true,
+        walletSimulationEnabled: true,
         btcConfirmations: 3,
         ethConfirmations: 12,
         adaConfirmations: 5,
@@ -529,6 +532,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                         set({
                             duplicateLoginBlockEnabled: !!data.duplicateLoginBlockEnabled,
                             onChainDepositMonitoringEnabled: !!data.onChainDepositMonitoringEnabled,
+                            walletSimulationEnabled: !!data.walletSimulationEnabled,
                             btcConfirmations: typeof data.btcConfirmations === 'number' ? data.btcConfirmations : 3,
                             ethConfirmations: typeof data.ethConfirmations === 'number' ? data.ethConfirmations : 12,
                             adaConfirmations: typeof data.adaConfirmations === 'number' ? data.adaConfirmations : 5
@@ -575,6 +579,25 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 }
             } catch (err) {
                 console.error("Failed to toggle on-chain deposit monitoring", err);
+            }
+        },
+
+        toggleWalletSimulation: async (enabled: boolean) => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ walletSimulationEnabled: enabled })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && typeof data.walletSimulationEnabled === 'boolean') {
+                        set({ walletSimulationEnabled: data.walletSimulationEnabled });
+                        console.log(`[설정 변경] 지갑 시뮬레이션 상태가 ${enabled}로 변경되었습니다.`);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to toggle wallet simulation", err);
             }
         },
 

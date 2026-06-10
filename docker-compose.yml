@@ -295,9 +295,6 @@ services:
       - DB_URL=jdbc:postgresql://postgres:5432/exchange
       - DB_USER=postgres
       - DB_PASSWORD=postgres
-      - EVM_RPC_URL=${EVM_RPC_URL}
-      - EVM_RPC_URL_DOCKER=${EVM_RPC_URL_DOCKER}
-      - EVM_PRIVATE_KEY=${EVM_PRIVATE_KEY}
     restart: on-failure
 
   # audit-volume: 규제 및 감사를 위한 실시간 보고서가 저장되는 파일 시스템 볼륨 격리 컨테이너

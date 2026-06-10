@@ -43,9 +43,11 @@ export const App: React.FC = () => {
         duplicateLoginBlockEnabled,
         // 온체인 입금 모니터링 활성화 여부 상태 및 변경 액션 가져오기
         onChainDepositMonitoringEnabled,
+        walletSimulationEnabled,
         fetchSettings,
         toggleDuplicateLoginBlock,
         toggleOnChainDepositMonitoring,
+        toggleWalletSimulation,
         sendWsMessage,
         // custody 관련 추가
         btcConfirmations,
@@ -134,6 +136,75 @@ export const App: React.FC = () => {
     const [custodyWithdrawCurrency, setCustodyWithdrawCurrency] = useState('BTC');
     const [custodyWithdrawAmount, setCustodyWithdrawAmount] = useState('');
     const [custodyWithdrawAddress, setCustodyWithdrawAddress] = useState('');
+
+    // 트랜잭션 조회 모달 상태
+    const [showTxModal, setShowTxModal] = useState(false);
+    const [selectedTxHash, setSelectedTxHash] = useState('');
+    const [selectedTxDetails, setSelectedTxDetails] = useState<any>(null);
+    const [selectedTxReceipt, setSelectedTxReceipt] = useState<any>(null);
+
+    const handleViewTx = async (txHash: string) => {
+        if (!txHash || txHash === '-') return;
+        setSelectedTxHash(txHash);
+        setSelectedTxDetails(null);
+        setSelectedTxReceipt(null);
+        setShowTxModal(true);
+
+        try {
+            const resTx = await fetch('http://localhost:8545', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    method: 'eth_getTransactionByHash',
+                    params: [txHash],
+                    id: 1
+                })
+            });
+            const dataTx = await resTx.json();
+            if (dataTx.result) {
+                setSelectedTxDetails(dataTx.result);
+            }
+
+            const resReceipt = await fetch('http://localhost:8545', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    method: 'eth_getTransactionReceipt',
+                    params: [txHash],
+                    id: 2
+                })
+            });
+            const dataReceipt = await resReceipt.json();
+            if (dataReceipt.result) {
+                setSelectedTxReceipt(dataReceipt.result);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleTestJafDeposit = async () => {
+        const amount = prompt("테스트로 입금할 JAF 수량을 입력하세요 (예: 50):", "50");
+        if (!amount || isNaN(Number(amount))) return;
+        try {
+            const res = await fetch(`${apiBaseUrl}/admin/crypto/test-jaf-deposit`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: 1, amount: Number(amount) })
+            });
+            const result = await res.json();
+            if (result.success || result.txHash) {
+                alert(`JAF 테스트 입금이 성공적으로 전송되었습니다!\nTxHash: ${result.txHash}\n수신처: ${result.toAddress}\n\n잠시 후 입금 모니터링 테이블에 감지됩니다.`);
+            } else {
+                alert("에러: " + (result.error || "알 수 없는 오류"));
+            }
+        } catch (e) {
+            console.error(e);
+            alert("요청 전송 중 오류가 발생했습니다.");
+        }
+    };
 
     // 환경 설정 모의 스위치 로컬 상태
     const [mockPlaySound, setMockPlaySound] = useState(true);
@@ -1357,6 +1428,30 @@ export const App: React.FC = () => {
                                             </button>
                                         </div>
                                     </div>
+
+                                    <div className="flex items-center justify-between p-4 bg-slate-900/40 border border-white/5 rounded-xl hover:border-[#8a2be2]/30 transition-all duration-300">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                                                모의 입금 시뮬레이션 활성화 (Mock Deposit Simulation)
+                                                {walletSimulationEnabled ? (
+                                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-emerald-500/20 border border-emerald-500/45 text-emerald-400 animate-pulse">RUNNING</span>
+                                                ) : (
+                                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-slate-500/10 border border-slate-500/35 text-slate-400">PAUSED</span>
+                                                )}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400">
+                                                비활성화 시 5초 주기 백그라운드 입금 시뮬레이션이 중지됩니다. (실물 JAF 온체인 테스트 입금 및 출금 처리는 정상 작동합니다)
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <button 
+                                                onClick={() => toggleWalletSimulation(!walletSimulationEnabled)}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${walletSimulationEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${walletSimulationEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* 2. 모니터링 및 알림 설정 */}
@@ -1366,11 +1461,11 @@ export const App: React.FC = () => {
                                         <span>모니터링 및 알림 설정 (시뮬레이션)</span>
                                     </div>
                                     
-                                    {/* 실시간 온체인 가상 입금 생성 활성화 토글 */}
+                                    {/* 실시간 온체인 JAF 자동 입금 시뮬레이션 활성화 (Real-time JAF Simulation) 토글 */}
                                     <div className="flex items-center justify-between p-4 bg-slate-900/40 border border-white/5 rounded-xl hover:border-[#00f2fe]/30 transition-all duration-300">
                                         <div className="flex flex-col gap-1">
                                             <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                                                실시간 온체인 가상 입금 생성 활성화
+                                                실시간 온체인 JAF 자동 입금 시뮬레이션 활성화 (Real-time JAF Simulation)
                                                 {onChainDepositMonitoringEnabled ? (
                                                     <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-[#00f2fe]/20 border border-[#00f2fe]/45 text-[#00f2fe] animate-pulse">RUNNING</span>
                                                 ) : (
@@ -1378,7 +1473,7 @@ export const App: React.FC = () => {
                                                 )}
                                             </span>
                                             <span className="text-[10px] text-slate-400">
-                                                활성화 시 가상 블록체인 네트워크에 주기적으로 가상 입금(트랜잭션)을 자동으로 생성하고 블록 확인(컨펌) 단계를 진행합니다.
+                                                비활성화 시 5초 주기 백그라운드 JAF 온체인 자동 입금 시뮬레이션 전송이 중지됩니다. (수동 '테스트 입금 발생' 및 실시간 입금 감지 스캐너는 정상 작동합니다)
                                             </span>
                                         </div>
                                         <div className="flex items-center">
@@ -1918,7 +2013,7 @@ export const App: React.FC = () => {
                             </div>
 
                             {/* 2. 출금 승인/반여 대기열 & 입금 컨펌 진행 상황 */}
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 gap-6">
                                 {/* 출금 대기열 */}
                                 <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
                                     <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center justify-between">
@@ -1937,6 +2032,7 @@ export const App: React.FC = () => {
                                                     <th>통화</th>
                                                     <th>출금 수량</th>
                                                     <th>수신 주소</th>
+                                                    <th>TXID (트랜잭션 해시)</th>
                                                     <th>컨펌</th>
                                                     <th>상태</th>
                                                     <th className="text-right">액션</th>
@@ -1945,7 +2041,7 @@ export const App: React.FC = () => {
                                             <tbody className="divide-y divide-white/5 font-medium text-slate-300">
                                                 {cryptoWithdrawals.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={8} className="py-8 text-center text-slate-500 font-semibold">대기 중인 출금 요청이 없습니다.</td>
+                                                        <td colSpan={9} className="py-8 text-center text-slate-500 font-semibold">대기 중인 출금 요청이 없습니다.</td>
                                                     </tr>
                                                 ) : (
                                                     cryptoWithdrawals.map((w: any) => (
@@ -1955,6 +2051,19 @@ export const App: React.FC = () => {
                                                             <td className="font-bold text-white">{w.currency}</td>
                                                             <td className="font-mono text-white">{w.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
                                                             <td className="font-mono text-slate-500 text-[10px] break-all max-w-[120px]" title={w.toAddress}>{w.toAddress?.slice(0, 10)}...</td>
+                                                            <td className="font-mono text-slate-500 text-[10px] break-all max-w-[120px]" title={w.txHash}>
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span>{w.txHash ? `${w.txHash.slice(0, 10)}...` : '-'}</span>
+                                                                    {w.txHash && w.txHash !== '-' && (
+                                                                        <button
+                                                                            onClick={() => handleViewTx(w.txHash)}
+                                                                            className="px-1.5 py-0.5 bg-[#8a2be2]/20 hover:bg-[#8a2be2]/40 text-[#c084fc] rounded text-[9px] font-bold transition-all border border-[#8a2be2]/30"
+                                                                        >
+                                                                            조회
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
                                                             <td className="font-mono text-slate-400">
                                                                 {w.status === 'BROADCASTED' ? `${w.confirmations} / ${w.currency === 'BTC' ? btcConfirmations : w.currency === 'ETH' || w.currency === 'JAF' ? ethConfirmations : adaConfirmations}` : '-'}
                                                             </td>
@@ -2014,6 +2123,12 @@ export const App: React.FC = () => {
                                         <div className="flex items-center gap-2">
                                             <ArrowDownRight size={16} className="text-emerald-400" />
                                             <span>실시간 온체인 입금 모니터링 (컨펌 단계)</span>
+                                            <button
+                                                onClick={handleTestJafDeposit}
+                                                className="ml-3 px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 rounded text-[9px] font-bold transition-all border border-emerald-500/30"
+                                            >
+                                                테스트 입금 발생 (JAF)
+                                            </button>
                                         </div>
                                         <span className="text-[10px] text-slate-400 font-mono">가상 블록체인 입금 감지</span>
                                     </div>
@@ -2022,7 +2137,7 @@ export const App: React.FC = () => {
                                         <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 flex items-center gap-3 animate-fade-in">
                                             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_#f43f5e]" />
                                             <span className="text-xs font-semibold text-rose-400">
-                                                실시간 가상 입금 생성 기능이 시스템 환경 설정에서 비활성화되어, 신규 가상 입금 발생 및 기존 대기 건의 컨펌 처리가 일시 중단되었습니다.
+                                                실시간 온체인 JAF 자동 입금 시뮬레이션이 시스템 환경 설정에서 비활성화되었습니다. (수동 테스트 입금 발생 및 Ganache 블록체인의 실시간 입금 감지는 정상 작동합니다.)
                                             </span>
                                         </div>
                                     )}
@@ -2386,6 +2501,97 @@ export const App: React.FC = () => {
                         </div>
                         <div className="px-6 py-4 border-t border-white/5 flex justify-end bg-white/2">
                             <button onClick={() => setShowUserTradesModal(false)} className="px-5 py-2 rounded-lg bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10">닫기</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal 5: Transaction Details (온체인 트랜잭션 정보 조회) */}
+            {showTxModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in text-xs font-semibold">
+                    <div className="bg-[#0d1426] border border-[#8a2be2]/40 rounded-2xl w-[600px] shadow-2xl overflow-hidden">
+                        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-white/2">
+                            <span className="text-sm font-extrabold text-white">온체인 트랜잭션 세부 정보 조회</span>
+                            <button onClick={() => setShowTxModal(false)} className="text-slate-400 hover:text-white"><X size={18} /></button>
+                        </div>
+                        <div className="p-6 flex flex-col gap-4 max-h-[500px] overflow-y-auto">
+                            <div className="flex flex-col gap-1 border-b border-white/5 pb-3">
+                                <span className="text-slate-400 text-[10px] uppercase">트랜잭션 해시 (TxHash)</span>
+                                <span className="font-mono text-white text-[11px] break-all selection:bg-purple-500">{selectedTxHash}</span>
+                            </div>
+
+                            {!selectedTxDetails ? (
+                                <div className="py-8 text-center text-slate-500 font-bold flex flex-col items-center gap-2">
+                                    <span className="animate-pulse">로컬 EVM 노드(Ganache)로부터 트랜잭션 정보를 조회 중입니다...</span>
+                                    <span className="text-[10px] text-slate-600 font-normal">(Ganache 컨테이너가 켜져 있어야 조회가 가능합니다)</span>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col gap-4">
+                                    {/* 기본 트랜잭션 정보 */}
+                                    <div className="grid grid-cols-2 gap-4 bg-slate-950/40 p-4 border border-white/5 rounded-xl font-mono text-[10px]">
+                                        <div className="flex flex-col gap-1.5">
+                                            <span className="text-slate-500 font-bold uppercase">블록 번호 (Block Number)</span>
+                                            <span className="text-white font-extrabold">
+                                                {selectedTxDetails.blockNumber ? parseInt(selectedTxDetails.blockNumber, 16) : 'Pending'}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            <span className="text-slate-500 font-bold uppercase">논스 (Nonce)</span>
+                                            <span className="text-white font-extrabold">{parseInt(selectedTxDetails.nonce, 16)}</span>
+                                        </div>
+                                        <div className="flex flex-col gap-1.5 col-span-2">
+                                            <span className="text-slate-500 font-bold uppercase">송신자 주소 (From)</span>
+                                            <span className="text-emerald-400 break-all">{selectedTxDetails.from}</span>
+                                        </div>
+                                        <div className="flex flex-col gap-1.5 col-span-2">
+                                            <span className="text-slate-500 font-bold uppercase">수신자 주소 (To / Contract)</span>
+                                            <span className="text-[#00f2fe] break-all">{selectedTxDetails.to || 'Contract Creation'}</span>
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            <span className="text-slate-500 font-bold uppercase">전송 금액 (Value)</span>
+                                            <span className="text-white font-extrabold">
+                                                {parseInt(selectedTxDetails.value, 16) === 0 ? '0 ETH' : `${parseInt(selectedTxDetails.value, 16) / 10**18} ETH`}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            <span className="text-slate-500 font-bold uppercase">가스 한도 (Gas Limit)</span>
+                                            <span className="text-white font-extrabold">{parseInt(selectedTxDetails.gas, 16).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* 영수증 정보 */}
+                                    {selectedTxReceipt && (
+                                        <div className="flex flex-col gap-3 border-t border-white/5 pt-4">
+                                            <span className="text-white text-xs font-extrabold">트랜잭션 실행 영수증 (Receipt)</span>
+                                            <div className="grid grid-cols-2 gap-4 bg-slate-950/40 p-4 border border-white/5 rounded-xl font-mono text-[10px]">
+                                                <div className="flex flex-col gap-1.5">
+                                                    <span className="text-slate-500 font-bold uppercase">실행 상태 (Status)</span>
+                                                    <span>
+                                                        {selectedTxReceipt.status === '0x1' || selectedTxReceipt.status === true ? (
+                                                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold">성공 (SUCCESS)</span>
+                                                        ) : (
+                                                            <span className="px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-400 font-bold">실패 (FAILED)</span>
+                                                        )}
+                                                    </span>
+                                                </div>
+                                                <div className="flex flex-col gap-1.5">
+                                                    <span className="text-slate-500 font-bold uppercase">실제 사용된 가스 (Gas Used)</span>
+                                                    <span className="text-white font-extrabold">{parseInt(selectedTxReceipt.gasUsed, 16).toLocaleString()}</span>
+                                                </div>
+                                                {selectedTxReceipt.contractAddress && (
+                                                    <div className="flex flex-col gap-1.5 col-span-2">
+                                                        <span className="text-slate-500 font-bold uppercase">생성된 CA (Contract Address)</span>
+                                                        <span className="text-amber-400 break-all">{selectedTxReceipt.contractAddress}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div className="px-6 py-4 border-t border-white/5 flex justify-end bg-white/2">
+                            <button onClick={() => setShowTxModal(false)} className="px-5 py-2 rounded-lg bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10">닫기</button>
                         </div>
                     </div>
                 </div>

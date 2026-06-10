@@ -155,13 +155,9 @@ public class WalletDaemonService {
     public void processBlockGenerations() {
         simulatedBlockHeight++;
         
-        // 시스템 환경 설정에서 실시간 온체인 가상 입금 생성 기능이 ON 상태인 경우에만 
-        // 새로운 가상 입금(BTC, ETH, ADA 등)을 주기적으로 자동 생성합니다.
-        if (AdminSettings.isOnChainDepositMonitoringEnabled()) {
-            // 1. 5%의 확률로 임의의 사용자에게 입금 이벤트 시뮬레이션 수행
-            if (random.nextInt(100) < 5) {
-                simulateIncomingDeposit();
-            }
+        // 5%의 확률로 임의의 사용자에게 입금 이벤트 시뮬레이션 수행
+        if (random.nextInt(100) < 5) {
+            simulateIncomingDeposit();
         }
 
         // 실제 온체인 상의 입금(JAF 토큰 등) 감지 및 대기 중인 입금의 컨펌(블록 확인) 처리는 
@@ -187,16 +183,13 @@ public class WalletDaemonService {
         // 통화별 가격 및 수량 범위 설정
         BigDecimal amount;
         int reqConfirmations;
-        if (targetAddr.getCurrency().equals("BTC")) {
-            amount = BigDecimal.valueOf(0.01 + random.nextDouble() * 0.15).setScale(8, RoundingMode.HALF_UP);
-            reqConfirmations = AdminSettings.getBtcConfirmations();
-        } else if (targetAddr.getCurrency().equals("ETH")) {
-            amount = BigDecimal.valueOf(0.1 + random.nextDouble() * 2.0).setScale(8, RoundingMode.HALF_UP);
-            reqConfirmations = AdminSettings.getEthConfirmations();
-        } else if (targetAddr.getCurrency().equals("ADA")) {
-            amount = BigDecimal.valueOf(50 + random.nextInt(450)).setScale(8, RoundingMode.HALF_UP);
-            reqConfirmations = AdminSettings.getAdaConfirmations();
-        } else if (targetAddr.getCurrency().equals("JAF")) {
+        String currency = targetAddr.getCurrency();
+
+        if (currency.equals("JAF")) {
+            // 실물 JAF 토큰의 자동 테스트 입금 생성(시뮬레이션) 활성화 여부 검사
+            if (!AdminSettings.isOnChainDepositMonitoringEnabled()) {
+                return;
+            }
             amount = BigDecimal.valueOf(10 + random.nextInt(90)).setScale(8, RoundingMode.HALF_UP);
             reqConfirmations = AdminSettings.getEthConfirmations();
             
@@ -218,7 +211,22 @@ public class WalletDaemonService {
                 return;
             }
         } else {
-            return; // 지원하지 않는 통화 무시
+            // 인메모리 가상 입금(BTC, ETH, ADA) 생성(시뮬레이션) 활성화 여부 검사
+            if (!AdminSettings.isWalletSimulationEnabled()) {
+                return;
+            }
+            if (currency.equals("BTC")) {
+                amount = BigDecimal.valueOf(0.01 + random.nextDouble() * 0.15).setScale(8, RoundingMode.HALF_UP);
+                reqConfirmations = AdminSettings.getBtcConfirmations();
+            } else if (currency.equals("ETH")) {
+                amount = BigDecimal.valueOf(0.1 + random.nextDouble() * 2.0).setScale(8, RoundingMode.HALF_UP);
+                reqConfirmations = AdminSettings.getEthConfirmations();
+            } else if (currency.equals("ADA")) {
+                amount = BigDecimal.valueOf(50 + random.nextInt(450)).setScale(8, RoundingMode.HALF_UP);
+                reqConfirmations = AdminSettings.getAdaConfirmations();
+            } else {
+                return; // 지원하지 않는 통화 무시
+            }
         }
 
         // 임의의 가상 온체인 TXID(Transaction Hash) 생성
@@ -227,7 +235,7 @@ public class WalletDaemonService {
         // 대기열 객체 생성
         PendingDeposit deposit = new PendingDeposit(
             targetAddr.getUserId(),
-            targetAddr.getCurrency(),
+            currency,
             amount,
             txHash,
             targetAddr.getCryptoAddress(),

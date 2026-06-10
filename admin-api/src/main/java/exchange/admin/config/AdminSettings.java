@@ -10,6 +10,15 @@ public class AdminSettings {
     private static volatile int btcConfirmations = 3;
     private static volatile int ethConfirmations = 12;
     private static volatile int adaConfirmations = 5;
+    private static volatile boolean walletSimulationEnabled = true;
+
+    public static boolean isWalletSimulationEnabled() {
+        return walletSimulationEnabled;
+    }
+
+    public static void setWalletSimulationEnabled(boolean enabled) {
+        walletSimulationEnabled = enabled;
+    }
 
     public static boolean isDuplicateLoginBlockEnabled() {
         return duplicateLoginBlockEnabled;
