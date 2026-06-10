@@ -89,7 +89,7 @@ public class StatsService {
      */
     public List<java.util.Map<String, Object>> getCandleStats(String symbol, String resolution, int limit) {
         // 데이터베이스의 인덱스 스캔을 활용하여 특정 종목의 최신 체결 데이터 500건을 빠르게 조회합니다.
-        List<exchange.admin.model.Trade> trades = tradeRepository.findTop500BySymbolOrderByExecutedAtDesc(symbol);
+        List<exchange.admin.model.Trade> trades = tradeRepository.findTop500BySymbolOrderByCreatedAtDesc(symbol);
         
         // 해상도 문자열을 초(seconds) 단위의 집계 분모값으로 파싱하여 변환합니다.
         long bucketSizeSeconds = 60; // 기본값은 1분 (60초)

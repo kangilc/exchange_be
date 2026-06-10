@@ -155,12 +155,17 @@ public class WalletDaemonService {
     public void processBlockGenerations() {
         simulatedBlockHeight++;
         
-        // 1. 5%의 확률로 임의의 사용자에게 입금 이벤트 시뮬레이션 수행
-        if (random.nextInt(100) < 5) {
-            simulateIncomingDeposit();
+        // 시스템 환경 설정에서 실시간 온체인 가상 입금 생성 기능이 ON 상태인 경우에만 
+        // 새로운 가상 입금(BTC, ETH, ADA 등)을 주기적으로 자동 생성합니다.
+        if (AdminSettings.isOnChainDepositMonitoringEnabled()) {
+            // 1. 5%의 확률로 임의의 사용자에게 입금 이벤트 시뮬레이션 수행
+            if (random.nextInt(100) < 5) {
+                simulateIncomingDeposit();
+            }
         }
 
-        // 2. 가상 입금(Pending Deposit) 컨펌 수 가산 및 도달 시 정산 최종 처리
+        // 실제 온체인 상의 입금(JAF 토큰 등) 감지 및 대기 중인 입금의 컨펌(블록 확인) 처리는 
+        // 시뮬레이터 ON/OFF 여부와 관계없이 실시간으로 계속 수행됩니다.
         scanJafDeposits();
         processPendingDeposits();
 

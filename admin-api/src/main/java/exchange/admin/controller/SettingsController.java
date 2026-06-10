@@ -18,6 +18,8 @@ public class SettingsController {
     public ResponseEntity<?> getSettings() {
         return ResponseEntity.ok(Map.of(
             "duplicateLoginBlockEnabled", AdminSettings.isDuplicateLoginBlockEnabled(),
+            // 실시간 입금 모니터링 활성화 플래그 반환
+            "onChainDepositMonitoringEnabled", AdminSettings.isOnChainDepositMonitoringEnabled(),
             "btcConfirmations", AdminSettings.getBtcConfirmations(),
             "ethConfirmations", AdminSettings.getEthConfirmations(),
             "adaConfirmations", AdminSettings.getAdaConfirmations()
@@ -30,6 +32,13 @@ public class SettingsController {
             Object val = request.get("duplicateLoginBlockEnabled");
             if (val instanceof Boolean) {
                 AdminSettings.setDuplicateLoginBlockEnabled((Boolean) val);
+            }
+        }
+        // 요청 본문에 온체인 입금 모니터링 토글 플래그가 있는 경우 동적 갱신
+        if (request.containsKey("onChainDepositMonitoringEnabled")) {
+            Object val = request.get("onChainDepositMonitoringEnabled");
+            if (val instanceof Boolean) {
+                AdminSettings.setOnChainDepositMonitoringEnabled((Boolean) val);
             }
         }
         if (request.containsKey("btcConfirmations")) {
@@ -52,6 +61,7 @@ public class SettingsController {
         }
         return ResponseEntity.ok(Map.of(
             "duplicateLoginBlockEnabled", AdminSettings.isDuplicateLoginBlockEnabled(),
+            "onChainDepositMonitoringEnabled", AdminSettings.isOnChainDepositMonitoringEnabled(),
             "btcConfirmations", AdminSettings.getBtcConfirmations(),
             "ethConfirmations", AdminSettings.getEthConfirmations(),
             "adaConfirmations", AdminSettings.getAdaConfirmations()

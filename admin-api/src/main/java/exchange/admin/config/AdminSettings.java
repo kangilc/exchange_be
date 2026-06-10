@@ -5,6 +5,8 @@ package exchange.admin.config;
  */
 public class AdminSettings {
     private static volatile boolean duplicateLoginBlockEnabled = true;
+    /** 실시간 온체인 입금 모니터링 및 컨펌 가산 처리 활성화 여부 */
+    private static volatile boolean onChainDepositMonitoringEnabled = true;
     private static volatile int btcConfirmations = 3;
     private static volatile int ethConfirmations = 12;
     private static volatile int adaConfirmations = 5;
@@ -15,6 +17,21 @@ public class AdminSettings {
 
     public static void setDuplicateLoginBlockEnabled(boolean enabled) {
         duplicateLoginBlockEnabled = enabled;
+    }
+
+    /**
+     * @return 실시간 온체인 입금 모니터링이 활성화되어 있는지 여부를 반환합니다.
+     */
+    public static boolean isOnChainDepositMonitoringEnabled() {
+        return onChainDepositMonitoringEnabled;
+    }
+
+    /**
+     * 실시간 온체인 입금 모니터링의 활성화 상태를 업데이트합니다.
+     * @param enabled 활성화 여부
+     */
+    public static void setOnChainDepositMonitoringEnabled(boolean enabled) {
+        onChainDepositMonitoringEnabled = enabled;
     }
 
     public static int getBtcConfirmations() {

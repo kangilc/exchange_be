@@ -41,8 +41,11 @@ export const App: React.FC = () => {
         logout,
         authEmail,
         duplicateLoginBlockEnabled,
+        // 온체인 입금 모니터링 활성화 여부 상태 및 변경 액션 가져오기
+        onChainDepositMonitoringEnabled,
         fetchSettings,
         toggleDuplicateLoginBlock,
+        toggleOnChainDepositMonitoring,
         sendWsMessage,
         // custody 관련 추가
         btcConfirmations,
@@ -888,10 +891,10 @@ export const App: React.FC = () => {
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                frozenTradesLog.map((trade) => {
+                                                frozenTradesLog.map((trade, index) => {
                                                     const isBuy = trade.side === 'BUY';
                                                     return (
-                                                        <tr key={trade.tradeId} className="hover:bg-white/2 transition-colors">
+                                                        <tr key={`${trade.tradeId}-${index}`} className="hover:bg-white/2 transition-colors">
                                                             <td className="px-5 py-3 font-mono text-slate-400">{trade.tradeId}</td>
                                                             <td className="px-5 py-3 font-bold text-white">{trade.symbol}</td>
                                                             <td className="px-5 py-3">
@@ -1358,6 +1361,32 @@ export const App: React.FC = () => {
                                         <span>모니터링 및 알림 설정 (시뮬레이션)</span>
                                     </div>
                                     
+                                    {/* 실시간 온체인 가상 입금 생성 활성화 토글 */}
+                                    <div className="flex items-center justify-between p-4 bg-slate-900/40 border border-white/5 rounded-xl hover:border-[#00f2fe]/30 transition-all duration-300">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                                                실시간 온체인 가상 입금 생성 활성화
+                                                {onChainDepositMonitoringEnabled ? (
+                                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-[#00f2fe]/20 border border-[#00f2fe]/45 text-[#00f2fe] animate-pulse">RUNNING</span>
+                                                ) : (
+                                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-rose-500/10 border border-rose-500/35 text-rose-400">PAUSED</span>
+                                                )}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400">
+                                                활성화 시 가상 블록체인 네트워크에 주기적으로 가상 입금(트랜잭션)을 자동으로 생성하고 블록 확인(컨펌) 단계를 진행합니다.
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <button 
+                                                // 클릭 시 전역 스토어 액션을 호출하여 백엔드 DB 설정값을 반전시킴
+                                                onClick={() => toggleOnChainDepositMonitoring(!onChainDepositMonitoringEnabled)}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${onChainDepositMonitoringEnabled ? 'bg-[#00f2fe]' : 'bg-slate-700'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${onChainDepositMonitoringEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+
                                     {/* 소리 알림 */}
                                     <div className="flex items-center justify-between p-4 bg-slate-900/40 border border-white/5 rounded-xl hover:border-[#00f2fe]/30 transition-all duration-300">
                                         <div className="flex flex-col gap-1">
@@ -1913,6 +1942,15 @@ export const App: React.FC = () => {
                                         </div>
                                         <span className="text-[10px] text-slate-400 font-mono">가상 블록체인 입금 감지</span>
                                     </div>
+                                    {/* 실시간 가상 입금 생성 기능이 비활성화되었을 때 경고 배너 노출 */}
+                                    {!onChainDepositMonitoringEnabled && (
+                                        <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 flex items-center gap-3 animate-fade-in">
+                                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_#f43f5e]" />
+                                            <span className="text-xs font-semibold text-rose-400">
+                                                실시간 가상 입금 생성 기능이 시스템 환경 설정에서 비활성화되어, 신규 가상 입금 발생 및 기존 대기 건의 컨펌 처리가 일시 중단되었습니다.
+                                            </span>
+                                        </div>
+                                    )}
                                     <div className="overflow-x-auto min-h-[200px] max-h-[350px]">
                                         <table className="w-full text-left text-xs">
                                             <thead>
