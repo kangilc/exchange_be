@@ -1981,10 +1981,10 @@ export const App: React.FC = () => {
                                 <div className="card-custom p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl flex flex-col justify-between min-h-[140px]">
                                     <div>
                                         <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">누적 수수료 수익 (Cumulative Fee)</div>
-                                        <div className="text-2xl font-black font-mono text-emerald-400 mt-2">
+                                        <div className="text-lg xl:text-xl tracking-tight font-black font-mono text-emerald-400 mt-2">
                                             ${(performanceStats?.feeRevenue?.btcUsdFeesUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </div>
-                                        <div className="text-xl font-black font-mono text-amber-500 mt-1">
+                                        <div className="text-base xl:text-lg tracking-tight font-black font-mono text-amber-500 mt-1">
                                             ₩{(performanceStats?.feeRevenue?.adaKrwFeesKrw || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                         </div>
                                     </div>
@@ -1996,10 +1996,10 @@ export const App: React.FC = () => {
                                 <div className="card-custom p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl flex flex-col justify-between min-h-[140px]">
                                     <div>
                                         <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">24H 수수료 수익 (24H Fee)</div>
-                                        <div className="text-2xl font-black font-mono text-emerald-400 mt-2">
+                                        <div className="text-lg xl:text-xl tracking-tight font-black font-mono text-emerald-400 mt-2">
                                             ${(performanceStats?.feeRevenue?.btcUsdFees24hUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </div>
-                                        <div className="text-xl font-black font-mono text-amber-500 mt-1">
+                                        <div className="text-base xl:text-lg tracking-tight font-black font-mono text-amber-500 mt-1">
                                             ₩{(performanceStats?.feeRevenue?.adaKrwFees24hKrw || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                         </div>
                                     </div>
@@ -2011,10 +2011,10 @@ export const App: React.FC = () => {
                                 <div className="card-custom p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl flex flex-col justify-between min-h-[140px]">
                                     <div>
                                         <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">24H / 30D 활성 유저 (DAU / MAU)</div>
-                                        <div className="text-3xl font-black font-mono text-white mt-2">
+                                        <div className="text-xl xl:text-2xl tracking-tight font-black font-mono text-white mt-2">
                                             {(performanceStats?.activeUsers?.dau24h || 0).toLocaleString()} / {(performanceStats?.activeUsers?.mau30d || 0).toLocaleString()} 명
                                         </div>
-                                        <div className="text-sm font-bold text-[#00f2fe] mt-1">
+                                        <div className="text-xs xl:text-sm font-bold text-[#00f2fe] mt-1">
                                             DAU/MAU 비율: {performanceStats?.activeUsers?.dauMauRatioPercent || 0}%
                                         </div>
                                     </div>
@@ -2026,10 +2026,10 @@ export const App: React.FC = () => {
                                 <div className="card-custom p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl flex flex-col justify-between min-h-[140px]">
                                     <div>
                                         <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">자산 유통 속도 (30D Trading Velocity)</div>
-                                        <div className="text-3xl font-black font-mono text-white mt-2">
+                                        <div className="text-xl xl:text-2xl tracking-tight font-black font-mono text-white mt-2">
                                             {performanceStats?.tradingVelocity?.velocityPercent || 0}%
                                         </div>
-                                        <div className="text-xs text-slate-400 mt-1">
+                                        <div className="text-[10px] xl:text-xs tracking-tighter text-slate-400 mt-1 truncate">
                                             총자산: ₩{(performanceStats?.tradingVelocity?.totalUserAssetsKrwEquivalent || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                         </div>
                                     </div>
