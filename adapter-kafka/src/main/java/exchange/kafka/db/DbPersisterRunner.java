@@ -26,6 +26,9 @@ public final class DbPersisterRunner {
 
     private static final ObjectMapper mapper = new ObjectMapper();
 
+    private static final java.util.concurrent.ConcurrentHashMap<String, Double> feeRatesCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static volatile long lastFeeRatesLoadTs = 0;
+
     public static void main(String[] args) {
         System.out.println("==================================================");
         System.out.println("  🌌 HIGH-PERFORMANCE DB SETTLEMENT PERSISTER  ");
@@ -155,9 +158,12 @@ public final class DbPersisterRunner {
         long qty = node.get("qty").asLong();
         long ts = node.get("ts").asLong();
 
+        double feeRate = getFeeRate(conn, symbol);
+        double feeAmount = (price / 100.0 * qty) * feeRate;
+
         // 1. Insert Trade Event
-        String sqlTrade = "INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, executed_at) " +
-                          "VALUES (?, ?, ?, ?, ?, ?, TO_TIMESTAMP(? / 1000.0)) ON CONFLICT (trade_id) DO NOTHING";
+        String sqlTrade = "INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, fee_rate, fee_amount, executed_at) " +
+                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, TO_TIMESTAMP(? / 1000.0)) ON CONFLICT (trade_id) DO NOTHING";
         
         long buyOrderId = 0;
         long sellOrderId = 0;
@@ -179,7 +185,9 @@ public final class DbPersisterRunner {
             ps.setLong(4, sellOrderId);
             ps.setLong(5, price);
             ps.setLong(6, qty);
-            ps.setLong(7, ts);
+            ps.setDouble(7, feeRate);
+            ps.setDouble(8, feeAmount);
+            ps.setLong(9, ts);
             ps.executeUpdate();
         }
 
@@ -324,5 +332,32 @@ public final class DbPersisterRunner {
             ps.setLong(3, orderId);
             ps.executeUpdate();
         }
+    }
+
+    private static double getFeeRate(Connection conn, String symbol) {
+        long now = System.currentTimeMillis();
+        // 10초 주기로 DB에서 최신 설정값을 리로드
+        if (now - lastFeeRatesLoadTs > 10000 || feeRatesCache.isEmpty()) {
+            try {
+                String sql = "SELECT symbol, fee_rate FROM market_fees";
+                try (PreparedStatement ps = conn.prepareStatement(sql);
+                     ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        feeRatesCache.put(rs.getString("symbol"), rs.getDouble("fee_rate"));
+                    }
+                    lastFeeRatesLoadTs = now;
+                }
+            } catch (SQLException e) {
+                System.err.println("Failed to load fee rates from database: " + e.getMessage());
+            }
+        }
+        
+        return feeRatesCache.computeIfAbsent(symbol, s -> {
+            if ("ADA-KRW".equals(s)) {
+                return 0.0005;
+            } else {
+                return 0.001;
+            }
+        });
     }
 }

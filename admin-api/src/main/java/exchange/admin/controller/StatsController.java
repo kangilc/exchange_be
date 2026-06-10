@@ -71,6 +71,16 @@ public class StatsController {
     }
 
     /**
+     * 거래소 운영 실적 및 KPI 분석 통계 조회.
+     * 
+     * @return 수수료 수익, DAU/MAU, 거래 회전율 등의 실적 지표 정보
+     */
+    @GetMapping("/performance")
+    public ResponseEntity<java.util.Map<String, Object>> getPerformanceStats() {
+        return ResponseEntity.ok(statsService.getPerformanceStats());
+    }
+
+    /**
      * 특정 종목의 현재가(티커) 조회.
      * 
      * @param symbol 종목 심볼 (예: BTC-USD)

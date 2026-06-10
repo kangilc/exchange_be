@@ -132,6 +132,8 @@ interface ExchangeState {
     btcConfirmations: number;
     ethConfirmations: number;
     adaConfirmations: number;
+    btcUsdFeeRate: number;
+    adaKrwFeeRate: number;
     cryptoWithdrawals: any[];
     hotWallets: any[];
     userCryptoAddresses: any[];
@@ -142,6 +144,8 @@ interface ExchangeState {
     toggleOnChainDepositMonitoring: (enabled: boolean) => Promise<void>;
     toggleWalletSimulation: (enabled: boolean) => Promise<void>;
     updateConfirmationsSettings: (btc: number, eth: number, ada: number) => Promise<void>;
+    updateFeeSettings: (btcUsd: number, adaKrw: number) => Promise<void>;
+    fetchPerformanceStats: () => Promise<any>;
     sendWsMessage: (message: any) => boolean;
     fetchCryptoWithdrawals: () => Promise<void>;
     fetchHotWallets: () => Promise<void>;
@@ -243,6 +247,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         btcConfirmations: 3,
         ethConfirmations: 12,
         adaConfirmations: 5,
+        btcUsdFeeRate: 0.001,
+        adaKrwFeeRate: 0.0005,
         cryptoWithdrawals: [],
         hotWallets: [],
         userCryptoAddresses: [],
@@ -535,13 +541,51 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                             walletSimulationEnabled: !!data.walletSimulationEnabled,
                             btcConfirmations: typeof data.btcConfirmations === 'number' ? data.btcConfirmations : 3,
                             ethConfirmations: typeof data.ethConfirmations === 'number' ? data.ethConfirmations : 12,
-                            adaConfirmations: typeof data.adaConfirmations === 'number' ? data.adaConfirmations : 5
+                            adaConfirmations: typeof data.adaConfirmations === 'number' ? data.adaConfirmations : 5,
+                            btcUsdFeeRate: typeof data.btcUsdFeeRate === 'number' ? data.btcUsdFeeRate : 0.001,
+                            adaKrwFeeRate: typeof data.adaKrwFeeRate === 'number' ? data.adaKrwFeeRate : 0.0005
                         });
                     }
                 }
             } catch (err) {
                 console.error("Failed to fetch settings", err);
             }
+        },
+
+        updateFeeSettings: async (btcUsd: number, adaKrw: number) => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        btcUsdFeeRate: btcUsd,
+                        adaKrwFeeRate: adaKrw
+                    })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data) {
+                        set({
+                            btcUsdFeeRate: typeof data.btcUsdFeeRate === 'number' ? data.btcUsdFeeRate : btcUsd,
+                            adaKrwFeeRate: typeof data.adaKrwFeeRate === 'number' ? data.adaKrwFeeRate : adaKrw
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to update fee settings", err);
+            }
+        },
+
+        fetchPerformanceStats: async () => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/stats/performance`);
+                if (res.ok) {
+                    return await res.json();
+                }
+            } catch (err) {
+                console.error("Failed to fetch performance stats", err);
+            }
+            return null;
         },
 
         toggleDuplicateLoginBlock: async (enabled: boolean) => {

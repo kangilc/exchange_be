@@ -11,6 +11,24 @@ public class AdminSettings {
     private static volatile int ethConfirmations = 12;
     private static volatile int adaConfirmations = 5;
     private static volatile boolean walletSimulationEnabled = true;
+    private static volatile double btcUsdFeeRate = 0.001000; // 0.1%
+    private static volatile double adaKrwFeeRate = 0.000500; // 0.05%
+
+    public static double getBtcUsdFeeRate() {
+        return btcUsdFeeRate;
+    }
+
+    public static void setBtcUsdFeeRate(double feeRate) {
+        btcUsdFeeRate = feeRate;
+    }
+
+    public static double getAdaKrwFeeRate() {
+        return adaKrwFeeRate;
+    }
+
+    public static void setAdaKrwFeeRate(double feeRate) {
+        adaKrwFeeRate = feeRate;
+    }
 
     public static boolean isWalletSimulationEnabled() {
         return walletSimulationEnabled;

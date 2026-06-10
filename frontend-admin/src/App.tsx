@@ -67,11 +67,16 @@ export const App: React.FC = () => {
         approveWithdrawal,
         rejectWithdrawal,
         rebalanceHotWallet,
-        requestCryptoWithdrawal
+        requestCryptoWithdrawal,
+        // 수수료 및 실적 추가
+        btcUsdFeeRate,
+        adaKrwFeeRate,
+        updateFeeSettings,
+        fetchPerformanceStats
     } = useExchangeStore();
 
-    // 탭 변수 확장 ('dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger' | 'settings' | 'custody')
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger' | 'settings' | 'custody'>('market-watch');
+    // 탭 변수 확장 ('dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger' | 'settings' | 'custody' | 'performance')
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger' | 'settings' | 'custody' | 'performance'>('market-watch');
 
 
     // 모달 제어 상태
@@ -124,12 +129,37 @@ export const App: React.FC = () => {
     const [ethInput, setEthInput] = useState<number>(6);
     const [adaInput, setAdaInput] = useState<number>(10);
 
-    // 스토어에서 컨펌 수 설정값을 받아오면 로컬 state에 동기화
+    // 수수료 임시 입력 상태 및 실적 통계 로컬 상태
+    const [btcFeeInput, setBtcFeeInput] = useState<string>('0.1');
+    const [adaFeeInput, setAdaFeeInput] = useState<string>('0.05');
+    const [performanceStats, setPerformanceStats] = useState<any>(null);
+
+    // 스토어에서 컨펌 및 수수료 수 설정값을 받아오면 로컬 state에 동기화
     useEffect(() => {
         setBtcInput(btcConfirmations);
         setEthInput(ethConfirmations);
         setAdaInput(adaConfirmations);
     }, [btcConfirmations, ethConfirmations, adaConfirmations]);
+
+    useEffect(() => {
+        setBtcFeeInput((btcUsdFeeRate * 100).toString());
+        setAdaFeeInput((adaKrwFeeRate * 100).toString());
+    }, [btcUsdFeeRate, adaKrwFeeRate]);
+
+    // 실적 탭 5초 폴링 효과
+    useEffect(() => {
+        if (activeTab === 'performance') {
+            const loadPerformance = async () => {
+                const data = await fetchPerformanceStats();
+                if (data) {
+                    setPerformanceStats(data);
+                }
+            };
+            loadPerformance();
+            const interval = setInterval(loadPerformance, 5000);
+            return () => clearInterval(interval);
+        }
+    }, [activeTab, fetchPerformanceStats]);
 
     // 온체인 수동 출금 테스트 상태
     const [custodyWithdrawUserId, setCustodyWithdrawUserId] = useState('');
@@ -701,6 +731,14 @@ export const App: React.FC = () => {
                     >
                         <Coins size={18} className="text-[#8a2be2]" />
                         <span>온체인 입출금 관리 (Custody)</span>
+                    </button>
+
+                    <button
+                        onClick={() => setActiveTab('performance')}
+                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'performance' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                    >
+                        <Activity size={18} />
+                        <span>거래소 실적 분석</span>
                     </button>
 
                     <button
@@ -1578,6 +1616,61 @@ export const App: React.FC = () => {
                                     </div>
                                 </div>
 
+                                {/* 5. 마켓별 수수료율 설정 */}
+                                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                    <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
+                                        <Coins size={16} className="text-[#8a2be2]" />
+                                        <span>마켓별 기본 수수료율 설정</span>
+                                    </div>
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex items-center justify-between p-3 bg-slate-900/40 border border-white/5 rounded-xl">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-xs font-bold text-white">BTC-USD 수수료율 (%)</span>
+                                                <span className="text-[10px] text-slate-400">BTC-USD 마켓의 체결 수수료율 (입력 예: 0.1)</span>
+                                            </div>
+                                            <input 
+                                                type="number"
+                                                step="0.001"
+                                                value={btcFeeInput}
+                                                onChange={(e) => setBtcFeeInput(e.target.value)}
+                                                className="w-24 p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-bold text-center outline-none focus:border-[#8a2be2]"
+                                                min={0}
+                                                max={100}
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between p-3 bg-slate-900/40 border border-white/5 rounded-xl">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-xs font-bold text-white">ADA-KRW 수수료율 (%)</span>
+                                                <span className="text-[10px] text-slate-400">ADA-KRW 마켓의 체결 수수료율 (입력 예: 0.05)</span>
+                                            </div>
+                                            <input 
+                                                type="number"
+                                                step="0.001"
+                                                value={adaFeeInput}
+                                                onChange={(e) => setAdaFeeInput(e.target.value)}
+                                                className="w-24 p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-bold text-center outline-none focus:border-[#8a2be2]"
+                                                min={0}
+                                                max={100}
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={async () => {
+                                                const btcRate = parseFloat(btcFeeInput) / 100;
+                                                const adaRate = parseFloat(adaFeeInput) / 100;
+                                                if (isNaN(btcRate) || isNaN(adaRate) || btcRate < 0 || adaRate < 0) {
+                                                    alert("올바른 수수료율을 입력해주세요.");
+                                                    return;
+                                                }
+                                                await updateFeeSettings(btcRate, adaRate);
+                                                alert("마켓 수수료율 설정이 성공적으로 저장되었습니다.");
+                                            }}
+                                            className="w-full py-2.5 bg-gradient-to-r from-[#8a2be2] to-[#00f2fe] hover:scale-[1.01] transition-transform text-white text-xs font-bold rounded-lg mt-1"
+                                        >
+                                            수수료율 설정 저장
+                                        </button>
+                                    </div>
+                                </div>
+
                                 {/* 4. 거래소 운영 모드 설정 */}
                                 <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4 xl:col-span-2">
                                     <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
@@ -1870,6 +1963,194 @@ export const App: React.FC = () => {
                                             display: 'block'
                                         }}
                                     />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* TAB 8: PERFORMANCE ANALYTICS (거래소 실적 분석) */}
+                    {activeTab === 'performance' && (
+                        <div className="tab-panel animate-fade-in flex flex-col gap-6">
+                            <div className="section-title text-xl font-black text-white flex items-center gap-2">
+                                <Activity size={20} className="text-[#8a2be2]" />
+                                <span>거래소 실적 분석 콘솔 (Performance Console)</span>
+                            </div>
+
+                            {/* Row 1: Fee Revenue Summary Cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                                <div className="card-custom p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl flex flex-col justify-between min-h-[140px]">
+                                    <div>
+                                        <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">누적 수수료 수익 (Cumulative Fee)</div>
+                                        <div className="text-2xl font-black font-mono text-emerald-400 mt-2">
+                                            ${(performanceStats?.feeRevenue?.btcUsdFeesUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </div>
+                                        <div className="text-xl font-black font-mono text-amber-500 mt-1">
+                                            ₩{(performanceStats?.feeRevenue?.adaKrwFeesKrw || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                        </div>
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 border-t border-white/5 pt-1.5 mt-2">
+                                        BTC-USD 및 ADA-KRW 마켓 누적 합산
+                                    </div>
+                                </div>
+
+                                <div className="card-custom p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl flex flex-col justify-between min-h-[140px]">
+                                    <div>
+                                        <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">24H 수수료 수익 (24H Fee)</div>
+                                        <div className="text-2xl font-black font-mono text-emerald-400 mt-2">
+                                            ${(performanceStats?.feeRevenue?.btcUsdFees24hUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </div>
+                                        <div className="text-xl font-black font-mono text-amber-500 mt-1">
+                                            ₩{(performanceStats?.feeRevenue?.adaKrwFees24hKrw || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                        </div>
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 border-t border-white/5 pt-1.5 mt-2">
+                                        최근 24시간 동안 수수료율 기반 누적액
+                                    </div>
+                                </div>
+
+                                <div className="card-custom p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl flex flex-col justify-between min-h-[140px]">
+                                    <div>
+                                        <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">24H / 30D 활성 유저 (DAU / MAU)</div>
+                                        <div className="text-3xl font-black font-mono text-white mt-2">
+                                            {(performanceStats?.activeUsers?.dau24h || 0).toLocaleString()} / {(performanceStats?.activeUsers?.mau30d || 0).toLocaleString()} 명
+                                        </div>
+                                        <div className="text-sm font-bold text-[#00f2fe] mt-1">
+                                            DAU/MAU 비율: {performanceStats?.activeUsers?.dauMauRatioPercent || 0}%
+                                        </div>
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 border-t border-white/5 pt-1.5 mt-2">
+                                        주문 생성 및 원장 이력이 있는 고유 사용자 수
+                                    </div>
+                                </div>
+
+                                <div className="card-custom p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl flex flex-col justify-between min-h-[140px]">
+                                    <div>
+                                        <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">자산 유통 속도 (30D Trading Velocity)</div>
+                                        <div className="text-3xl font-black font-mono text-white mt-2">
+                                            {performanceStats?.tradingVelocity?.velocityPercent || 0}%
+                                        </div>
+                                        <div className="text-xs text-slate-400 mt-1">
+                                            총자산: ₩{(performanceStats?.tradingVelocity?.totalUserAssetsKrwEquivalent || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                        </div>
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 border-t border-white/5 pt-1.5 mt-2">
+                                        보유 자산 대비 최근 30일 누적 거래량 비율
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Row 2: Charts and Detailed Tables */}
+                            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                                {/* Left/Middle: Net Flow and Order Efficiency */}
+                                <div className="xl:col-span-2 flex flex-col gap-6">
+                                    {/* 30D 순입금 흐름 */}
+                                    <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                        <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2">
+                                            최근 30일 통화별 순입금 흐름 (Net Deposit Flow)
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {(performanceStats?.netDepositFlow30d || []).map((flow: any) => {
+                                                const isPositive = flow.netFlow >= 0;
+                                                return (
+                                                    <div key={flow.currency} className="p-4 bg-slate-950/40 border border-white/5 rounded-xl flex items-center justify-between">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-xs font-bold text-white">{flow.currency} 순흐름</span>
+                                                            <span className="text-[10px] text-slate-400">입금액 - 출금액 합산</span>
+                                                        </div>
+                                                        <div className={`text-base font-black font-mono ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                            {isPositive ? '+' : ''}{flow.netFlow.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {(!performanceStats?.netDepositFlow30d || performanceStats.netDepositFlow30d.length === 0) && (
+                                                <div className="col-span-2 text-center py-6 text-slate-500 text-xs">순입금 흐름 데이터가 없습니다.</div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* 오더 효율성 지표 */}
+                                    <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                        <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2">
+                                            최근 30일 주문 체결 효율성 (Order Efficiency)
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="p-3.5 bg-slate-950/40 border border-white/5 rounded-xl flex flex-col">
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase">체결 주문 (Filled)</span>
+                                                <span className="text-lg font-black font-mono text-emerald-400 mt-1">
+                                                    {(performanceStats?.orderEfficiency?.filledCount || 0).toLocaleString()}건
+                                                </span>
+                                            </div>
+                                            <div className="p-3.5 bg-slate-950/40 border border-white/5 rounded-xl flex flex-col">
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase">취소 주문 (Cancelled)</span>
+                                                <span className="text-lg font-black font-mono text-rose-400 mt-1">
+                                                    {(performanceStats?.orderEfficiency?.cancelledCount || 0).toLocaleString()}건
+                                                </span>
+                                            </div>
+                                            <div className="p-3.5 bg-slate-950/40 border border-white/5 rounded-xl flex flex-col">
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase">활성 오더북 (Active)</span>
+                                                <span className="text-lg font-black font-mono text-blue-400 mt-1">
+                                                    {(performanceStats?.orderEfficiency?.activeCount || 0).toLocaleString()}건
+                                                </span>
+                                            </div>
+                                            <div className="p-3.5 bg-slate-950/40 border border-white/5 rounded-xl flex flex-col">
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase">오더 체결 성공률</span>
+                                                <span className="text-lg font-black font-mono text-[#00f2fe] mt-1">
+                                                    {performanceStats?.orderEfficiency?.fillRatePercent || 0}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden">
+                                            <div 
+                                                className="bg-gradient-to-r from-emerald-500 to-[#00f2fe] h-full rounded-full transition-all duration-500" 
+                                                style={{ width: `${performanceStats?.orderEfficiency?.fillRatePercent || 0}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right: Competitor Benchmarking */}
+                                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                    <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2">
+                                        타거래소 벤치마킹 분석 (Competitor Benchmarking)
+                                    </div>
+                                    <div className="flex flex-col gap-4">
+                                        {(performanceStats?.competitors || []).map((comp: any, idx: number) => {
+                                            const isSelf = comp.exchange.includes("HFX");
+                                            return (
+                                                <div 
+                                                    key={idx} 
+                                                    className={`p-4 rounded-xl border flex flex-col gap-2 transition-all duration-300 ${isSelf ? 'bg-[#8a2be2]/10 border-[#8a2be2]/30 shadow-lg' : 'bg-slate-950/40 border-white/5 hover:border-white/10'}`}
+                                                >
+                                                    <div className="flex justify-between items-center">
+                                                        <span className={`text-xs font-black ${isSelf ? 'text-[#c084fc]' : 'text-white'}`}>{comp.exchange}</span>
+                                                        {isSelf && (
+                                                            <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-[#8a2be2]/20 border border-[#8a2be2]/40 text-[#c084fc]">
+                                                                OURS
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2 text-[10px] font-semibold text-slate-400">
+                                                        <div>
+                                                            수수료율 (BTC / ADA): <span className="text-white font-bold">{comp.btcUsdFeeRatePercent}% / {comp.adaKrwFeeRatePercent}%</span>
+                                                        </div>
+                                                        <div>
+                                                            평균 지연시간: <span className="text-white font-bold">{comp.avgLatencyMs}ms</span>
+                                                        </div>
+                                                        <div>
+                                                            엔진 TPS: <span className="text-white font-bold">{(comp.tps || 0).toLocaleString()} TPS</span>
+                                                        </div>
+                                                        <div>
+                                                            시스템 가동률: <span className="text-emerald-400 font-bold">{comp.reliabilityPercent}%</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {(!performanceStats?.competitors || performanceStats.competitors.length === 0) && (
+                                            <div className="text-center py-6 text-slate-500 text-xs">벤치마킹 데이터가 없습니다.</div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

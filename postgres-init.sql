@@ -1,4 +1,13 @@
--- PostgreSQL 거래소 데이터 스키마 초기화 스크립트
+-- 0. 마켓 수수료 테이블 (Market Fees Settings)
+CREATE TABLE IF NOT EXISTS market_fees (
+    symbol VARCHAR(20) PRIMARY KEY,
+    fee_rate NUMERIC(10, 6) NOT NULL DEFAULT 0.001000 -- 기본 0.1%
+);
+
+INSERT INTO market_fees (symbol, fee_rate) VALUES
+('BTC-USD', 0.001000),
+('ADA-KRW', 0.000500)
+ON CONFLICT (symbol) DO NOTHING;
 
 -- 1. 사용자 테이블 (Users)
 CREATE TABLE IF NOT EXISTS users (
@@ -52,6 +61,8 @@ CREATE TABLE IF NOT EXISTS trades (
     sell_order_id BIGINT NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
     price BIGINT NOT NULL,
     qty BIGINT NOT NULL,
+    fee_rate NUMERIC(10, 6) DEFAULT 0.0,
+    fee_amount NUMERIC(36, 18) DEFAULT 0.0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(100),

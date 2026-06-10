@@ -84,6 +84,8 @@ graph TD
 ### 1. Spring Boot 기반 REST API 백엔드 (`admin-api`)
 *   **통화별 총 유통 자산 지표 조회 (`/admin/wallets/summary`):** 거래소 내에 보관된 전체 자산(KRW, USD, BTC, ADA)의 사용 가능한 잔액 및 거래 진행중 락(Locked)이 걸린 자산의 합산 수치를 원자적으로 조회합니다.
 *   **실시간 성능 및 시스템 통계 요약 (`/admin/stats/summary`):** 총 등록 회원 수, 활성 지갑 수, 금일 누적 매칭 거래 수, 누적 거래 대금(Volume)을 즉각 취합하여 반환합니다.
+*   **거래소 실적 분석 통계 조회 (`/admin/stats/performance`):** (🌟 신규) 마켓별 누적 및 24시간 수수료 수입, 24H DAU / 30D MAU, 자산 유통 속도(Trading Velocity), 오더 체결 성공률 및 경쟁사(Binance, Upbit, Coinbase) 성능 벤치마킹 통합 분석 데이터를 반환합니다.
+*   **마켓별 동적 수수료율 설정 및 조회 (`/admin/settings`):** (🌟 신규) `POST` 요청을 통해 `btcUsdFeeRate` 및 `adaKrwFeeRate` 수수료 설정을 동적으로 변경하고 DB 영속화와 인메모리 `AdminSettings` 캐시 동기화를 즉시 처리합니다.
 *   **유입 유저 지표 조회 (`/admin/stats/users`):** 일간, 주간, 월간, 분기, 연간 해상도 변수(Resolution)를 주입받아 시간에 따른 신규 회원 가입 유입량을 반환합니다.
 *   **매칭 거래 분석 및 자산 변경 이력 조회 (`/admin/stats/trades` / `/admin/stats/assets`):** 기간별 거래소 내의 원화 및 USD, 각종 코인 자산의 증감 흐름과 누적 체결 수치를 다각도로 조회합니다.
 *   **회원 원장 관리 (CRUD):** 회원 가입 등록(`POST /admin/users`), 정보 수정(`PUT /admin/users/{id}`), VIP 등급/거래정지(SUSPENDED) 관리 기능이 완벽 제공됩니다.
@@ -97,9 +99,9 @@ graph TD
 *   **JPA Auditing 및 AOP 기반 스레드 안전 등록자/수정자 자동 이원화 주입 아키텍처 (🌟 신규):**
     *   **전체 테이블 Auditing 확장:** `users`뿐만 아니라 `wallets`, `ledger_journal`, `crypto_withdrawals`, `user_crypto_addresses`, `system_hot_wallets`, `trades` 등 전체 영속성 엔티티가 `BaseEntity`를 공동 상속하게 설계하여 오디팅 컬럼(`createdAt`, `updatedAt`, `createdBy`, `updatedBy`) 구성을 전체 테이블에 일괄 이식함.
     *   **AOP 기반 스레드 안전 이원화 기록 (`@SystemAuditor`):** 
-        *   **사용자 주체 작업:** 어드민 대시보드 API 호출 등 로그인한 사용자가 요청할 때는 Spring Security의 Principal(이메일 등) 정보가 `createdBy` / `updatedBy`에 자동으로 주입됩니다.
+        *   **사용자 주체 작업:** 어드민 대시보드 API 호출 등 로그인한 사용자가 요청할 때는 Spring Security of Principal(이메일 등) 정보가 `createdBy` / `updatedBy`에 자동으로 주입됩니다.
         *   **시스템 주체 작업:** 백그라운드 데몬, 스케줄러, 카프카 컨슈머 등 백그라운드 시스템이 작업을 유발할 때는 `@SystemAuditor("시스템식별자")` 어노테이션을 부착하여 스레드 안전하게 ThreadLocal을 관리하며, 이를 통해 등록자/수정자에 `"SYSTEM:시스템식별자"`가 자동 기록됩니다.
-        *   **메모리 누수 방지 가드:** AOP Aspect 내의 `finally` 절에서 ThreadLocal 리소스를 강제 해제(`remove()`)함으로써 WAS 스레드 풀 환경에서의 오염이나 OOM(Memory Leak) 리스크를 원천 제거하였습니다.
+        *   **메모리 누수 방지 가드:** AOP Aspect 내의 `finally` 절에서 ThreadLocal 리소스를 강제 해제(`remove()`)함으로써 WAS 스레드 풀 환경에서의 오염이나 OOM (Memory Leak) 리스크를 원천 제거하였습니다.
     *   **시작 시 DDL 자동 마이그레이션 적용:** 서버 최초 기동 시 데이터베이스 테이블들을 역동적으로 검사하여 누락된 오디팅 관련 컬럼을 자동 생성(`ALTER TABLE`)하고 동기화하도록 `AdminApiApplication` 실행 주기를 고도화함.
 *   **PostgreSQL 성능 최적화:** 500 에러를 유발할 수 있는 복잡한 Native Time-Bucket Parameter Binding 문제점을 표준적인 `GROUP BY 1, 2, 3` 및 `ORDER BY 1 DESC` 인덱스 기법으로 튜닝 완료했습니다.
 
@@ -113,8 +115,10 @@ graph TD
 *   **통합 회원 관리 모달:** 모달 윈도우를 활용해 이메일 실시간 계정 검색, 신규 회원 등록, 상태 변동, 자산 추가/차감(Deposit/Withdrawal)을 즉시 실시간 인젝션 조작합니다.
 *   **WSL/네트워크 바인딩 게이트웨이:** 우측 상단의 `API Host` 입력창을 통해 WSL 가상 머신 IP나 원격 도메인 IP를 동적으로 주입하여 즉시 REST API 커넥션을 수립할 수 있도록 설계했습니다.
 
-### 3. 초현대식 React + TypeScript 고성능 실시간 관제 터미널 ([frontend-react](./frontend-react)) (🌟 신규)
+### 3. 초현대식 React + TypeScript 고성능 실시간 관제 터미널 ([frontend-admin](./frontend-admin)) (🌟 신규)
 *   **Zustand 기반 초저지연 상태 관리:** 기존 DOM 직접 제어 한계를 완벽히 극복하여, 32바이트 바이너리 패킷 파싱 스펙을 포함한 모든 거래소 실시간 상태를 반응형 스토어로 관리합니다.
+*   **거래소 실적 분석 (Performance Console) 콘솔 탭 연동:** (🌟 신규) 누적 및 24시간 수수료 수익, DAU/MAU 고착도, 30일 순입금 흐름(Net Deposit Flow), 오더 성공률 Progress Bar, 경쟁사 벤치마킹 테이블 지표 등 실시간 통합 실적을 관제합니다.
+*   **마켓별 동적 수수료율 설정 제어판:** (🌟 신규) 시스템 환경 설정 탭 내부에서 BTC-USD 및 ADA-KRW 마켓의 수수료율(%)을 관리자가 직접 실시간 변경 및 저장할 수 있는 입력 필드를 구축했습니다.
 *   **TradingViewChart 모듈 컴포넌트화:** 이중 시간 보장 안전 필터(Outdated Tick Guard)와 하이브리드 보정 패딩 엔진을 React 훅 생명주기(`useEffect`, `useRef`)에 맞춰 완벽 모듈화하여, 가로가 짤리거나 깨지는 현상을 100% 원천 예방했습니다.
 *   **DevOps 환경변수 연동 시스템 이식:** 런타임에 동적으로 `/config.json`을 가져와 API 엔드포인트를 마운트하고 부재 시 로컬로 안정적 자동 폴백하는 인쇄형 설계를 이식 완료했습니다.
 

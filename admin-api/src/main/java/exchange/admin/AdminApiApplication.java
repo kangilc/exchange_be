@@ -167,6 +167,87 @@ public class AdminApiApplication {
                     stmt.execute("SELECT setval('users_user_id_seq', COALESCE((SELECT MAX(user_id) FROM users), 0) + 1, false)");
                     log.info("users_user_id_seq sequence synchronized successfully!");
                 }
+
+                // 4.5. market_fees 테이블 검증 및 생성
+                log.info("Validating 'market_fees' table...");
+                boolean marketFeesTableExists = false;
+                try (ResultSet rs = metaData.getTables(null, null, "market_fees", null)) {
+                    if (rs.next()) marketFeesTableExists = true;
+                }
+                if (!marketFeesTableExists) {
+                    try (ResultSet rs = metaData.getTables(null, null, "MARKET_FEES", null)) {
+                        if (rs.next()) marketFeesTableExists = true;
+                    }
+                }
+                if (!marketFeesTableExists) {
+                    log.info("Table 'market_fees' does not exist. Creating and seeding it...");
+                    try (Statement stmt = connection.createStatement()) {
+                        stmt.execute("CREATE TABLE market_fees (" +
+                                "symbol VARCHAR(20) PRIMARY KEY, " +
+                                "fee_rate NUMERIC(10, 6) NOT NULL DEFAULT 0.001000)");
+                        stmt.execute("INSERT INTO market_fees (symbol, fee_rate) VALUES " +
+                                "('BTC-USD', 0.001000), " +
+                                "('ADA-KRW', 0.000500) " +
+                                "ON CONFLICT (symbol) DO NOTHING");
+                        log.info("Table 'market_fees' created and seeded successfully!");
+                    }
+                } else {
+                    log.info("Table 'market_fees' already exists.");
+                }
+
+                // 4.6. trades 테이블의 fee_rate 및 fee_amount 컬럼 존재 검사 및 추가
+                log.info("Validating 'trades' table fee columns...");
+                boolean feeRateExists = false;
+                boolean feeAmountExists = false;
+                try (ResultSet rs = metaData.getColumns(null, null, "trades", "fee_rate")) {
+                    if (rs.next()) feeRateExists = true;
+                }
+                try (ResultSet rs = metaData.getColumns(null, null, "trades", "fee_amount")) {
+                    if (rs.next()) feeAmountExists = true;
+                }
+                if (!feeRateExists) {
+                    try (Statement stmt = connection.createStatement()) {
+                        stmt.execute("ALTER TABLE trades ADD COLUMN fee_rate NUMERIC(10, 6) DEFAULT 0.0");
+                        log.info("Column 'fee_rate' added to 'trades' table successfully!");
+                    }
+                }
+                if (!feeAmountExists) {
+                    try (Statement stmt = connection.createStatement()) {
+                        stmt.execute("ALTER TABLE trades ADD COLUMN fee_amount NUMERIC(36, 18) DEFAULT 0.0");
+                        log.info("Column 'fee_amount' added to 'trades' table successfully!");
+                    }
+                }
+
+                // 4.7. 기존 거래 내역의 수수료 소급 계산 마이그레이션
+                log.info("Backfilling trade fee values for older records...");
+                try (Statement stmt = connection.createStatement()) {
+                    // Backfill fee_rate from market_fees
+                    stmt.execute("UPDATE trades SET fee_rate = COALESCE(" +
+                            "(SELECT fee_rate FROM market_fees WHERE market_fees.symbol = trades.symbol), " +
+                            "CASE WHEN symbol = 'ADA-KRW' THEN 0.000500 ELSE 0.001000 END) " +
+                            "WHERE fee_rate = 0.0 OR fee_rate IS NULL");
+                    
+                    // Backfill fee_amount
+                    stmt.execute("UPDATE trades SET fee_amount = (price / 100.0 * qty) * fee_rate " +
+                            "WHERE fee_amount = 0.0 OR fee_amount IS NULL");
+                    log.info("Trade fee backfilling completed!");
+                }
+
+                // 4.8. DB의 현재 수수료율 값을 읽어서 AdminSettings 인메모리 홀더 동기화
+                log.info("Caching market fee rates from database to AdminSettings...");
+                try (Statement stmt = connection.createStatement();
+                     ResultSet rs = stmt.executeQuery("SELECT symbol, fee_rate FROM market_fees")) {
+                    while (rs.next()) {
+                        String sym = rs.getString("symbol");
+                        double rate = rs.getDouble("fee_rate");
+                        if ("BTC-USD".equals(sym)) {
+                            exchange.admin.config.AdminSettings.setBtcUsdFeeRate(rate);
+                        } else if ("ADA-KRW".equals(sym)) {
+                            exchange.admin.config.AdminSettings.setAdaKrwFeeRate(rate);
+                        }
+                    }
+                    log.info("AdminSettings fee rate cache sync completed!");
+                }
             } catch (Exception e) {
                 log.error("Database schema validation/synchronization failed", e);
                 return;
