@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 5
+      idle-timeout: 30000
+      connection-timeout: 10000
+      max-lifetime: 1800000
+  jpa:
+    hibernate:
+      ddl-auto: none
+
+ethereum:
+  rpc-url: ${EVM_RPC_URL}
+  rpc-url-docker: ${EVM_RPC_URL_DOCKER}
+  private-key: ${EVM_PRIVATE_KEY}

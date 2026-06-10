@@ -5,6 +5,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import javax.sql.DataSource;
@@ -23,11 +24,38 @@ public class AdminApiApplication {
     }
 
     @Bean
-    public CommandLineRunner initDatabase(DataSource dataSource) {
+    @Profile({"local", "dev"}) // dev, local 프로파일에서만 활성화
+    public CommandLineRunner initDatabaseAndSeed(
+            DataSource dataSource,
+            exchange.admin.service.UserService userService,
+            exchange.admin.repository.UserRepository userRepository) {
         return args -> {
             log.info("Running automatic database schema validation...");
-            try (Connection conn = dataSource.getConnection()) {
-                DatabaseMetaData metaData = conn.getMetaData();
+            Connection conn = null;
+            int maxRetries = 15;
+            int retryCount = 0;
+            while (retryCount < maxRetries) {
+                try {
+                    conn = dataSource.getConnection();
+                    break;
+                } catch (Exception e) {
+                    retryCount++;
+                    log.warn("Database is not ready yet (attempt {}/{}). Retrying in 2 seconds...", retryCount, maxRetries);
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Database initialization interrupted", ie);
+                    }
+                }
+            }
+            if (conn == null) {
+                log.error("Failed to connect to the database after {} retries. Schema validation and seeding aborted.", maxRetries);
+                return;
+            }
+
+            try (Connection connection = conn) {
+                DatabaseMetaData metaData = connection.getMetaData();
                 
                 // 1. Check 'grade' column
                 boolean columnExists = false;
@@ -47,7 +75,7 @@ public class AdminApiApplication {
 
                 if (!columnExists) {
                     log.info("Column 'grade' does not exist in 'users' table. Running ALTER TABLE statement...");
-                    try (Statement stmt = conn.createStatement()) {
+                    try (Statement stmt = connection.createStatement()) {
                         stmt.execute("ALTER TABLE users ADD COLUMN grade VARCHAR(20) DEFAULT 'STANDARD'");
                         log.info("Column 'grade' added to 'users' table successfully!");
                     }
@@ -73,7 +101,7 @@ public class AdminApiApplication {
 
                 if (!tokenColumnExists) {
                     log.info("Column 'refresh_token' does not exist in 'users' table. Running ALTER TABLE statement...");
-                    try (Statement stmt = conn.createStatement()) {
+                    try (Statement stmt = connection.createStatement()) {
                         stmt.execute("ALTER TABLE users ADD COLUMN refresh_token VARCHAR(512)");
                         log.info("Column 'refresh_token' added to 'users' table successfully!");
                     }
@@ -90,7 +118,7 @@ public class AdminApiApplication {
                         if (rs.next()) createdAtExists = true;
                     }
                     if (!createdAtExists) {
-                        try (Statement stmt = conn.createStatement()) {
+                        try (Statement stmt = connection.createStatement()) {
                             stmt.execute("ALTER TABLE " + table + " ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
                             log.info("Column 'created_at' added to '" + table + "' table successfully!");
                         }
@@ -102,7 +130,7 @@ public class AdminApiApplication {
                         if (rs.next()) updatedAtExists = true;
                     }
                     if (!updatedAtExists) {
-                        try (Statement stmt = conn.createStatement()) {
+                        try (Statement stmt = connection.createStatement()) {
                             stmt.execute("ALTER TABLE " + table + " ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
                             log.info("Column 'updated_at' added to '" + table + "' table successfully!");
                         }
@@ -114,7 +142,7 @@ public class AdminApiApplication {
                         if (rs.next()) createdByExists = true;
                     }
                     if (!createdByExists) {
-                        try (Statement stmt = conn.createStatement()) {
+                        try (Statement stmt = connection.createStatement()) {
                             stmt.execute("ALTER TABLE " + table + " ADD COLUMN created_by VARCHAR(100)");
                             log.info("Column 'created_by' added to '" + table + "' table successfully!");
                         }
@@ -126,7 +154,7 @@ public class AdminApiApplication {
                         if (rs.next()) updatedByExists = true;
                     }
                     if (!updatedByExists) {
-                        try (Statement stmt = conn.createStatement()) {
+                        try (Statement stmt = connection.createStatement()) {
                             stmt.execute("ALTER TABLE " + table + " ADD COLUMN updated_by VARCHAR(100)");
                             log.info("Column 'updated_by' added to '" + table + "' table successfully!");
                         }
@@ -135,19 +163,16 @@ public class AdminApiApplication {
 
                 // 4. 하드코딩된 시드 데이터로 인해 어긋난 users_user_id_seq 시퀀스를 테이블 최댓값에 맞게 자동 동기화 처리함 (중복 키 오류 방지용)
                 log.info("Synchronizing users_user_id_seq sequence...");
-                try (Statement stmt = conn.createStatement()) {
+                try (Statement stmt = connection.createStatement()) {
                     stmt.execute("SELECT setval('users_user_id_seq', COALESCE((SELECT MAX(user_id) FROM users), 0) + 1, false)");
                     log.info("users_user_id_seq sequence synchronized successfully!");
                 }
             } catch (Exception e) {
-                log.error("Database schema validation failed", e);
+                log.error("Database schema validation/synchronization failed", e);
+                return;
             }
-        };
-    }
 
-    @Bean
-    public CommandLineRunner seedAdminUser(exchange.admin.service.UserService userService, exchange.admin.repository.UserRepository userRepository) {
-        return args -> {
+            // 5. 기본 관리자 계정 자동 시딩 수행
             String adminEmail = "admin@javaf.net";
             try {
                 if (userRepository.findByEmail(adminEmail).isEmpty()) {

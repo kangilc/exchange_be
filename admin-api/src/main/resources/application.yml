@@ -2,32 +2,17 @@ server:
   port: 8181
 
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/exchange}
-    username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
-      idle-timeout: 30000
-      connection-timeout: 20000
-      max-lifetime: 1800000
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
-    hibernate:
-      ddl-auto: none
-    show-sql: false #true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
 
-ethereum:
-  rpc-url: ${EVM_RPC_URL:http://localhost:8545}
-  rpc-url-docker: ${EVM_RPC_URL_DOCKER:http://ganache:8545}
-  private-key: ${EVM_PRIVATE_KEY:0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d}
-
 app:
   jwt:
     secret: ${JWT_SECRET:super_secure_jwt_secret_key_at_least_32_chars_long_exchange_api_token}
-
