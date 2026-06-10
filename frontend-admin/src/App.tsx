@@ -141,104 +141,109 @@ export const App: React.FC = () => {
     const [mockMatchingEngineMode, setMockMatchingEngineMode] = useState<'FIFO' | 'LIFO'>('FIFO');
     const [mockMaintenanceMode, setMockMaintenanceMode] = useState(false);
 
-    // 웹 기반 실시간 주문 생성 시뮬레이터 (Web Order Generator) 상태
-    const [webGenActive, setWebGenActive] = useState(false);
-    const [webGenSymbol, setWebGenSymbol] = useState<'BTC-USD' | 'ADA-KRW'>('BTC-USD');
-    const [webGenSide, setWebGenSide] = useState<'BUY' | 'SELL' | 'RANDOM'>('RANDOM');
-    const [webGenInterval, setWebGenInterval] = useState<number>(300); // 300ms 기본값
-    const [webGenMinPrice, setWebGenMinPrice] = useState<string>('64000');
-    const [webGenMaxPrice, setWebGenMaxPrice] = useState<string>('65000');
-    const [webGenMinQty, setWebGenMinQty] = useState<string>('1');
-    const [webGenMaxQty, setWebGenMaxQty] = useState<string>('10');
-    const [webGenMinUserId, setWebGenMinUserId] = useState<string>('1');
-    const [webGenMaxUserId, setWebGenMaxUserId] = useState<string>('1000');
+    // 웹 기반 실시간 주문 생성 시뮬레이터 (Web Order Generator) 다중 마켓 상태
+    interface MarketGenConfig {
+        symbol: string;
+        name: string;
+        active: boolean;
+        side: 'BUY' | 'SELL' | 'RANDOM';
+        interval: number;
+        minPrice: string;
+        maxPrice: string;
+        minQty: string;
+        maxQty: string;
+        minUserId: string;
+        maxUserId: string;
+    }
+
+    const [marketConfigs, setMarketConfigs] = useState<Record<string, MarketGenConfig>>({
+        'BTC-USD': {
+            symbol: 'BTC-USD',
+            name: 'BTC-USD (비트코인)',
+            active: false,
+            side: 'RANDOM',
+            interval: 300,
+            minPrice: '64000',
+            maxPrice: '65000',
+            minQty: '1',
+            maxQty: '10',
+            minUserId: '1',
+            maxUserId: '1000'
+        },
+        'ADA-KRW': {
+            symbol: 'ADA-KRW',
+            name: 'ADA-KRW (에이다)',
+            active: false,
+            side: 'RANDOM',
+            interval: 300,
+            minPrice: '450',
+            maxPrice: '550',
+            minQty: '100',
+            maxQty: '1000',
+            minUserId: '1',
+            maxUserId: '1000'
+        }
+    });
+
     const [webGenLogs, setWebGenLogs] = useState<string[]>([]);
 
-    // Web Order Generator Loop
+    // Web Order Generator Loop (N개 마켓 독립 가동)
     useEffect(() => {
-        if (!webGenActive) return;
+        const timers: Record<string, any> = {};
 
-        let timerId: any = null;
+        Object.keys(marketConfigs).forEach((symbol) => {
+            const config = marketConfigs[symbol];
+            if (!config.active) return;
 
-        const generateOrder = () => {
-            const minP = parseFloat(webGenMinPrice) || 10;
-            const maxP = parseFloat(webGenMaxPrice) || 100;
-            const minQ = parseFloat(webGenMinQty) || 1;
-            const maxQ = parseFloat(webGenMaxQty) || 10;
-            const minU = parseInt(webGenMinUserId) || 1;
-            const maxU = parseInt(webGenMaxUserId) || 1000;
+            const generateOrder = () => {
+                const minP = parseFloat(config.minPrice) || 10;
+                const maxP = parseFloat(config.maxPrice) || 100;
+                const minQ = parseFloat(config.minQty) || 1;
+                const maxQ = parseFloat(config.maxQty) || 10;
+                const minU = parseInt(config.minUserId) || 1;
+                const maxU = parseInt(config.maxUserId) || 1000;
 
-            const side = webGenSide === 'RANDOM' 
-                ? (Math.random() < 0.5 ? 'BUY' : 'SELL')
-                : webGenSide;
+                const side = config.side === 'RANDOM' 
+                    ? (Math.random() < 0.5 ? 'BUY' : 'SELL')
+                    : config.side;
 
-            // Generate price within range
-            const price = minP + Math.random() * (maxP - minP);
-            // Generate quantity within range
-            const qty = minQ + Math.random() * (maxQ - minQ);
-            // Generate userId within range
-            const userId = minU + Math.floor(Math.random() * (maxU - minU + 1));
+                const price = minP + Math.random() * (maxP - minP);
+                const qty = minQ + Math.random() * (maxQ - minQ);
+                const userId = minU + Math.floor(Math.random() * (maxU - minU + 1));
 
-            const scaledPrice = Math.round(price * 100);
-            const scaledQty = Math.round(qty);
+                const scaledPrice = Math.round(price * 100);
+                const scaledQty = Math.round(qty);
 
-            const payload = {
-                action: 'NEW',
-                symbol: webGenSymbol,
-                side: side,
-                price: scaledPrice,
-                qty: scaledQty,
-                userId: userId
+                const payload = {
+                    action: 'NEW',
+                    symbol: config.symbol,
+                    side: side,
+                    price: scaledPrice,
+                    qty: scaledQty,
+                    userId: userId
+                };
+
+                const success = sendWsMessage(payload);
+                const timeStr = new Date().toLocaleTimeString().split(' ')[0];
+
+                if (success) {
+                    const logMsg = `[${timeStr}] [${config.symbol}] ${side} 주문 전송: 가격 ${price.toLocaleString(undefined, {minimumFractionDigits: 2})} / 수량 ${scaledQty} (User: ${userId})`;
+                    setWebGenLogs(prev => [logMsg, ...prev].slice(0, 30));
+                } else {
+                    const logMsg = `[${timeStr}] [${config.symbol}] 주문 전송 실패 (웹소켓 연결 확인 필요)`;
+                    setWebGenLogs(prev => [logMsg, ...prev].slice(0, 30));
+                }
+
+                timers[symbol] = setTimeout(generateOrder, config.interval);
             };
 
-            const success = sendWsMessage(payload);
-            const timeStr = new Date().toLocaleTimeString().split(' ')[0];
-
-            if (success) {
-                const logMsg = `[${timeStr}] ${webGenSymbol} ${side} 주문 전송: 가격 ${price.toLocaleString(undefined, {minimumFractionDigits: 2})} / 수량 ${scaledQty} (User: ${userId})`;
-                setWebGenLogs(prev => [logMsg, ...prev].slice(0, 30));
-            } else {
-                const logMsg = `[${timeStr}] 주문 전송 실패 (웹소켓 연결 확인 필요)`;
-                setWebGenLogs(prev => [logMsg, ...prev].slice(0, 30));
-            }
-
-            // Schedule next order
-            timerId = setTimeout(generateOrder, webGenInterval);
-        };
-
-        timerId = setTimeout(generateOrder, webGenInterval);
+            timers[symbol] = setTimeout(generateOrder, config.interval);
+        });
 
         return () => {
-            if (timerId) clearTimeout(timerId);
+            Object.values(timers).forEach(timerId => clearTimeout(timerId));
         };
-    }, [
-        webGenActive,
-        webGenSymbol,
-        webGenSide,
-        webGenInterval,
-        webGenMinPrice,
-        webGenMaxPrice,
-        webGenMinQty,
-        webGenMaxQty,
-        webGenMinUserId,
-        webGenMaxUserId,
-        sendWsMessage
-    ]);
-
-    // 대상 심볼 선택에 따라 시뮬레이터 가격/수량 조건 기본값 자동 갱신
-    useEffect(() => {
-        if (webGenSymbol === 'BTC-USD') {
-            setWebGenMinPrice('64000');
-            setWebGenMaxPrice('65000');
-            setWebGenMinQty('1');
-            setWebGenMaxQty('10');
-        } else {
-            setWebGenMinPrice('450');
-            setWebGenMaxPrice('550');
-            setWebGenMinQty('100');
-            setWebGenMaxQty('1000');
-        }
-    }, [webGenSymbol]);
+    }, [marketConfigs, sendWsMessage]);
 
     // 로그인 폼 입력 상태
     const [loginEmail, setLoginEmail] = useState('');
@@ -1523,143 +1528,213 @@ export const App: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* 4. 실시간 웹 모의 주문 생성기 설정 (Web Order Generator Settings) - 단독 블록 카드 */}
-                            <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4 mt-6">
+                            {/* 4. 실시간 웹 모의 주문 생성기 설정 (Web Order Generator Settings) - 마켓별 그리드 카드 */}
+                            <div className="flex flex-col gap-4 mt-6">
                                 <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         <Activity size={16} className="text-[#00f2fe]" />
                                         <span>실시간 웹 모의 주문 생성기 설정 (Web Order Generator Settings)</span>
                                     </div>
-                                    <div className="flex items-center gap-2 text-[10px] font-bold">
-                                        <span className={`w-2 h-2 rounded-full ${webGenActive ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-rose-500'}`} />
-                                        <span className={webGenActive ? 'text-emerald-400' : 'text-rose-400'}>
-                                            {webGenActive ? '동작 중 (RUNNING)' : '정지됨 (STOPPED)'}
-                                        </span>
-                                    </div>
                                 </div>
 
-                                {/* 설정 필드 그리드 */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-semibold text-slate-300">
-                                    {/* 대상 마켓 선택 */}
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-slate-400 uppercase text-[10px]">대상 마켓 심볼</label>
-                                        <select 
-                                            value={webGenSymbol}
-                                            onChange={(e) => setWebGenSymbol(e.target.value as any)}
-                                            className="p-2.5 bg-slate-950 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
-                                        >
-                                            <option value="BTC-USD">BTC-USD (비트코인)</option>
-                                            <option value="ADA-KRW">ADA-KRW (에이다)</option>
-                                        </select>
-                                    </div>
+                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                    {Object.values(marketConfigs).map((config) => (
+                                        <div key={config.symbol} className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+                                            {/* 마켓별 헤더 */}
+                                            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-extrabold text-white">{config.name}</span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                                                        <span className={`w-2 h-2 rounded-full ${config.active ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-rose-500'}`} />
+                                                        <span className={config.active ? 'text-emerald-400' : 'text-rose-400'}>
+                                                            {config.active ? 'RUNNING' : 'STOPPED'}
+                                                        </span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setMarketConfigs(prev => ({
+                                                                ...prev,
+                                                                [config.symbol]: {
+                                                                    ...prev[config.symbol],
+                                                                    active: !config.active
+                                                                }
+                                                            }));
+                                                        }}
+                                                        className={`px-4 py-1.5 rounded-lg font-extrabold text-[11px] text-white transition-all active:scale-95 ${config.active ? 'bg-gradient-to-r from-rose-600 to-rose-400' : 'bg-gradient-to-r from-[#8a2be2] to-[#00f2fe]'}`}
+                                                    >
+                                                        {config.active ? '정지' : '시작'}
+                                                    </button>
+                                                </div>
+                                            </div>
 
-                                    {/* 매칭 측면 선택 */}
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-slate-400 uppercase text-[10px]">주문 방향 (Side)</label>
-                                        <select 
-                                            value={webGenSide}
-                                            onChange={(e) => setWebGenSide(e.target.value as any)}
-                                            className="p-2.5 bg-slate-950 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
-                                        >
-                                            <option value="RANDOM">RANDOM (매수/매도 반반)</option>
-                                            <option value="BUY">BUY (매수 전용)</option>
-                                            <option value="SELL">SELL (매도 전용)</option>
-                                        </select>
-                                    </div>
+                                            {/* 설정 필드 */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-semibold text-slate-300">
+                                                {/* 매칭 측면 선택 */}
+                                                <div className="flex flex-col gap-1.5">
+                                                    <label className="text-slate-400 uppercase text-[10px]">주문 방향 (Side)</label>
+                                                    <select 
+                                                        value={config.side}
+                                                        onChange={(e) => {
+                                                            setMarketConfigs(prev => ({
+                                                                ...prev,
+                                                                [config.symbol]: {
+                                                                    ...prev[config.symbol],
+                                                                    side: e.target.value as any
+                                                                }
+                                                            }));
+                                                        }}
+                                                        className="p-2.5 bg-slate-950 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
+                                                    >
+                                                        <option value="RANDOM">RANDOM (매수/매도 반반)</option>
+                                                        <option value="BUY">BUY (매수 전용)</option>
+                                                        <option value="SELL">SELL (매도 전용)</option>
+                                                    </select>
+                                                </div>
 
-                                    {/* 생성 주기 선택 */}
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-slate-400 uppercase text-[10px]">주문 생성 주기 (속도)</label>
-                                        <select 
-                                            value={webGenInterval}
-                                            onChange={(e) => setWebGenInterval(Number(e.target.value))}
-                                            className="p-2.5 bg-slate-950 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
-                                        >
-                                            <option value={50}>50ms (초당 20건 - 고부하)</option>
-                                            <option value={100}>100ms (초당 10건 - 고부하)</option>
-                                            <option value={300}>300ms (초당 3.3건 - 표준)</option>
-                                            <option value={500}>500ms (초당 2건 - 표준)</option>
-                                            <option value={1000}>1000ms (초당 1건 - 저부하)</option>
-                                            <option value={2000}>2000ms (2초당 1건 - 저부하)</option>
-                                        </select>
-                                    </div>
+                                                {/* 생성 주기 선택 */}
+                                                <div className="flex flex-col gap-1.5">
+                                                    <label className="text-slate-400 uppercase text-[10px]">주문 생성 주기 (속도)</label>
+                                                    <select 
+                                                        value={config.interval}
+                                                        onChange={(e) => {
+                                                            setMarketConfigs(prev => ({
+                                                                ...prev,
+                                                                [config.symbol]: {
+                                                                    ...prev[config.symbol],
+                                                                    interval: Number(e.target.value)
+                                                                }
+                                                            }));
+                                                        }}
+                                                        className="p-2.5 bg-slate-950 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
+                                                    >
+                                                        <option value={50}>50ms (초당 20건 - 고부하)</option>
+                                                        <option value={100}>100ms (초당 10건 - 고부하)</option>
+                                                        <option value={300}>300ms (초당 3.3건 - 표준)</option>
+                                                        <option value={500}>500ms (초당 2건 - 표준)</option>
+                                                        <option value={1000}>1000ms (초당 1건 - 저부하)</option>
+                                                        <option value={2000}>2000ms (2초당 1건 - 저부하)</option>
+                                                    </select>
+                                                </div>
 
-                                    {/* 사용자 UID 범위 */}
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-slate-400 uppercase text-[10px]">유저 UID 범위</label>
-                                        <div className="flex items-center gap-2">
-                                            <input 
-                                                type="number" 
-                                                value={webGenMinUserId} 
-                                                onChange={(e) => setWebGenMinUserId(e.target.value)}
-                                                placeholder="최소" 
-                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
-                                            />
-                                            <span className="text-slate-500">~</span>
-                                            <input 
-                                                type="number" 
-                                                value={webGenMaxUserId} 
-                                                onChange={(e) => setWebGenMaxUserId(e.target.value)}
-                                                placeholder="최대" 
-                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
-                                            />
+                                                {/* 사용자 UID 범위 */}
+                                                <div className="flex flex-col gap-1.5">
+                                                    <label className="text-slate-400 uppercase text-[10px]">유저 UID 범위</label>
+                                                    <div className="flex items-center gap-2">
+                                                        <input 
+                                                            type="number" 
+                                                            value={config.minUserId} 
+                                                            onChange={(e) => {
+                                                                setMarketConfigs(prev => ({
+                                                                    ...prev,
+                                                                    [config.symbol]: {
+                                                                        ...prev[config.symbol],
+                                                                        minUserId: e.target.value
+                                                                    }
+                                                                }));
+                                                            }}
+                                                            placeholder="최소" 
+                                                            className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
+                                                        />
+                                                        <span className="text-slate-500">~</span>
+                                                        <input 
+                                                            type="number" 
+                                                            value={config.maxUserId} 
+                                                            onChange={(e) => {
+                                                                setMarketConfigs(prev => ({
+                                                                    ...prev,
+                                                                    [config.symbol]: {
+                                                                        ...prev[config.symbol],
+                                                                        maxUserId: e.target.value
+                                                                    }
+                                                                }));
+                                                            }}
+                                                            placeholder="최대" 
+                                                            className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* 가격 범위 */}
+                                                <div className="flex flex-col gap-1.5">
+                                                    <label className="text-slate-400 uppercase text-[10px]">주문 생성 가격 범위 (Min ~ Max)</label>
+                                                    <div className="flex items-center gap-2">
+                                                        <input 
+                                                            type="number" 
+                                                            value={config.minPrice} 
+                                                            onChange={(e) => {
+                                                                setMarketConfigs(prev => ({
+                                                                    ...prev,
+                                                                    [config.symbol]: {
+                                                                        ...prev[config.symbol],
+                                                                        minPrice: e.target.value
+                                                                    }
+                                                                }));
+                                                            }}
+                                                            placeholder="최소 가격" 
+                                                            className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
+                                                        />
+                                                        <span className="text-slate-500">~</span>
+                                                        <input 
+                                                            type="number" 
+                                                            value={config.maxPrice} 
+                                                            onChange={(e) => {
+                                                                setMarketConfigs(prev => ({
+                                                                    ...prev,
+                                                                    [config.symbol]: {
+                                                                        ...prev[config.symbol],
+                                                                        maxPrice: e.target.value
+                                                                    }
+                                                                }));
+                                                            }}
+                                                            placeholder="최대 가격" 
+                                                            className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* 수량 범위 */}
+                                                <div className="flex flex-col gap-1.5 md:col-span-2">
+                                                    <label className="text-slate-400 uppercase text-[10px]">주문 수량 범위 (Min ~ Max)</label>
+                                                    <div className="flex items-center gap-2">
+                                                        <input 
+                                                            type="number" 
+                                                            value={config.minQty} 
+                                                            onChange={(e) => {
+                                                                setMarketConfigs(prev => ({
+                                                                    ...prev,
+                                                                    [config.symbol]: {
+                                                                        ...prev[config.symbol],
+                                                                        minQty: e.target.value
+                                                                    }
+                                                                }));
+                                                            }}
+                                                            placeholder="최소" 
+                                                            className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
+                                                        />
+                                                        <span className="text-slate-500">~</span>
+                                                        <input 
+                                                            type="number" 
+                                                            value={config.maxQty} 
+                                                            onChange={(e) => {
+                                                                setMarketConfigs(prev => ({
+                                                                    ...prev,
+                                                                    [config.symbol]: {
+                                                                        ...prev[config.symbol],
+                                                                        maxQty: e.target.value
+                                                                    }
+                                                                }));
+                                                            }}
+                                                            placeholder="최대" 
+                                                            className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-
-                                    {/* 가격 범위 */}
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-slate-400 uppercase text-[10px]">주문 생성 가격 범위 (Min ~ Max)</label>
-                                        <div className="flex items-center gap-2">
-                                            <input 
-                                                type="number" 
-                                                value={webGenMinPrice} 
-                                                onChange={(e) => setWebGenMinPrice(e.target.value)}
-                                                placeholder="최소 가격" 
-                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
-                                            />
-                                            <span className="text-slate-500">~</span>
-                                            <input 
-                                                type="number" 
-                                                value={webGenMaxPrice} 
-                                                onChange={(e) => setWebGenMaxPrice(e.target.value)}
-                                                placeholder="최대 가격" 
-                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* 수량 범위 */}
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-slate-400 uppercase text-[10px]">주문 수량 범위 (Min ~ Max)</label>
-                                        <div className="flex items-center gap-2">
-                                            <input 
-                                                type="number" 
-                                                value={webGenMinQty} 
-                                                onChange={(e) => setWebGenMinQty(e.target.value)}
-                                                placeholder="최소" 
-                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
-                                            />
-                                            <span className="text-slate-500">~</span>
-                                            <input 
-                                                type="number" 
-                                                value={webGenMaxQty} 
-                                                onChange={(e) => setWebGenMaxQty(e.target.value)}
-                                                placeholder="최대" 
-                                                className="w-full p-2 bg-slate-950 border border-white/10 rounded-lg text-white font-mono text-center outline-none focus:border-[#8a2be2]"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* 시작 / 종료 토글 제어 버튼 */}
-                                <div className="flex justify-end gap-3 mt-2 border-t border-white/5 pt-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => setWebGenActive(!webGenActive)}
-                                        className={`px-6 py-2 rounded-xl font-extrabold text-xs text-white shadow-lg transition-all hover:scale-[1.01] ${webGenActive ? 'bg-gradient-to-r from-rose-600 to-rose-400' : 'bg-gradient-to-r from-[#8a2be2] to-[#00f2fe]'}`}
-                                    >
-                                        {webGenActive ? '시뮬레이터 정지' : '웹 시뮬레이터 시작'}
-                                    </button>
+                                    ))}
                                 </div>
                             </div>
 
