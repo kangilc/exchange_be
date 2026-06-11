@@ -100,6 +100,16 @@ interface ExchangeState {
     ledgerTotalCount: number;
     ledgerTotalPages: number;
 
+    bids: [number, number][];
+    asks: [number, number][];
+    midPrice: number;
+    spread: number;
+    volumePower: number;
+    latency: number;
+    throughput: number;
+    sendOrder: (payload: any) => boolean;
+    fetchFullSnapshot: (symbol: string) => Promise<void>;
+
     // 인증 관련 상태 및 액션
     isAuthenticated: boolean;
     authEmail: string | null;
@@ -164,10 +174,77 @@ export const ADA_SYMBOL_ID = getHashCode("ADA-KRW");
 
 export const useExchangeStore = create<ExchangeState>((set, get) => {
     let ws: WebSocket | null = null;
+    let pingTimer: any = null;
+    let tpsTimer: any = null;
+    let updateTimer: any = null;
+
+    // ⚡ 버퍼 데이터 스토리지 (React 리렌더링 트리거 방지)
+    const bidsMap = new Map<number, number>();
+    const asksMap = new Map<number, number>();
+    let recentTradesBuffer: TradeLog[] = [];
+    let recentTradesPower: { side: number; qty: number; time: number }[] = [];
+    let msgCount = 0;
+
+    // ⚡ 실시간 UI 상태 일괄 동기화 (100ms 스로틀)
+    const startUpdateLoop = () => {
+        if (updateTimer) clearInterval(updateTimer);
+        updateTimer = setInterval(() => {
+            const currentSymbol = get().activeSymbol;
+
+            // 1. 오더북 10단 파싱 및 화면용 반전 정렬
+            const bidsArr = Array.from(bidsMap.entries())
+                .sort((a, b) => b[0] - a[0])
+                .slice(0, 10);
+            const asksArr = Array.from(asksMap.entries())
+                .sort((a, b) => a[0] - b[0])
+                .slice(0, 10);
+
+            let mid = 0;
+            let diff = 0;
+            if (bidsArr.length > 0 && asksArr.length > 0) {
+                const topBid = bidsArr[0][0] / 100.0;
+                const topAsk = asksArr[0][0] / 100.0;
+                mid = (topBid + topAsk) / 2.0;
+                diff = topAsk - topBid;
+            }
+
+            // 2. 체결 강도(Volume Power) 계산
+            const now = Date.now();
+            recentTradesPower = recentTradesPower.filter(t => now - t.time < 10000);
+            let buySum = 0;
+            let sellSum = 0;
+            recentTradesPower.forEach(t => {
+                if (t.side === 1) buySum += t.qty;
+                else sellSum += t.qty;
+            });
+            const power = sellSum > 0 ? (buySum / sellSum) * 100.0 : 100.0;
+
+            // 3. 체결 내역 업데이트 및 상태 반영
+            set((state) => {
+                let nextLogs = [...state.tradesLog];
+                if (recentTradesBuffer.length > 0) {
+                    nextLogs = [...recentTradesBuffer, ...nextLogs].slice(0, 50);
+                    recentTradesBuffer = [];
+                }
+
+                const matchingLogs = nextLogs.filter(t => t.symbol === currentSymbol);
+                const nextLastPrice = matchingLogs.length > 0 ? matchingLogs[0].price : state.lastPrice;
+
+                return {
+                    bids: bidsArr,
+                    asks: [...asksArr].reverse(),
+                    midPrice: mid,
+                    spread: diff,
+                    volumePower: power,
+                    tradesLog: nextLogs,
+                    lastPrice: nextLastPrice
+                };
+            });
+        }, 100);
+    };
 
     const connectWebSocket = (wsUrl: string) => {
         if (ws) {
-            // 이전 소켓의 이벤트 핸들러를 제거하여 중복 재연결 타이머 유발 방지
             ws.onopen = null;
             ws.onclose = null;
             ws.onmessage = null;
@@ -181,11 +258,28 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         ws.onopen = () => {
             set({ wsConnected: true });
             console.log('[어드민 웹소켓] 연결 성공.');
+
+            pingTimer = setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ action: 'PING', timestamp: Date.now() }));
+                }
+            }, 2000);
+
+            tpsTimer = setInterval(() => {
+                set({ throughput: msgCount });
+                msgCount = 0;
+            }, 1000);
+
+            startUpdateLoop();
         };
 
         ws.onclose = () => {
             set({ wsConnected: false });
             console.log('[어드민 웹소켓] 단절됨. 3초 후 재연결 시도...');
+            if (pingTimer) clearInterval(pingTimer);
+            if (tpsTimer) clearInterval(tpsTimer);
+            if (updateTimer) clearInterval(updateTimer);
+
             setTimeout(() => {
                 const currentWsUrl = get().wsUrl;
                 if (currentWsUrl) connectWebSocket(currentWsUrl);
@@ -193,8 +287,18 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         };
 
         ws.onmessage = (event) => {
+            msgCount++;
             const data = event.data;
-            if (typeof data === 'string') return; // PING-PONG 바이패스
+            if (typeof data === 'string') {
+                try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.action === 'PONG') {
+                        const rtt = Date.now() - parsed.timestamp;
+                        set({ latency: rtt });
+                    }
+                } catch (e) {}
+                return;
+            }
 
             const buffer: ArrayBuffer = data;
             if (buffer.byteLength !== 32) return;
@@ -213,13 +317,36 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             else if (symbolId === ADA_SYMBOL_ID) msgSymbol = 'ADA-KRW';
             else return;
 
-            // 체결 틱 조건 (qtyNum < 0)
+            const currentSymbol = get().activeSymbol;
+
             if (qtyNum < 0) {
                 const actualQty = Math.abs(qtyNum);
                 const actualPrice = priceNum / 100.0;
 
-                // 스태츠 갱신
-                get().updateTradeStats(actualPrice, actualQty, side === 0 ? 'BUY' : 'SELL', msgSymbol);
+                recentTradesBuffer.push({
+                    tradeId: Date.now().toString().substring(7) + Math.floor(Math.random() * 10),
+                    symbol: msgSymbol,
+                    side: side === 0 ? 'BUY' : 'SELL',
+                    price: actualPrice,
+                    qty: actualQty,
+                    executedAt: new Date().toISOString()
+                });
+
+                if (msgSymbol === currentSymbol) {
+                    recentTradesPower.push({ side, qty: actualQty, time: Date.now() });
+                }
+            } else {
+                if (msgSymbol === currentSymbol) {
+                    const targetMap = side === 0 ? bidsMap : asksMap;
+                    const currentQty = targetMap.get(priceNum) || 0;
+                    const nextQty = currentQty + qtyNum;
+
+                    if (nextQty <= 0) {
+                        targetMap.delete(priceNum);
+                    } else {
+                        targetMap.set(priceNum, nextQty);
+                    }
+                }
             }
         };
     };
@@ -235,6 +362,14 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         totalVolumeText: '-',
         tradesLog: [],
         loadedCandles: [],
+
+        bids: [],
+        asks: [],
+        midPrice: 0,
+        spread: 0,
+        volumePower: 100.0,
+        latency: 0,
+        throughput: 0,
         users: [],
         wallets: [],
         walletsSummary: [],
@@ -321,14 +456,80 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 console.log('[환경 구성] config.json이 없으므로 브라우저 기본 로컬 설정을 활성화합니다.');
             }
 
+            // 최초 활성 심볼 스냅샷 적재
+            await get().fetchFullSnapshot(get().activeSymbol);
+
             // 웹소켓 자동 접속 트리거
             const currentWs = get().wsUrl;
             connectWebSocket(currentWs);
         },
 
         setActiveSymbol: (symbol) => {
-            set({ activeSymbol: symbol, lastPrice: 0 });
-            // console.log(`[심볼 전환] ${symbol} 활성화 완료.`);
+            bidsMap.clear();
+            asksMap.clear();
+            recentTradesPower = [];
+            set({ activeSymbol: symbol, lastPrice: 0, bids: [], asks: [], midPrice: 0, spread: 0 });
+            get().fetchFullSnapshot(symbol);
+        },
+
+        fetchFullSnapshot: async (symbol) => {
+            const port = symbol === 'BTC-USD' ? 9100 : 9101;
+            const rawHost = window.location.hostname || '127.0.0.1';
+            const host = rawHost === 'localhost' ? '127.0.0.1' : rawHost;
+            const url = `http://${host}:${port}/snapshot`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+
+                bidsMap.clear();
+                asksMap.clear();
+
+                if (data.bids) {
+                    data.bids.forEach(([price, qty]: [number, number]) => {
+                        bidsMap.set(price, qty);
+                    });
+                }
+                if (data.asks) {
+                    data.asks.forEach(([price, qty]: [number, number]) => {
+                        asksMap.set(price, qty);
+                    });
+                }
+
+                const bidsArr = Array.from(bidsMap.entries())
+                    .sort((a, b) => b[0] - a[0])
+                    .slice(0, 10);
+                const asksArr = Array.from(asksMap.entries())
+                    .sort((a, b) => a[0] - b[0])
+                    .slice(0, 10);
+
+                let mid = 0;
+                let diff = 0;
+                if (bidsArr.length > 0 && asksArr.length > 0) {
+                    const topBid = bidsArr[0][0] / 100.0;
+                    const topAsk = asksArr[0][0] / 100.0;
+                    mid = (topBid + topAsk) / 2.0;
+                    diff = topAsk - topBid;
+                }
+
+                set({
+                    bids: bidsArr,
+                    asks: [...asksArr].reverse(),
+                    midPrice: mid,
+                    spread: diff
+                });
+            } catch (err: any) {
+                console.error(`[스냅샷] 동기화 실패: ${err.message}`);
+            }
+        },
+
+        sendOrder: (payload) => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(payload));
+                return true;
+            }
+            return false;
         },
 
         setActiveResolution: (res) => {

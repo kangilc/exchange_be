@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useExchangeStore, BTC_SYMBOL_ID, ADA_SYMBOL_ID } from '../store/useExchangeStore';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useExchangeStore } from '../store/useExchangeStore';
 import { TradingViewChart } from './TradingViewChart';
 import { Layers, Wallet, X } from 'lucide-react';
 
@@ -21,53 +21,60 @@ const OrderBookRow: React.FC<{
     side: 'ask' | 'bid';
     barWidth: number;
     cumVal: number;
-}> = React.memo(({ price, qty, side, barWidth, cumVal }) => {
-    const prevQty = useRef<number>(qty);
+    lastExecTime?: number;
+    onClick?: () => void;
+}> = React.memo(({ price, qty, side, barWidth, cumVal, lastExecTime = 0, onClick }) => {
+    const prevExecTime = useRef<number>(lastExecTime);
     const [flashClass, setFlashClass] = useState<string>('');
 
     useEffect(() => {
-        if (qty !== prevQty.current) {
-            const isInc = qty > prevQty.current;
-            const newClass = isInc 
-                ? (side === 'ask' ? 'flash-ask-inc' : 'flash-bid-inc')
-                : 'flash-dec';
-            
+        if (lastExecTime > 0 && lastExecTime !== prevExecTime.current) {
+            const newClass = side === 'ask' ? 'flash-ask-inc' : 'flash-bid-inc';
             setFlashClass(newClass);
             
-            // 450ms 경과 후 플래시 CSS 클래스 자동 초기화
             const timer = setTimeout(() => {
                 setFlashClass('');
             }, 450);
             
-            prevQty.current = qty;
+            prevExecTime.current = lastExecTime;
             return () => clearTimeout(timer);
         }
-    }, [qty, side]);
+    }, [lastExecTime, side]);
 
     return (
-        <div className={`grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150 ${flashClass}`}>
+        <div 
+            onClick={onClick}
+            className="grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150 cursor-pointer"
+        >
             <div className={`absolute right-0 top-0 bottom-0 transition-all duration-300 pointer-events-none ${side === 'ask' ? 'bg-rose-500/8' : 'bg-emerald-500/8'}`} style={{ width: `${barWidth}%` }} />
             <span className={`relative z-10 font-bold ${side === 'ask' ? 'text-rose-400' : 'text-emerald-400'}`}>{(price / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-            <span className="text-slate-300 relative z-10 text-right font-semibold">{qty.toLocaleString()}</span>
+            <span className={`text-slate-300 relative z-10 text-right font-semibold rounded px-1.5 py-0.5 transition-all duration-150 ${flashClass}`}>{qty.toLocaleString()}</span>
             <span className="text-slate-500 relative z-10 text-right font-medium">{cumVal.toLocaleString()}</span>
         </div>
     );
 });
 
 export const TradingTerminal: React.FC = React.memo(() => {
-    const {
-        activeSymbol,
-        activeResolution,
-        apiBaseUrl,
-        setActiveSymbol,
-        setActiveResolution
-    } = useExchangeStore();
+    const activeSymbol = useExchangeStore(state => state.activeSymbol);
+    const activeResolution = useExchangeStore(state => state.activeResolution);
+    const apiBaseUrl = useExchangeStore(state => state.apiBaseUrl);
+    const tradesLog = useExchangeStore(state => state.tradesLog);
+    const setActiveSymbol = useExchangeStore(state => state.setActiveSymbol);
+    const setActiveResolution = useExchangeStore(state => state.setActiveResolution);
+
+    // ⚡ Zustand 고성능 스로틀 상태 직접 구독
+    const bidsList = useExchangeStore(state => state.bids);
+    const asksList = useExchangeStore(state => state.asks);
+    const midPrice = useExchangeStore(state => state.midPrice);
+    const spread = useExchangeStore(state => state.spread);
+    const volumePower = useExchangeStore(state => state.volumePower);
+    const latency = useExchangeStore(state => state.latency);
+    const throughput = useExchangeStore(state => state.throughput);
+    const wsConnected = useExchangeStore(state => state.wsConnected);
+    const sendOrder = useExchangeStore(state => state.sendOrder);
 
     // 1. 거래 터미널 로컬 코어 상태
     const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
-    const [, setWsConnected] = useState<boolean>(false);
-    const [latency, setLatency] = useState<number>(0);
-    const [throughput, setThroughput] = useState<number>(0);
     const [selectedSide, setSelectedSide] = useState<'BUY' | 'SELL'>('BUY');
     const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET' | 'STOP'>('LIMIT');
 
@@ -84,33 +91,27 @@ export const TradingTerminal: React.FC = React.memo(() => {
         ADA: 100000
     });
 
-    // 실시간 인메모리 호가 장부 (rAF/성능 최적화용 레퍼런스 유지)
-    const bidsMapRef = useRef<Map<number, number>>(new Map());
-    const asksMapRef = useRef<Map<number, number>>(new Map());
-
-    // 렌더링 동기화용 로컬 상태
-    const [bidsList, setBidsList] = useState<[number, number][]>([]);
-    const [asksList, setAsksList] = useState<[number, number][]>([]);
-    const [midPrice, setMidPrice] = useState<number>(0);
-    const [spread, setSpread] = useState<number>(0);
-    const [volumePower, setVolumePower] = useState<number>(100.0);
-
     // 로그 및 체결 이력 상태
     const [consoleLogs, setConsoleLogs] = useState<any[]>([]);
-    const [recentTrades, setRecentTrades] = useState<any[]>([]);
     const [, setStopLimitOrders] = useState<StopLimitOrder[]>([]);
+
+    const recentTrades = useMemo(() => {
+        return tradesLog
+            .filter(t => t.symbol === activeSymbol)
+            .map(t => ({
+                tradeId: t.tradeId,
+                time: new Date(t.executedAt).toTimeString().split(' ')[0],
+                price: t.price,
+                qty: t.qty,
+                side: t.side
+            }));
+    }, [tradesLog, activeSymbol]);
 
     // 입출금 팝업 제어
     const [showDepositModal, setShowDepositModal] = useState(false);
     const [showWithdrawModal, setShowWithdrawModal] = useState(false);
     const [modalCurrency, setModalCurrency] = useState('KRW');
     const [modalAmount, setModalAmount] = useState('');
-
-    // 성능 계측용 레퍼런스
-    const wsRef = useRef<WebSocket | null>(null);
-    const msgCountRef = useRef<number>(0);
-    const recentTradesPowerRef = useRef<{ side: number; qty: number; time: number }[]>([]);
-    const lastTradePriceRef = useRef<number>(0);
 
     // 심볼별 기본 디폴트 금액 세팅
     useEffect(() => {
@@ -129,40 +130,6 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const appendLog = (type: 'buy' | 'sell' | 'system' | 'warning' | 'stop', message: string) => {
         const timeStr = new Date().toLocaleTimeString();
         setConsoleLogs(prev => [{ time: timeStr, type, message }, ...prev].slice(0, 50));
-    };
-
-    // 2. REST API 기반 풀 오더북 스냅샷 연동 (BTC: 9100, ADA: 9101)
-    const fetchFullSnapshot = async (symbol: string) => {
-        const port = symbol === 'BTC-USD' ? 9100 : 9101;
-        const rawHost = window.location.hostname || '127.0.0.1';
-        const host = rawHost === 'localhost' ? '127.0.0.1' : rawHost;
-        const url = `http://${host}:${port}/snapshot`;
-
-        appendLog('system', `${symbol} 풀 오더북 스냅샷 동기화 시작...`);
-        try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            const data = await response.json();
-
-            bidsMapRef.current.clear();
-            asksMapRef.current.clear();
-
-            if (data.bids) {
-                data.bids.forEach(([price, qty]: [number, number]) => {
-                    bidsMapRef.current.set(price, qty);
-                });
-            }
-            if (data.asks) {
-                data.asks.forEach(([price, qty]: [number, number]) => {
-                    asksMapRef.current.set(price, qty);
-                });
-            }
-
-            appendLog('system', `${symbol} 스냅샷 복구 완료 (Seq: ${data.seq}, 매수: ${data.bids?.length || 0}건, 매도: ${data.asks?.length || 0}건)`);
-            triggerRender();
-        } catch (err: any) {
-            appendLog('warning', `${symbol} 스냅샷 동기화 실패: ${err.message}`);
-        }
     };
 
     // 지갑 자산 조회 (Live 모드 연동)
@@ -187,177 +154,19 @@ export const TradingTerminal: React.FC = React.memo(() => {
         fetchLiveBalances();
     }, [isLiveMode, apiBaseUrl]);
 
-    // 3. 바이너리 실시간 오더북/체결 스트리밍 게이트웨이 기동
+    // 웹소켓 연결 상태 로깅
     useEffect(() => {
-        const rawHost = window.location.hostname || '127.0.0.1';
-        const host = rawHost === 'localhost' ? '127.0.0.1' : rawHost;
-        const wsUrl = `ws://${host}:8088/ws`;
-
-        appendLog('system', `초저지연 바이너리 웹소켓 연결 중: ${wsUrl}`);
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
-        ws.binaryType = 'arraybuffer';
-
-        let pingIntervalId: any = null;
-
-        ws.onopen = () => {
-            setWsConnected(true);
-            appendLog('system', '연결 성공! 실시간 바이너리 오더북 스트리밍 활성화.');
-
-            // 초기 풀 스냅샷 적재
-            fetchFullSnapshot(activeSymbol);
-
-            // 2초 간격 PING-PONG 지연 계측 루프
-            pingIntervalId = setInterval(() => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ action: 'PING', timestamp: Date.now() }));
-                }
-            }, 2000);
-        };
-
-        ws.onclose = () => {
-            setWsConnected(false);
-            appendLog('warning', '웹소켓 게이트웨이 연결 단절. 3초 후 재접속을 진행합니다.');
-            if (pingIntervalId) clearInterval(pingIntervalId);
-        };
-
-        ws.onerror = () => {
-            appendLog('warning', '웹소켓 채널 통신 장애 감지');
-        };
-
-        ws.onmessage = (event) => {
-            msgCountRef.current++;
-            const data = event.data;
-
-            // PING-PONG 응답 핸들러
-            if (typeof data === 'string') {
-                try {
-                    const parsed = JSON.parse(data);
-                    if (parsed.action === 'PONG') {
-                        const rtt = Date.now() - parsed.timestamp;
-                        setLatency(rtt);
-                    }
-                } catch (e) {}
-                return;
-            }
-
-            // 32바이트 초경량 바이너리 프레임 파싱
-            const buffer: ArrayBuffer = data;
-            if (buffer.byteLength !== 32) return;
-
-            const view = new DataView(buffer);
-            const symbolId = view.getInt32(0, false);
-            const price = view.getBigInt64(12, false);
-            const deltaQty = view.getBigInt64(20, false);
-            const side = view.getInt32(28, false);
-
-            const priceNum = Number(price);
-            const qtyNum = Number(deltaQty);
-
-            let msgSymbol = '';
-            if (symbolId === BTC_SYMBOL_ID) msgSymbol = 'BTC-USD';
-            else if (symbolId === ADA_SYMBOL_ID) msgSymbol = 'ADA-KRW';
-            else return;
-
-            // 실시간 체결 처리 (qtyNum < 0)
-            if (qtyNum < 0) {
-                const actualQty = Math.abs(qtyNum);
-                const displayPrice = priceNum / 100.0;
-
-                // 해당 종목 체결 시, 최종 체결가 및 실시간 틱 갱신
-                if (msgSymbol === activeSymbol) {
-                    lastTradePriceRef.current = priceNum;
-                    
-                    // 체결 강도 갱신
-                    recentTradesPowerRef.current.push({ side, qty: actualQty, time: Date.now() });
-                    if (recentTradesPowerRef.current.length > 200) recentTradesPowerRef.current.shift();
-
-                    let buySum = 0;
-                    let sellSum = 0;
-                    recentTradesPowerRef.current.forEach(t => {
-                        if (t.side === 1) buySum += t.qty;
-                        else sellSum += t.qty;
-                    });
-                    const power = sellSum > 0 ? (buySum / sellSum) * 100 : 100;
-                    setVolumePower(power);
-
-                    // 실시간 체결 패널 누적
-                    const tradeItem = {
-                        tradeId: Date.now().toString().substring(7) + Math.floor(Math.random() * 10),
-                        time: new Date().toTimeString().split(' ')[0],
-                        price: displayPrice,
-                        qty: actualQty,
-                        side: side === 0 ? 'BUY' : 'SELL'
-                    };
-                    setRecentTrades(prev => [tradeItem, ...prev].slice(0, 50));
-                }
-            }
-
-            // 실시간 오더북 장부 갱신 (지정 심볼만)
-            if (msgSymbol === activeSymbol) {
-                const targetMap = side === 0 ? bidsMapRef.current : asksMapRef.current;
-                const currentQty = targetMap.get(priceNum) || 0;
-                const nextQty = currentQty + qtyNum;
-
-                if (nextQty <= 0) {
-                    targetMap.delete(priceNum);
-                } else {
-                    targetMap.set(priceNum, nextQty);
-                }
-
-                // 렌더 틱 실행
-                triggerRender();
-            }
-        };
-
-        // TPS (초당 처리량) 측정 계측기
-        const tpsIntervalId = setInterval(() => {
-            setThroughput(msgCountRef.current);
-            msgCountRef.current = 0;
-        }, 1000);
-
-        return () => {
-            if (ws) {
-                ws.onopen = null;
-                ws.onclose = null;
-                ws.onmessage = null;
-                ws.close();
-            }
-            if (pingIntervalId) clearInterval(pingIntervalId);
-            clearInterval(tpsIntervalId);
-        };
-    }, [activeSymbol]);
-
-    // 실시간 호가 정렬 렌더링 트리거
-    const triggerRender = () => {
-        // 매수 10단 정렬 (내림차순)
-        const bidsArr = Array.from(bidsMapRef.current.entries())
-            .sort((a, b) => b[0] - a[0])
-            .slice(0, 10);
-
-        // 매도 10단 정렬 (오름차순 후 매도 사다리를 위해 반대로 렌더)
-        const asksArr = Array.from(asksMapRef.current.entries())
-            .sort((a, b) => a[0] - b[0])
-            .slice(0, 10);
-
-        setBidsList(bidsArr);
-        setAsksList(asksArr.reverse()); // 화면에는 높은 매도 호가가 위에 깔려야 하므로 반전
-
-        if (bidsArr.length > 0 && asksArr.length > 0) {
-            const topBid = bidsArr[0][0] / 100.0;
-            const topAsk = asksArr[asksArr.length - 1][0] / 100.0;
-            const mid = (topBid + topAsk) / 2.0;
-            const diff = topAsk - topBid;
-
-            setMidPrice(mid);
-            setSpread(diff);
+        if (wsConnected) {
+            appendLog('system', '실시간 고성능 바이너리 웹소켓 게이트웨이 연결 활성화 완료.');
+        } else {
+            appendLog('warning', '웹소켓 게이트웨이 연결 단절. 스토어 재연결 대기 중...');
         }
-    };
+    }, [wsConnected]);
 
     // 4. 주문 터미널 제출 처리
     const handleOrderSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        if (!wsConnected) {
             appendLog('warning', '터미널이 게이트웨이와 연결되어 있지 않습니다.');
             return;
         }
@@ -374,7 +183,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
 
         let finalPrice = priceVal;
         if (orderType === 'MARKET') {
-            finalPrice = midPrice > 0 ? midPrice : (lastTradePriceRef.current / 100);
+            finalPrice = midPrice > 0 ? midPrice : (tradesLog.find(t => t.symbol === activeSymbol)?.price || 0);
         } else if (isNaN(priceVal) || priceVal <= 0) {
             alert('올바른 가격을 입력해주세요.');
             return;
@@ -466,8 +275,12 @@ export const TradingTerminal: React.FC = React.memo(() => {
             qty: Math.round(qtyVal)
         };
 
-        wsRef.current.send(JSON.stringify(payload));
-        appendLog(selectedSide.toLowerCase() as any, `[주문 전송] ${qtyVal} ${coin} @ ${finalPrice.toLocaleString()} ${fiat}`);
+        const success = sendOrder(payload);
+        if (success) {
+            appendLog(selectedSide.toLowerCase() as any, `[주문 전송] ${qtyVal} ${coin} @ ${finalPrice.toLocaleString()} ${fiat}`);
+        } else {
+            appendLog('warning', '주문 전송 실패: 웹소켓 연결 상태를 확인해주세요.');
+        }
     };
 
     // 입출금 신청 즉시 처리
@@ -590,6 +403,13 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                             side="ask"
                                             barWidth={barWidth}
                                             cumVal={cumVal}
+                                            lastExecTime={0}
+                                            onClick={() => {
+                                                setOrderPrice((price / 100.0).toString());
+                                                if (orderType === 'MARKET') {
+                                                    setOrderType('LIMIT');
+                                                }
+                                            }}
                                         />
                                     );
                                 });
@@ -627,6 +447,13 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                             side="bid"
                                             barWidth={barWidth}
                                             cumVal={cumVal}
+                                            lastExecTime={0}
+                                            onClick={() => {
+                                                setOrderPrice((price / 100.0).toString());
+                                                if (orderType === 'MARKET') {
+                                                    setOrderType('LIMIT');
+                                                }
+                                            }}
                                         />
                                     );
                                 });

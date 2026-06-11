@@ -43,6 +43,15 @@ interface ExchangeState {
     tradesLog: TradeLog[];
     loadedCandles: CandleData[];
 
+    // ⚡ 고성능 배치 렌더링용 추가 상태
+    bids: [number, number][];
+    asks: [number, number][];
+    midPrice: number;
+    spread: number;
+    volumePower: number;
+    latency: number;
+    throughput: number;
+
     // 액션 메서드 선언
     initStore: () => Promise<void>;
     setActiveSymbol: (symbol: string) => void;
@@ -51,6 +60,10 @@ interface ExchangeState {
     updateTradeStats: (price: number, qty: number, side: 'BUY' | 'SELL', symbol: string) => void;
     addLoadedCandles: (candles: CandleData[]) => void;
     addRealtimeTick: (price: number) => void;
+
+    // ⚡ 고성능 모듈용 전역 액션
+    fetchFullSnapshot: (symbol: string) => Promise<void>;
+    sendOrder: (payload: any) => boolean;
 }
 
 // 심볼 해시코드 상수
@@ -59,6 +72,81 @@ export const ADA_SYMBOL_ID = getHashCode("ADA-KRW");
 
 export const useExchangeStore = create<ExchangeState>((set, get) => {
     let ws: WebSocket | null = null;
+
+    // ⚡ 고성능 인메모리 버퍼 변수 (Zustand 렌더 루프 격리)
+    const bidsMap = new Map<number, number>();
+    const asksMap = new Map<number, number>();
+    let recentTradesBuffer: TradeLog[] = [];
+    let recentTradesPower: { side: number; qty: number; time: number }[] = [];
+    let msgCount = 0;
+    let updateTimer: any = null;
+    let tpsTimer: any = null;
+    let pingTimer: any = null;
+
+    const startUpdateLoop = () => {
+        if (updateTimer) clearInterval(updateTimer);
+        updateTimer = setInterval(() => {
+            const currentSymbol = get().activeSymbol;
+
+            // 1. 체결강도 갱신 (최근 30초 필터)
+            const now = Date.now();
+            recentTradesPower = recentTradesPower.filter(t => now - t.time < 30000);
+
+            let buySum = 0;
+            let sellSum = 0;
+            recentTradesPower.forEach(t => {
+                if (t.side === 1) buySum += t.qty;
+                else sellSum += t.qty;
+            });
+            const power = sellSum > 0 ? (buySum / sellSum) * 100 : 100;
+
+            // 2. 오더북 가공 (매수/매도 10단 정렬)
+            const bidsArr = Array.from(bidsMap.entries())
+                .sort((a, b) => b[0] - a[0])
+                .slice(0, 10);
+            const asksArr = Array.from(asksMap.entries())
+                .sort((a, b) => a[0] - b[0])
+                .slice(0, 10);
+
+            let mid = 0;
+            let diff = 0;
+            if (bidsArr.length > 0 && asksArr.length > 0) {
+                const topBid = bidsArr[0][0] / 100.0;
+                const topAsk = asksArr[0][0] / 100.0; // asksArr은 오름차순 정렬이므로 0번이 최선호가
+                mid = (topBid + topAsk) / 2.0;
+                diff = topAsk - topBid;
+            }
+
+            // 3. Zustand 스토어 일괄 업데이트 (최대 초당 10회로 렌더링 강제 제한)
+            set((state) => {
+                let nextLogs = [...state.tradesLog];
+                if (recentTradesBuffer.length > 0) {
+                    // 최신 체결건이 위로 가도록 반전 정렬하여 앞에 붙여줌
+                    nextLogs = [...recentTradesBuffer.reverse(), ...state.tradesLog].slice(0, 50);
+                    recentTradesBuffer = [];
+                }
+
+                const matchingLog = nextLogs.find(l => l.symbol === currentSymbol);
+                const lastPrice = matchingLog ? matchingLog.price : state.lastPrice;
+
+                return {
+                    tradesLog: nextLogs,
+                    bids: bidsArr,
+                    asks: [...asksArr].reverse(), // 화면 렌더링용으로 반전
+                    midPrice: mid,
+                    spread: diff,
+                    volumePower: power,
+                    lastPrice
+                };
+            });
+
+            // 차트 캔들 실시간 갱신 유도
+            const finalPrice = get().lastPrice;
+            if (finalPrice > 0) {
+                get().addRealtimeTick(finalPrice);
+            }
+        }, 100); // ⚡ 100ms 초고속 스로틀링 배치 업데이트
+    };
 
     const connectWebSocket = (wsUrl: string) => {
         if (ws) {
@@ -75,11 +163,33 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         ws.onopen = () => {
             set({ wsConnected: true });
             console.log('[거래소 웹소켓] 연결 성공.');
+
+            // PING-PONG 계측 주기 루프
+            if (pingTimer) clearInterval(pingTimer);
+            pingTimer = setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ action: 'PING', timestamp: Date.now() }));
+                }
+            }, 2000);
+
+            // TPS 처리량 측정 루프
+            if (tpsTimer) clearInterval(tpsTimer);
+            tpsTimer = setInterval(() => {
+                set({ throughput: msgCount });
+                msgCount = 0;
+            }, 1000);
+
+            // ⚡ 스로틀 배치 업데이트 주기 구동
+            startUpdateLoop();
         };
 
         ws.onclose = () => {
             set({ wsConnected: false });
             console.log('[거래소 웹소켓] 단절됨. 3초 후 재연결 시도...');
+            if (pingTimer) clearInterval(pingTimer);
+            if (tpsTimer) clearInterval(tpsTimer);
+            if (updateTimer) clearInterval(updateTimer);
+
             setTimeout(() => {
                 const currentWsUrl = get().wsUrl;
                 if (currentWsUrl) connectWebSocket(currentWsUrl);
@@ -87,8 +197,18 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         };
 
         ws.onmessage = (event) => {
+            msgCount++;
             const data = event.data;
-            if (typeof data === 'string') return; // PING-PONG 바이패스
+            if (typeof data === 'string') {
+                try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.action === 'PONG') {
+                        const rtt = Date.now() - parsed.timestamp;
+                        set({ latency: rtt });
+                    }
+                } catch (e) {}
+                return;
+            }
 
             const buffer: ArrayBuffer = data;
             if (buffer.byteLength !== 32) return;
@@ -107,13 +227,38 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             else if (symbolId === ADA_SYMBOL_ID) msgSymbol = 'ADA-KRW';
             else return;
 
-            // 체결 틱 조건 (qtyNum < 0)
+            const currentSymbol = get().activeSymbol;
+
             if (qtyNum < 0) {
                 const actualQty = Math.abs(qtyNum);
                 const actualPrice = priceNum / 100.0;
 
-                // 스태츠 갱신
-                get().updateTradeStats(actualPrice, actualQty, side === 0 ? 'BUY' : 'SELL', msgSymbol);
+                // ⚡ 임시 버퍼에 누적 (즉시 리렌더링 방지)
+                recentTradesBuffer.push({
+                    tradeId: Date.now().toString().substring(7) + Math.floor(Math.random() * 10),
+                    symbol: msgSymbol,
+                    side: side === 0 ? 'BUY' : 'SELL',
+                    price: actualPrice,
+                    qty: actualQty,
+                    executedAt: new Date().toISOString()
+                });
+
+                if (msgSymbol === currentSymbol) {
+                    recentTradesPower.push({ side, qty: actualQty, time: Date.now() });
+                }
+            } else {
+                // ⚡ 임시 맵에 누적 (즉시 리렌더링 방지)
+                if (msgSymbol === currentSymbol) {
+                    const targetMap = side === 0 ? bidsMap : asksMap;
+                    const currentQty = targetMap.get(priceNum) || 0;
+                    const nextQty = currentQty + qtyNum;
+
+                    if (nextQty <= 0) {
+                        targetMap.delete(priceNum);
+                    } else {
+                        targetMap.set(priceNum, nextQty);
+                    }
+                }
             }
         };
     };
@@ -129,6 +274,14 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         totalVolumeText: '-',
         tradesLog: [],
         loadedCandles: [],
+
+        bids: [],
+        asks: [],
+        midPrice: 0,
+        spread: 0,
+        volumePower: 100.0,
+        latency: 0,
+        throughput: 0,
 
         initStore: async () => {
             try {
@@ -149,26 +302,31 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 console.log('[환경 구성] config.json이 없으므로 브라우저 기본 로컬 설정을 활성화합니다.');
             }
 
+            // 최초 활성 심볼 스냅샷 적재
+            await get().fetchFullSnapshot(get().activeSymbol);
+
             // 웹소켓 자동 접속 트리거
             const currentWs = get().wsUrl;
             connectWebSocket(currentWs);
         },
 
         setActiveSymbol: (symbol) => {
-            set({ activeSymbol: symbol, lastPrice: 0 });
-            // console.log(`[심볼 전환] ${symbol} 활성화 완료.`);
+            bidsMap.clear();
+            asksMap.clear();
+            recentTradesPower = [];
+            set({ activeSymbol: symbol, lastPrice: 0, bids: [], asks: [], midPrice: 0, spread: 0 });
+            get().fetchFullSnapshot(symbol);
         },
 
         setActiveResolution: (res) => {
             set({ activeResolution: res });
-            // console.log(`[해상도 전환] ${res} 활성화 완료.`);
         },
 
         setWsConnected: (connected) => set({ wsConnected: connected }),
 
         updateTradeStats: (price, qty, side, symbol) => {
+            // 외부(API 등) 호출용 폴백 메서드
             const currentSymbol = get().activeSymbol;
-
             const newLog: TradeLog = {
                 tradeId: Date.now().toString().substring(7) + Math.floor(Math.random() * 10),
                 symbol,
@@ -181,7 +339,6 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             set((state) => {
                 const nextLogs = [newLog, ...state.tradesLog].slice(0, 50);
                 const nextTradesCount = state.totalTradesCount + 1;
-
                 const isMatching = symbol === currentSymbol;
 
                 return {
@@ -201,7 +358,70 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         },
 
         addRealtimeTick: (_price) => {
-            // 차트 캔들 실시간 갱신
+            // 차트 캔들 실시간 갱신 트리거
+        },
+
+        // ⚡ 풀 오더북 스냅샷 연동 (스토어 내부화)
+        fetchFullSnapshot: async (symbol) => {
+            const port = symbol === 'BTC-USD' ? 9100 : 9101;
+            const rawHost = window.location.hostname || '127.0.0.1';
+            const host = rawHost === 'localhost' ? '127.0.0.1' : rawHost;
+            const url = `http://${host}:${port}/snapshot`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+
+                bidsMap.clear();
+                asksMap.clear();
+
+                if (data.bids) {
+                    data.bids.forEach(([price, qty]: [number, number]) => {
+                        bidsMap.set(price, qty);
+                    });
+                }
+                if (data.asks) {
+                    data.asks.forEach(([price, qty]: [number, number]) => {
+                        asksMap.set(price, qty);
+                    });
+                }
+
+                // 즉각 1차 화면 갱신
+                const bidsArr = Array.from(bidsMap.entries())
+                    .sort((a, b) => b[0] - a[0])
+                    .slice(0, 10);
+                const asksArr = Array.from(asksMap.entries())
+                    .sort((a, b) => a[0] - b[0])
+                    .slice(0, 10);
+
+                let mid = 0;
+                let diff = 0;
+                if (bidsArr.length > 0 && asksArr.length > 0) {
+                    const topBid = bidsArr[0][0] / 100.0;
+                    const topAsk = asksArr[0][0] / 100.0;
+                    mid = (topBid + topAsk) / 2.0;
+                    diff = topAsk - topBid;
+                }
+
+                set({
+                    bids: bidsArr,
+                    asks: [...asksArr].reverse(),
+                    midPrice: mid,
+                    spread: diff
+                });
+            } catch (err: any) {
+                console.error(`[스냅샷] 동기화 실패: ${err.message}`);
+            }
+        },
+
+        // ⚡ 주문 발송 액션
+        sendOrder: (payload) => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(payload));
+                return true;
+            }
+            return false;
         }
     };
 });
