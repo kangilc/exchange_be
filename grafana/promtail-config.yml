@@ -36,6 +36,6 @@ scrape_configs:
                 source: output
             - template:
                 source: output
-                template: '{{ if .is_blocknumber }}{{ .Value }} (💡 admin-api의 Web3j 블록체인 최신 블록 높이/트랜잭션 확정 폴링){{ else }}{{ .Value }}{{ end }}'
+                template: '{{ if .is_blocknumber }}{{ .output }} (💡 admin-api의 Web3j 블록체인 최신 블록 높이/트랜잭션 확정 폴링){{ else }}{{ .output }}{{ end }}'
       - output:
           source: output
