@@ -2180,7 +2180,7 @@ export const App: React.FC = () => {
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         {hotWallets.map((hw: any) => (
-                                            <div key={hw.id} className="p-4 bg-slate-900/40 border border-white/5 rounded-xl flex flex-col gap-3 justify-between hover:border-[#00f2fe]/30 transition-all duration-300">
+                                            <div key={hw.walletId} className="p-4 bg-slate-900/40 border border-white/5 rounded-xl flex flex-col gap-3 justify-between hover:border-[#00f2fe]/30 transition-all duration-300">
                                                 <div className="flex flex-col gap-1">
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-xs font-bold text-white">{hw.currency} 핫월렛</span>
@@ -2201,7 +2201,7 @@ export const App: React.FC = () => {
                                                         onClick={async () => {
                                                             const amtStr = prompt(`${hw.currency} 핫월렛에 공급할 수량을 입력하세요:`, (hw.thresholdAmount * 2).toString());
                                                             if (amtStr && !isNaN(Number(amtStr))) {
-                                                                const success = await rebalanceHotWallet(hw.id, Number(amtStr));
+                                                                const success = await rebalanceHotWallet(hw.walletId, Number(amtStr));
                                                                 if (success) alert(`${hw.currency} 핫월렛에 ${amtStr} 자산이 정상 공급되었습니다.`);
                                                             }
                                                         }}
@@ -2215,7 +2215,6 @@ export const App: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* 출금 테스트 폼 (1열 차지) */}
                                 <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
                                     <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex items-center gap-2">
                                         <ArrowUpRight size={16} className="text-rose-400" />
