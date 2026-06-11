@@ -46,24 +46,22 @@ const OrderBookRow: React.FC<{
     return (
         <div 
             onClick={onClick}
-            className={`grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150 cursor-pointer ${flashClass}`}
+            className="grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150 cursor-pointer"
         >
             <div className={`absolute right-0 top-0 bottom-0 transition-all duration-300 pointer-events-none ${side === 'ask' ? 'bg-rose-500/8' : 'bg-emerald-500/8'}`} style={{ width: `${barWidth}%` }} />
             <span className={`relative z-10 font-bold ${side === 'ask' ? 'text-rose-400' : 'text-emerald-400'}`}>{(price / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-            <span className="text-slate-300 relative z-10 text-right font-semibold">{qty.toLocaleString()}</span>
+            <span className={`text-slate-300 relative z-10 text-right font-semibold rounded px-1.5 py-0.5 transition-all duration-150 ${flashClass}`}>{qty.toLocaleString()}</span>
             <span className="text-slate-500 relative z-10 text-right font-medium">{cumVal.toLocaleString()}</span>
         </div>
     );
 };
 
 export const TradingTerminal: React.FC = () => {
-    const {
-        activeSymbol,
-        activeResolution,
-        apiBaseUrl,
-        setActiveSymbol,
-        setActiveResolution
-    } = useExchangeStore();
+    const activeSymbol = useExchangeStore(state => state.activeSymbol);
+    const activeResolution = useExchangeStore(state => state.activeResolution);
+    const apiBaseUrl = useExchangeStore(state => state.apiBaseUrl);
+    const setActiveSymbol = useExchangeStore(state => state.setActiveSymbol);
+    const setActiveResolution = useExchangeStore(state => state.setActiveResolution);
 
     // 1. 거래 터미널 로컬 코어 상태
     const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
