@@ -92,6 +92,8 @@ export const TradingTerminal: React.FC = () => {
     // 실시간 인메모리 호가 장부 (rAF/성능 최적화용 레퍼런스 유지)
     const bidsMapRef = useRef<Map<number, number>>(new Map());
     const asksMapRef = useRef<Map<number, number>>(new Map());
+    const needsRenderRef = useRef<boolean>(false);
+    const triggerRenderRef = useRef<() => void>(() => {});
 
     // 렌더링 동기화용 로컬 상태
     const [bidsList, setBidsList] = useState<[number, number][]>([]);
@@ -116,6 +118,27 @@ export const TradingTerminal: React.FC = () => {
     const msgCountRef = useRef<number>(0);
     const recentTradesPowerRef = useRef<{ side: number; qty: number; time: number }[]>([]);
     const lastTradePriceRef = useRef<number>(0);
+
+    // 최신 triggerRender 함수를 ref에 항시 동기화 (클로저 stale 방지)
+    useEffect(() => {
+        triggerRenderRef.current = triggerRender;
+    });
+
+    // 🌟 고성능 60Hz requestAnimationFrame(rAF) 렌더링 루프 가동
+    useEffect(() => {
+        let animationFrameId: number;
+        const renderLoop = () => {
+            if (needsRenderRef.current) {
+                needsRenderRef.current = false;
+                triggerRenderRef.current();
+            }
+            animationFrameId = requestAnimationFrame(renderLoop);
+        };
+        animationFrameId = requestAnimationFrame(renderLoop);
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+        };
+    }, []);
 
     // 심볼별 기본 디폴트 금액 세팅
     useEffect(() => {
@@ -164,7 +187,7 @@ export const TradingTerminal: React.FC = () => {
             }
 
             appendLog('system', `${symbol} 스냅샷 복구 완료 (Seq: ${data.seq}, 매수: ${data.bids?.length || 0}건, 매도: ${data.asks?.length || 0}건)`);
-            triggerRender();
+            needsRenderRef.current = true;
         } catch (err: any) {
             appendLog('warning', `${symbol} 스냅샷 동기화 실패: ${err.message}`);
         }
@@ -310,8 +333,8 @@ export const TradingTerminal: React.FC = () => {
                     targetMap.set(priceNum, nextQty);
                 }
 
-                // 렌더 틱 실행
-                triggerRender();
+                // 렌더 틱 실행 (rAF에 예약)
+                needsRenderRef.current = true;
             }
         };
 
