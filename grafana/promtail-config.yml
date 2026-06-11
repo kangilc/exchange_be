@@ -23,19 +23,14 @@ scrape_configs:
         target_label: '__path__'
         replacement: '/var/lib/docker/containers/$1/$1-json.log'
     pipeline_stages:
-      - json:
-          expressions:
-            output: log
-            stream: stream
-            timestamp: time
+      - docker: {}
       - match:
           selector: '{container="ganache"}'
           stages:
             - regex:
                 expression: '(?P<is_blocknumber>eth_blockNumber)'
-                source: output
             - template:
                 source: output
-                template: '{{ if .is_blocknumber }}{{ .output }} (💡 admin-api의 Web3j 블록체인 최신 블록 높이/트랜잭션 확정 폴링){{ else }}{{ .output }}{{ end }}'
+                template: '{{ if .is_blocknumber }}{{ .Entry }} (💡 admin-api의 Web3j 블록체인 최신 블록 높이/트랜잭션 확정 폴링){{ else }}{{ .Entry }}{{ end }}'
       - output:
           source: output
