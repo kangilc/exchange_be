@@ -4,11 +4,9 @@ import { TradingTerminal } from './components/TradingTerminal';
 import './App.css';
 
 export const App: React.FC = () => {
-    const {
-        apiBaseUrl,
-        wsConnected,
-        initStore
-    } = useExchangeStore();
+    const apiBaseUrl = useExchangeStore(state => state.apiBaseUrl);
+    const wsConnected = useExchangeStore(state => state.wsConnected);
+    const initStore = useExchangeStore(state => state.initStore);
 
     useEffect(() => {
         // 전역 스토어 초기화 및 웹소켓 연결

@@ -56,7 +56,7 @@ const OrderBookRow: React.FC<{
     );
 };
 
-export const TradingTerminal: React.FC = () => {
+export const TradingTerminal: React.FC = React.memo(() => {
     const activeSymbol = useExchangeStore(state => state.activeSymbol);
     const activeResolution = useExchangeStore(state => state.activeResolution);
     const apiBaseUrl = useExchangeStore(state => state.apiBaseUrl);
@@ -1027,5 +1027,5 @@ export const TradingTerminal: React.FC = () => {
             )}
         </div>
     );
-};
+});
 
