@@ -14,25 +14,23 @@ interface StopLimitOrder {
     status: string;
 }
 
-// ⚡ 실시간 잔량 증감에 따른 네온 깜빡임 이펙트(Neon Flash)를 감지하는 호가별 Row 컴포넌트
+// ⚡ 체결 발생(Trade Execution) 시에만 네온 깜빡임 이펙트(Neon Flash)를 감지하는 호가별 Row 컴포넌트
 const OrderBookRow: React.FC<{
     price: number;
     qty: number;
     side: 'ask' | 'bid';
     barWidth: number;
     cumVal: number;
+    lastExecTime?: number;
     onClick?: () => void;
-}> = ({ price, qty, side, barWidth, cumVal, onClick }) => {
-    const prevQty = useRef<number>(qty);
+}> = ({ price, qty, side, barWidth, cumVal, lastExecTime = 0, onClick }) => {
+    const prevExecTime = useRef<number>(lastExecTime);
     const [flashClass, setFlashClass] = useState<string>('');
 
     useEffect(() => {
-        if (qty !== prevQty.current) {
-            const isInc = qty > prevQty.current;
-            const newClass = isInc 
-                ? (side === 'ask' ? 'flash-ask-inc' : 'flash-bid-inc')
-                : 'flash-dec';
-            
+        if (lastExecTime > 0 && lastExecTime !== prevExecTime.current) {
+            // 체결 시에만 반짝임 효과 적용 (녹색/적색 네온 효과 활용)
+            const newClass = side === 'ask' ? 'flash-ask-inc' : 'flash-bid-inc';
             setFlashClass(newClass);
             
             // 450ms 경과 후 플래시 CSS 클래스 자동 초기화
@@ -40,10 +38,10 @@ const OrderBookRow: React.FC<{
                 setFlashClass('');
             }, 450);
             
-            prevQty.current = qty;
+            prevExecTime.current = lastExecTime;
             return () => clearTimeout(timer);
         }
-    }, [qty, side]);
+    }, [lastExecTime, side]);
 
     return (
         <div 
@@ -92,6 +90,7 @@ export const TradingTerminal: React.FC = () => {
     // 실시간 인메모리 호가 장부 (rAF/성능 최적화용 레퍼런스 유지)
     const bidsMapRef = useRef<Map<number, number>>(new Map());
     const asksMapRef = useRef<Map<number, number>>(new Map());
+    const executionsMapRef = useRef<Map<number, number>>(new Map());
     const needsRenderRef = useRef<boolean>(false);
     const triggerRenderRef = useRef<() => void>(() => {});
 
@@ -174,6 +173,7 @@ export const TradingTerminal: React.FC = () => {
 
             bidsMapRef.current.clear();
             asksMapRef.current.clear();
+            executionsMapRef.current.clear();
 
             if (data.bids) {
                 data.bids.forEach(([price, qty]: [number, number]) => {
@@ -289,6 +289,9 @@ export const TradingTerminal: React.FC = () => {
 
             // 실시간 체결 처리 (qtyNum < 0)
             if (qtyNum < 0) {
+                if (msgSymbol === activeSymbol) {
+                    executionsMapRef.current.set(priceNum, Date.now());
+                }
                 const actualQty = Math.abs(qtyNum);
                 const displayPrice = priceNum / 100.0;
 
@@ -618,6 +621,7 @@ export const TradingTerminal: React.FC = () => {
                                             side="ask"
                                             barWidth={barWidth}
                                             cumVal={cumVal}
+                                            lastExecTime={executionsMapRef.current.get(price) || 0}
                                             onClick={() => {
                                                 setOrderPrice((price / 100.0).toString());
                                                 if (orderType === 'MARKET') {
@@ -661,6 +665,7 @@ export const TradingTerminal: React.FC = () => {
                                             side="bid"
                                             barWidth={barWidth}
                                             cumVal={cumVal}
+                                            lastExecTime={executionsMapRef.current.get(price) || 0}
                                             onClick={() => {
                                                 setOrderPrice((price / 100.0).toString());
                                                 if (orderType === 'MARKET') {
