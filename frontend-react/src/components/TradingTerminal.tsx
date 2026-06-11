@@ -21,7 +21,7 @@ const OrderBookRow: React.FC<{
     side: 'ask' | 'bid';
     barWidth: number;
     cumVal: number;
-}> = ({ price, qty, side, barWidth, cumVal }) => {
+}> = React.memo(({ price, qty, side, barWidth, cumVal }) => {
     const prevQty = useRef<number>(qty);
     const [flashClass, setFlashClass] = useState<string>('');
 
@@ -52,9 +52,9 @@ const OrderBookRow: React.FC<{
             <span className="text-slate-500 relative z-10 text-right font-medium">{cumVal.toLocaleString()}</span>
         </div>
     );
-};
+});
 
-export const TradingTerminal: React.FC = () => {
+export const TradingTerminal: React.FC = React.memo(() => {
     const {
         activeSymbol,
         activeResolution,
@@ -284,7 +284,7 @@ export const TradingTerminal: React.FC = () => {
                     // 실시간 체결 패널 누적
                     const tradeItem = {
                         tradeId: Date.now().toString().substring(7) + Math.floor(Math.random() * 10),
-                        time: new Date().toLocaleTimeString().split(' ')[0],
+                        time: new Date().toTimeString().split(' ')[0],
                         price: displayPrice,
                         qty: actualQty,
                         side: side === 0 ? 'BUY' : 'SELL'
@@ -973,5 +973,5 @@ export const TradingTerminal: React.FC = () => {
             )}
         </div>
     );
-};
+});
 

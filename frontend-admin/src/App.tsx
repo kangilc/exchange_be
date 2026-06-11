@@ -170,7 +170,7 @@ export const App: React.FC = () => {
                 };
 
                 const success = sendWsMessage(payload);
-                const timeStr = new Date().toLocaleTimeString().split(' ')[0];
+                const timeStr = new Date().toTimeString().split(' ')[0];
 
                 if (success) {
                     const logMsg = `[${timeStr}] [${config.symbol}] ${side} 주문 전송: 가격 ${price.toLocaleString(undefined, {minimumFractionDigits: 2})} / 수량 ${scaledQty} (User: ${userId})`;

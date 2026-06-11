@@ -20,7 +20,7 @@ function calculateSMA(data: { value: number; time: UTCTimestamp }[], period: num
     return result;
 }
 
-export const TradingViewChart: React.FC = () => {
+export const TradingViewChart: React.FC = React.memo(() => {
     const containerRef = useRef<HTMLDivElement>(null);
     // 타입 추론을 활용하여 버전별 호환성 오류 예방
     const chartRef = useRef<any>(null);
@@ -325,4 +325,4 @@ export const TradingViewChart: React.FC = () => {
             <div ref={containerRef} className="w-full h-[380px]" />
         </div>
     );
-};
+});
