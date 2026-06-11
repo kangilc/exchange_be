@@ -117,6 +117,8 @@ export const TradingTerminal: React.FC = () => {
     const msgCountRef = useRef<number>(0);
     const recentTradesPowerRef = useRef<{ side: number; qty: number; time: number }[]>([]);
     const lastTradePriceRef = useRef<number>(0);
+    const recentTradesRef = useRef<any[]>([]);
+    const volumePowerRef = useRef<number>(100.0);
 
     // 최신 triggerRender 함수를 ref에 항시 동기화 (클로저 stale 방지)
     useEffect(() => {
@@ -174,6 +176,8 @@ export const TradingTerminal: React.FC = () => {
             bidsMapRef.current.clear();
             asksMapRef.current.clear();
             executionsMapRef.current.clear();
+            recentTradesRef.current = [];
+            volumePowerRef.current = 100.0;
 
             if (data.bids) {
                 data.bids.forEach(([price, qty]: [number, number]) => {
@@ -310,7 +314,7 @@ export const TradingTerminal: React.FC = () => {
                         else sellSum += t.qty;
                     });
                     const power = sellSum > 0 ? (buySum / sellSum) * 100 : 100;
-                    setVolumePower(power);
+                    volumePowerRef.current = power;
 
                     // 실시간 체결 패널 누적
                     const tradeItem = {
@@ -320,7 +324,7 @@ export const TradingTerminal: React.FC = () => {
                         qty: actualQty,
                         side: side === 0 ? 'BUY' : 'SELL'
                     };
-                    setRecentTrades(prev => [tradeItem, ...prev].slice(0, 50));
+                    recentTradesRef.current = [tradeItem, ...recentTradesRef.current].slice(0, 50);
                 }
             }
 
@@ -373,6 +377,8 @@ export const TradingTerminal: React.FC = () => {
 
         setBidsList(bidsArr);
         setAsksList(asksArr.reverse()); // 화면에는 높은 매도 호가가 위에 깔려야 하므로 반전
+        setRecentTrades([...recentTradesRef.current]);
+        setVolumePower(volumePowerRef.current);
 
         if (bidsArr.length > 0 && asksArr.length > 0) {
             const topBid = bidsArr[0][0] / 100.0;
