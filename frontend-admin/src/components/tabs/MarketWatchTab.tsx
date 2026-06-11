@@ -81,7 +81,7 @@ export const MarketWatchTab: React.FC<MarketWatchTabProps> = ({
 
                     {/* 해상도 스위처 */}
                     <div className="flex bg-white/2 border border-white/5 rounded-lg p-0.5">
-                        {(['1m', '5m', '15m', '1h'] as const).map((res) => (
+                        {(['1m', '5m', '15m', '1h', '1w', '1mo', '1y'] as const).map((res) => (
                             <button
                                 key={res}
                                 onClick={() => setActiveResolution(res)}

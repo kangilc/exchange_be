@@ -180,6 +180,9 @@ export const TradingViewChart: React.FC = () => {
                             case '5m': intervalSeconds = 300; break;
                             case '15m': intervalSeconds = 900; break;
                             case '1h': intervalSeconds = 3600; break;
+                            case '1w': intervalSeconds = 604800; break;
+                            case '1mo': intervalSeconds = 2592000; break;
+                            case '1y': intervalSeconds = 31536000; break;
                             default: intervalSeconds = 60; break;
                         }
 
@@ -250,6 +253,9 @@ export const TradingViewChart: React.FC = () => {
             case '5m': resolutionSeconds = 300; break;
             case '15m': resolutionSeconds = 900; break;
             case '1h': resolutionSeconds = 3600; break;
+            case '1w': resolutionSeconds = 604800; break;
+            case '1mo': resolutionSeconds = 2592000; break;
+            case '1y': resolutionSeconds = 31536000; break;
             default: resolutionSeconds = 60; break;
         }
 

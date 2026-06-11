@@ -88,8 +88,13 @@ public class StatsService {
      * @return 집계된 봉 데이터 리스트
      */
     public List<java.util.Map<String, Object>> getCandleStats(String symbol, String resolution, int limit) {
-        // 데이터베이스의 인덱스 스캔을 활용하여 특정 종목의 최신 체결 데이터 500건을 빠르게 조회합니다.
-        List<exchange.admin.model.Trade> trades = tradeRepository.findTop500BySymbolOrderByCreatedAtDesc(symbol);
+        // 해상도에 맞게 필요한 조회 건수를 유연하게 결정합니다. (주봉, 월봉, 연봉은 50,000건, 나머지는 500건)
+        List<exchange.admin.model.Trade> trades;
+        if (resolution != null && (resolution.equalsIgnoreCase("1w") || resolution.equalsIgnoreCase("1mo") || resolution.equalsIgnoreCase("1y"))) {
+            trades = tradeRepository.findTop50000BySymbolOrderByCreatedAtDesc(symbol);
+        } else {
+            trades = tradeRepository.findTop500BySymbolOrderByCreatedAtDesc(symbol);
+        }
         
         // 해상도 문자열을 초(seconds) 단위의 집계 분모값으로 파싱하여 변환합니다.
         long bucketSizeSeconds = 60; // 기본값은 1분 (60초)
@@ -103,6 +108,15 @@ public class StatsService {
                     break;
                 case "1h":
                     bucketSizeSeconds = 3600; // 1시간 = 3600초
+                    break;
+                case "1w":
+                    bucketSizeSeconds = 604800; // 1주 = 7일 = 604800초
+                    break;
+                case "1mo":
+                    bucketSizeSeconds = 2592000; // 1월 = 30일 = 2592000초
+                    break;
+                case "1y":
+                    bucketSizeSeconds = 31536000; // 1년 = 365일 = 31536000초
                     break;
                 case "1m":
                 default:
