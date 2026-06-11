@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useExchangeStore, BTC_SYMBOL_ID, ADA_SYMBOL_ID } from '../store/useExchangeStore';
 import { TradingViewChart } from './TradingViewChart';
 import { Layers, Wallet, X } from 'lucide-react';
@@ -60,6 +60,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const activeSymbol = useExchangeStore(state => state.activeSymbol);
     const activeResolution = useExchangeStore(state => state.activeResolution);
     const apiBaseUrl = useExchangeStore(state => state.apiBaseUrl);
+    const wsUrl = useExchangeStore(state => state.wsUrl);
+    const tradesLog = useExchangeStore(state => state.tradesLog);
     const setActiveSymbol = useExchangeStore(state => state.setActiveSymbol);
     const setActiveResolution = useExchangeStore(state => state.setActiveResolution);
 
@@ -101,8 +103,19 @@ export const TradingTerminal: React.FC = React.memo(() => {
 
     // 로그 및 체결 이력 상태
     const [consoleLogs, setConsoleLogs] = useState<any[]>([]);
-    const [recentTrades, setRecentTrades] = useState<any[]>([]);
     const [, setStopLimitOrders] = useState<StopLimitOrder[]>([]);
+
+    const recentTrades = useMemo(() => {
+        return tradesLog
+            .filter(t => t.symbol === activeSymbol)
+            .map(t => ({
+                tradeId: t.tradeId,
+                time: new Date(t.executedAt).toTimeString().split(' ')[0],
+                price: t.price,
+                qty: t.qty,
+                side: t.side
+            }));
+    }, [tradesLog, activeSymbol]);
 
     // 입출금 팝업 제어
     const [showDepositModal, setShowDepositModal] = useState(false);
@@ -115,7 +128,6 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const msgCountRef = useRef<number>(0);
     const recentTradesPowerRef = useRef<{ side: number; qty: number; time: number }[]>([]);
     const lastTradePriceRef = useRef<number>(0);
-    const recentTradesRef = useRef<any[]>([]);
     const volumePowerRef = useRef<number>(100.0);
 
     // 최신 triggerRender 함수를 ref에 항시 동기화 (클로저 stale 방지)
@@ -174,7 +186,6 @@ export const TradingTerminal: React.FC = React.memo(() => {
             bidsMapRef.current.clear();
             asksMapRef.current.clear();
             executionsMapRef.current.clear();
-            recentTradesRef.current = [];
             volumePowerRef.current = 100.0;
 
             if (data.bids) {
@@ -219,10 +230,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
 
     // 3. 바이너리 실시간 오더북/체결 스트리밍 게이트웨이 기동
     useEffect(() => {
-        const rawHost = window.location.hostname || '127.0.0.1';
-        const host = rawHost === 'localhost' ? '127.0.0.1' : rawHost;
-        const wsUrl = `ws://${host}:8088/ws`;
-
+        if (!wsUrl) return;
         appendLog('system', `초저지연 바이너리 웹소켓 연결 중: ${wsUrl}`);
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
@@ -295,7 +303,6 @@ export const TradingTerminal: React.FC = React.memo(() => {
                     executionsMapRef.current.set(priceNum, Date.now());
                 }
                 const actualQty = Math.abs(qtyNum);
-                const displayPrice = priceNum / 100.0;
 
                 // 해당 종목 체결 시, 최종 체결가 및 실시간 틱 갱신
                 if (msgSymbol === activeSymbol) {
@@ -314,15 +321,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                     const power = sellSum > 0 ? (buySum / sellSum) * 100 : 100;
                     volumePowerRef.current = power;
 
-                    // 실시간 체결 패널 누적
-                    const tradeItem = {
-                        tradeId: Date.now().toString().substring(7) + Math.floor(Math.random() * 10),
-                        time: new Date().toTimeString().split(' ')[0],
-                        price: displayPrice,
-                        qty: actualQty,
-                        side: side === 0 ? 'BUY' : 'SELL'
-                    };
-                    recentTradesRef.current = [tradeItem, ...recentTradesRef.current].slice(0, 50);
+                    // 실시간 체결 패널 누적 제거 (Zustand 중앙 store의 tradesLog를 직접 참조하여 렌더링하므로 불필요)
                 }
             }
 
@@ -359,7 +358,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
             if (pingIntervalId) clearInterval(pingIntervalId);
             clearInterval(tpsIntervalId);
         };
-    }, [activeSymbol]);
+    }, [activeSymbol, wsUrl]);
 
     // 실시간 호가 정렬 렌더링 트리거
     const triggerRender = () => {
@@ -375,7 +374,6 @@ export const TradingTerminal: React.FC = React.memo(() => {
 
         setBidsList(bidsArr);
         setAsksList(asksArr.reverse()); // 화면에는 높은 매도 호가가 위에 깔려야 하므로 반전
-        setRecentTrades([...recentTradesRef.current]);
         setVolumePower(volumePowerRef.current);
 
         if (bidsArr.length > 0 && asksArr.length > 0) {

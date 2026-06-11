@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useExchangeStore, BTC_SYMBOL_ID, ADA_SYMBOL_ID, fetchWithAuth } from '../store/useExchangeStore';
 import { TradingViewChart } from './TradingViewChart';
 import { Layers, Wallet, X } from 'lucide-react';
@@ -59,6 +59,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
         activeSymbol,
         activeResolution,
         apiBaseUrl,
+        wsUrl,
+        tradesLog,
         setActiveSymbol,
         setActiveResolution
     } = useExchangeStore();
@@ -97,8 +99,19 @@ export const TradingTerminal: React.FC = React.memo(() => {
 
     // 로그 및 체결 이력 상태
     const [consoleLogs, setConsoleLogs] = useState<any[]>([]);
-    const [recentTrades, setRecentTrades] = useState<any[]>([]);
     const [, setStopLimitOrders] = useState<StopLimitOrder[]>([]);
+
+    const recentTrades = useMemo(() => {
+        return tradesLog
+            .filter(t => t.symbol === activeSymbol)
+            .map(t => ({
+                tradeId: t.tradeId,
+                time: new Date(t.executedAt).toTimeString().split(' ')[0],
+                price: t.price,
+                qty: t.qty,
+                side: t.side
+            }));
+    }, [tradesLog, activeSymbol]);
 
     // 입출금 팝업 제어
     const [showDepositModal, setShowDepositModal] = useState(false);
@@ -189,10 +202,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
 
     // 3. 바이너리 실시간 오더북/체결 스트리밍 게이트웨이 기동
     useEffect(() => {
-        const rawHost = window.location.hostname || '127.0.0.1';
-        const host = rawHost === 'localhost' ? '127.0.0.1' : rawHost;
-        const wsUrl = `ws://${host}:8088/ws`;
-
+        if (!wsUrl) return;
         appendLog('system', `초저지연 바이너리 웹소켓 연결 중: ${wsUrl}`);
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
@@ -262,7 +272,6 @@ export const TradingTerminal: React.FC = React.memo(() => {
             // 실시간 체결 처리 (qtyNum < 0)
             if (qtyNum < 0) {
                 const actualQty = Math.abs(qtyNum);
-                const displayPrice = priceNum / 100.0;
 
                 // 해당 종목 체결 시, 최종 체결가 및 실시간 틱 갱신
                 if (msgSymbol === activeSymbol) {
@@ -280,16 +289,6 @@ export const TradingTerminal: React.FC = React.memo(() => {
                     });
                     const power = sellSum > 0 ? (buySum / sellSum) * 100 : 100;
                     setVolumePower(power);
-
-                    // 실시간 체결 패널 누적
-                    const tradeItem = {
-                        tradeId: Date.now().toString().substring(7) + Math.floor(Math.random() * 10),
-                        time: new Date().toTimeString().split(' ')[0],
-                        price: displayPrice,
-                        qty: actualQty,
-                        side: side === 0 ? 'BUY' : 'SELL'
-                    };
-                    setRecentTrades(prev => [tradeItem, ...prev].slice(0, 50));
                 }
             }
 
@@ -326,7 +325,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
             if (pingIntervalId) clearInterval(pingIntervalId);
             clearInterval(tpsIntervalId);
         };
-    }, [activeSymbol]);
+    }, [activeSymbol, wsUrl]);
 
     // 실시간 호가 정렬 렌더링 트리거
     const triggerRender = () => {
