@@ -178,17 +178,20 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
     let tpsTimer: any = null;
     let updateTimer: any = null;
 
-    // ⚡ 버퍼 데이터 스토리지 (React 리렌더링 트리거 방지)
+    // ⚡ 버퍼 데이터 스토리지 및 최적화 상태 플래그
     const bidsMap = new Map<number, number>();
     const asksMap = new Map<number, number>();
     let recentTradesBuffer: TradeLog[] = [];
     let recentTradesPower: { side: number; qty: number; time: number }[] = [];
     let msgCount = 0;
+    let isDirty = false; // ⚡ 실시간 수신 데이터 변경 유무 플래그
 
     // ⚡ 실시간 UI 상태 일괄 동기화 (100ms 스로틀)
     const startUpdateLoop = () => {
         if (updateTimer) clearInterval(updateTimer);
         updateTimer = setInterval(() => {
+            if (!isDirty) return; // ⚡ 변경사항이 없으면 리렌더링 및 무의미 연산 스킵!
+
             const currentSymbol = get().activeSymbol;
 
             // 1. 오더북 10단 파싱 및 화면용 반전 정렬
@@ -220,26 +223,35 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             const power = sellSum > 0 ? (buySum / sellSum) * 100.0 : 100.0;
 
             // 3. 체결 내역 업데이트 및 상태 반영
+            let logsChanged = false;
             set((state) => {
-                let nextLogs = [...state.tradesLog];
+                let nextLogs = state.tradesLog; // ⚡ 변경 없을 시 얕은복사를 통한 불필요 참조 갱신 방지
                 if (recentTradesBuffer.length > 0) {
                     nextLogs = [...recentTradesBuffer, ...nextLogs].slice(0, 50);
                     recentTradesBuffer = [];
+                    logsChanged = true;
                 }
 
                 const matchingLogs = nextLogs.filter(t => t.symbol === currentSymbol);
                 const nextLastPrice = matchingLogs.length > 0 ? matchingLogs[0].price : state.lastPrice;
 
-                return {
+                const nextState: any = {
                     bids: bidsArr,
                     asks: [...asksArr].reverse(),
                     midPrice: mid,
                     spread: diff,
                     volumePower: power,
-                    tradesLog: nextLogs,
                     lastPrice: nextLastPrice
                 };
+
+                if (logsChanged) {
+                    nextState.tradesLog = nextLogs;
+                }
+
+                return nextState;
             });
+
+            isDirty = false; // ⚡ 플래그 초기화
         }, 100);
     };
 
@@ -335,6 +347,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 if (msgSymbol === currentSymbol) {
                     recentTradesPower.push({ side, qty: actualQty, time: Date.now() });
                 }
+                isDirty = true; // ⚡ 변경사항 기록
             } else {
                 if (msgSymbol === currentSymbol) {
                     const targetMap = side === 0 ? bidsMap : asksMap;
@@ -346,6 +359,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     } else {
                         targetMap.set(priceNum, nextQty);
                     }
+                    isDirty = true; // ⚡ 변경사항 기록
                 }
             }
         };
@@ -438,30 +452,40 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         },
 
         initStore: async () => {
+            let apiHost = window.location.hostname || '127.0.0.1';
+            if (apiHost === 'localhost') apiHost = '127.0.0.1';
+            let base = `http://${apiHost}:8181`;
+            let wsUrl = `ws://${apiHost}:8088/ws`;
+
             try {
                 // 1. config.json 동적 연동
                 const res = await fetch('/config.json');
                 if (res.ok) {
                     const config = await res.json();
                     if (config.API_BASE_URL) {
-                        const base = config.API_BASE_URL;
-                        const host = base.replace(/^https?:\/\//, '').split(':')[0];
-                        const wsUrl = `ws://${host}:8088/ws`;
-
-                        set({ apiBaseUrl: base, wsUrl });
-                        console.log(`[환경 구성] config.json 로드 성공. API: ${base}, WS: ${wsUrl}`);
+                        const configBase = config.API_BASE_URL;
+                        const configHost = configBase.replace(/^https?:\/\//, '').split(':')[0];
+                        
+                        // 현재 브라우저 주소창의 호스트가 localhost 혹은 127.0.0.1일 때만 config.json 신뢰
+                        // 그렇지 않을 때는 브라우저 접속 IP를 사용하여 자동 라우팅 보정
+                        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                            base = configBase;
+                            wsUrl = `ws://${configHost}:8088/ws`;
+                        }
                     }
                 }
             } catch (err) {
                 console.log('[환경 구성] config.json이 없으므로 브라우저 기본 로컬 설정을 활성화합니다.');
             }
 
+            set({ apiBaseUrl: base, wsUrl });
+            console.log(`[환경 구성 적용] API: ${base}, WS: ${wsUrl}`);
+
             // 최초 활성 심볼 스냅샷 적재
             await get().fetchFullSnapshot(get().activeSymbol);
 
             // 웹소켓 자동 접속 트리거
-            const currentWs = get().wsUrl;
-            connectWebSocket(currentWs);
+            connectWebSocket(wsUrl);
         },
 
         setActiveSymbol: (symbol) => {
