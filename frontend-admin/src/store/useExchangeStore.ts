@@ -184,15 +184,17 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
     let recentTradesBuffer: TradeLog[] = [];
     let recentTradesPower: { side: number; qty: number; time: number }[] = [];
     let msgCount = 0;
-    let isDirty = false; // ⚡ 실시간 수신 데이터 변경 유무 플래그
+    let orderbookChanged = false; // ⚡ 오더북 실질 데이터 변경 플래그
 
     // ⚡ 실시간 UI 상태 일괄 동기화 (100ms 스로틀)
     const startUpdateLoop = () => {
         if (updateTimer) clearInterval(updateTimer);
         updateTimer = setInterval(() => {
-            if (!isDirty) return; // ⚡ 변경사항이 없으면 리렌더링 및 무의미 연산 스킵!
-
             const currentSymbol = get().activeSymbol;
+            const hasNewTrades = recentTradesBuffer.length > 0;
+
+            // ⚡ 신규 체결 정보도 없고 오더북 변동도 없으면 렌더 업데이트 및 연산 전체 생략!
+            if (!hasNewTrades && !orderbookChanged) return;
 
             // 1. 오더북 10단 파싱 및 화면용 반전 정렬
             const bidsArr = Array.from(bidsMap.entries())
@@ -223,13 +225,11 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             const power = sellSum > 0 ? (buySum / sellSum) * 100.0 : 100.0;
 
             // 3. 체결 내역 업데이트 및 상태 반영
-            let logsChanged = false;
             set((state) => {
                 let nextLogs = state.tradesLog; // ⚡ 변경 없을 시 얕은복사를 통한 불필요 참조 갱신 방지
-                if (recentTradesBuffer.length > 0) {
+                if (hasNewTrades) {
                     nextLogs = [...recentTradesBuffer, ...nextLogs].slice(0, 50);
                     recentTradesBuffer = [];
-                    logsChanged = true;
                 }
 
                 const matchingLogs = nextLogs.filter(t => t.symbol === currentSymbol);
@@ -244,14 +244,14 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     lastPrice: nextLastPrice
                 };
 
-                if (logsChanged) {
+                if (hasNewTrades) {
                     nextState.tradesLog = nextLogs;
                 }
 
                 return nextState;
             });
 
-            isDirty = false; // ⚡ 플래그 초기화
+            orderbookChanged = false; // ⚡ 플래그 초기화
         }, 100);
     };
 
@@ -347,7 +347,6 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 if (msgSymbol === currentSymbol) {
                     recentTradesPower.push({ side, qty: actualQty, time: Date.now() });
                 }
-                isDirty = true; // ⚡ 변경사항 기록
             } else {
                 if (msgSymbol === currentSymbol) {
                     const targetMap = side === 0 ? bidsMap : asksMap;
@@ -359,7 +358,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     } else {
                         targetMap.set(priceNum, nextQty);
                     }
-                    isDirty = true; // ⚡ 변경사항 기록
+                    orderbookChanged = true; // ⚡ 변경사항 기록
                 }
             }
         };

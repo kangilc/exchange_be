@@ -305,15 +305,27 @@ export const TradingViewChart: React.FC = React.memo(() => {
             color: updatedCandle.close >= updatedCandle.open ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'
         });
 
-        // 이동평균 갱신
-        const closeValues = loadedBufferRef.current.map(c => ({ time: c.time as UTCTimestamp, value: c.close }));
-        if (closeValues.length >= 7 && ma7SeriesRef.current) {
-            const sma7 = calculateSMA(closeValues, 7);
-            ma7SeriesRef.current.update(sma7[sma7.length - 1]);
+        // 이동평균 갱신 최적화: 전체 SMA 이력 재계산을 피하고 최종 1점만 즉석 연산
+        const len = loadedBufferRef.current.length;
+        if (len >= 7 && ma7SeriesRef.current) {
+            let sum7 = 0;
+            for (let i = len - 7; i < len; i++) {
+                sum7 += loadedBufferRef.current[i].close;
+            }
+            ma7SeriesRef.current.update({
+                time: bucketTime,
+                value: sum7 / 7
+            });
         }
-        if (closeValues.length >= 25 && ma25SeriesRef.current) {
-            const sma25 = calculateSMA(closeValues, 25);
-            ma25SeriesRef.current.update(sma25[sma25.length - 1]);
+        if (len >= 25 && ma25SeriesRef.current) {
+            let sum25 = 0;
+            for (let i = len - 25; i < len; i++) {
+                sum25 += loadedBufferRef.current[i].close;
+            }
+            ma25SeriesRef.current.update({
+                time: bucketTime,
+                value: sum25 / 25
+            });
         }
     }, [lastPrice, activeResolution]);
 

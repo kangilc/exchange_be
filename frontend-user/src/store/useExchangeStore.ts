@@ -82,14 +82,16 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
     let updateTimer: any = null;
     let tpsTimer: any = null;
     let pingTimer: any = null;
-    let isDirty = false; // ⚡ 실시간 수신 데이터 변경 유무 플래그
+    let orderbookChanged = false; // ⚡ 오더북 실질 데이터 변경 플래그
 
     const startUpdateLoop = () => {
         if (updateTimer) clearInterval(updateTimer);
         updateTimer = setInterval(() => {
-            if (!isDirty) return; // ⚡ 변경 내역이 없으면 무의미한 상태 갱신 루프 탈출
-
             const currentSymbol = get().activeSymbol;
+            const hasNewTrades = recentTradesBuffer.length > 0;
+
+            // ⚡ 신규 체결 정보도 없고 오더북 변동도 없으면 렌더 업데이트 및 연산 전체 생략!
+            if (!hasNewTrades && !orderbookChanged) return;
 
             // 1. 체결강도 갱신 (최근 30초 필터)
             const now = Date.now();
@@ -120,15 +122,13 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 diff = topAsk - topBid;
             }
 
-            // 3. Zustand 스토어 일괄 업데이트 (최대 초당 10회로 렌더링 강제 제한)
-            let logsChanged = false;
+            // 3. Zustand 스토어 일괄 업데이트
             set((state) => {
                 let nextLogs = state.tradesLog; // ⚡ 변경 없을 시 얕은복사를 통한 불필요 참조 갱신 방지
-                if (recentTradesBuffer.length > 0) {
+                if (hasNewTrades) {
                     // 최신 체결건이 위로 가도록 반전 정렬하여 앞에 붙여줌
                     nextLogs = [...recentTradesBuffer.reverse(), ...state.tradesLog].slice(0, 50);
                     recentTradesBuffer = [];
-                    logsChanged = true;
                 }
 
                 const matchingLog = nextLogs.find(l => l.symbol === currentSymbol);
@@ -143,14 +143,14 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     lastPrice
                 };
 
-                if (logsChanged) {
+                if (hasNewTrades) {
                     nextState.tradesLog = nextLogs;
                 }
 
                 return nextState;
             });
 
-            isDirty = false; // ⚡ 플래그 초기화
+            orderbookChanged = false; // ⚡ 플래그 초기화
 
             // 차트 캔들 실시간 갱신 유도
             const finalPrice = get().lastPrice;
@@ -258,7 +258,6 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 if (msgSymbol === currentSymbol) {
                     recentTradesPower.push({ side, qty: actualQty, time: Date.now() });
                 }
-                isDirty = true; // ⚡ 변경사항 기록
             } else {
                 // ⚡ 임시 맵에 누적 (즉시 리렌더링 방지)
                 if (msgSymbol === currentSymbol) {
@@ -271,7 +270,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     } else {
                         targetMap.set(priceNum, nextQty);
                     }
-                    isDirty = true; // ⚡ 변경사항 기록
+                    orderbookChanged = true; // ⚡ 변경사항 기록
                 }
             }
         };
@@ -298,10 +297,9 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         throughput: 0,
 
         initStore: async () => {
-            let apiHost = window.location.hostname || '127.0.0.1';
-            if (apiHost === 'localhost') apiHost = '127.0.0.1';
-            let base = `http://${apiHost}:8181`;
-            let wsUrl = `ws://${apiHost}:8088/ws`;
+            const host = window.location.hostname || '127.0.0.1';
+            let base = `http://${host}:8181`;
+            let wsUrl = `ws://${host}:8088/ws`;
 
             try {
                 // config.json 동적 연동
@@ -312,9 +310,9 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                         const configBase = config.API_BASE_URL;
                         const configHost = configBase.replace(/^https?:\/\//, '').split(':')[0];
                         
-                        // 현재 브라우저 주소창의 호스트가 localhost 혹은 127.0.0.1일 때만 config.json 신뢰
-                        // 그렇지 않을 때는 브라우저 접속 IP를 사용하여 자동 라우팅 보정
-                        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        // config.json에 완전히 다른 원격 IP가 명시되어 있는 경우에만 이를 따르고,
+                        // 기본 로컬 환경일 경우 접속 주소 브라우저 IP(127.0.0.1/localhost 등)를 신뢰하여 바인딩
+                        if (configHost !== 'localhost' && configHost !== '127.0.0.1') {
                             base = configBase;
                             wsUrl = `ws://${configHost}:8088/ws`;
                         }
