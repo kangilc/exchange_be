@@ -26,6 +26,15 @@ Created a standalone SPA [admin.html](file:///home/administrator/exchange_be/fro
 
 ---
 
+### 3. Chart Resolutions Expansion (1W, 1MO, 1Y)
+- **Scale Optimization**: Added `findTop50000BySymbolOrderByCreatedAtDesc` to `TradeRepository` and expanded memory-based candle aggregation logic up to 50,000 trades in `StatsService` to correctly group trades into weekly, monthly, and yearly candles.
+- **Frontend Sync**: Integrated `1w`, `1mo`, and `1y` resolution buttons into the TradingView Lightweight Charts component (`TradingViewChart.tsx`) across all react modules (`frontend-admin`, `frontend-user`, and `frontend-react`).
+
+### 4. Promtail Log Rendering Fix
+- **Template Correction**: Replaced variable mapping using `.Entry` combined with the docker parser to eliminate `<no value>` output issues in Ganache JSON-RPC logs, rendering full Korean descriptions safely.
+
+---
+
 ## Verification Results
 
 We verified all backend and frontend services:
@@ -49,3 +58,5 @@ All endpoints are fully operational and return accurate data instantaneously!
 ### 2. UI Verification
 - Built the `admin.html` page cleanly, keeping elements responsive and visually optimized.
 - Confirmed there are no errors in CSS layout or script bindings. All charts render beautifully using **ApexCharts**.
+- Verified `1w`, `1mo`, and `1y` buttons and their chart drawings in all three React apps.
+- Verified that newer Ganache `eth_blockNumber` logs show up in Loki with descriptive text.
