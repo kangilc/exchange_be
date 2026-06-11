@@ -32,13 +32,10 @@ scrape_configs:
           selector: '{container="ganache"}'
           stages:
             - regex:
-                expression: '(?P<method>eth_blockNumber)'
+                expression: '(?P<is_blocknumber>eth_blockNumber)'
                 source: output
-            - match:
-                selector: '{method="eth_blockNumber"}'
-                stages:
-                  - template:
-                      source: output
-                      template: '{{ .Value }} (💡 admin-api의 Web3j 블록체인 최신 블록 높이/트랜잭션 확정 폴링)'
+            - template:
+                source: output
+                template: '{{ if .is_blocknumber }}{{ .Value }} (💡 admin-api의 Web3j 블록체인 최신 블록 높이/트랜잭션 확정 폴링){{ else }}{{ .Value }}{{ end }}'
       - output:
           source: output
