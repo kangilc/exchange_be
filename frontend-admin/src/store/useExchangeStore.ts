@@ -331,6 +331,21 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
             const currentSymbol = get().activeSymbol;
 
+            // 1. 호가창 잔량 반영 (증가/감소 모두 적용)
+            if (msgSymbol === currentSymbol) {
+                const targetMap = side === 0 ? bidsMap : asksMap;
+                const currentQty = targetMap.get(priceNum) || 0;
+                const nextQty = currentQty + qtyNum;
+
+                if (nextQty <= 0) {
+                    targetMap.delete(priceNum);
+                } else {
+                    targetMap.set(priceNum, nextQty);
+                }
+                orderbookChanged = true; // ⚡ 변경사항 기록
+            }
+
+            // 2. 음수 잔량일 경우 매칭(체결) 발생에 해당하므로 체결 내역에도 적재
             if (qtyNum < 0) {
                 const actualQty = Math.abs(qtyNum);
                 const actualPrice = priceNum / 100.0;
@@ -346,19 +361,6 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
                 if (msgSymbol === currentSymbol) {
                     recentTradesPower.push({ side, qty: actualQty, time: Date.now() });
-                }
-            } else {
-                if (msgSymbol === currentSymbol) {
-                    const targetMap = side === 0 ? bidsMap : asksMap;
-                    const currentQty = targetMap.get(priceNum) || 0;
-                    const nextQty = currentQty + qtyNum;
-
-                    if (nextQty <= 0) {
-                        targetMap.delete(priceNum);
-                    } else {
-                        targetMap.set(priceNum, nextQty);
-                    }
-                    orderbookChanged = true; // ⚡ 변경사항 기록
                 }
             }
         };
