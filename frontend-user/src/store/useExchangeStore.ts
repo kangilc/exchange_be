@@ -126,9 +126,11 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             set((state) => {
                 let nextLogs = state.tradesLog; // ⚡ 변경 없을 시 얕은복사를 통한 불필요 참조 갱신 방지
                 if (hasNewTrades) {
-                    // 최신 체결건이 위로 가도록 반전 정렬하여 앞에 붙여줌
-                    nextLogs = [...recentTradesBuffer.reverse(), ...state.tradesLog].slice(0, 50);
-                    recentTradesBuffer = [];
+                    // 최신 체결건이 위로 가도록 안전하게 복제 후 반전 정렬하여 앞에 붙여줌
+                    const copiedBuffer = [...recentTradesBuffer].reverse();
+                    nextLogs = [...copiedBuffer, ...state.tradesLog].slice(0, 50);
+                    // ⚡ 배열의 메모리 주소(참조)를 유지한 채 내용만 완전히 비워 경합 및 클로저 꼬임 해결
+                    recentTradesBuffer.length = 0;
                 }
 
                 const matchingLog = nextLogs.find(l => l.symbol === currentSymbol);
