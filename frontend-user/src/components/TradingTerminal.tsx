@@ -14,22 +14,22 @@ interface StopLimitOrder {
     status: string;
 }
 
-// ⚡ 체결 발생(Trade Execution) 시에만 네온 깜빡임 이펙트(Neon Flash)를 감지하는 호가별 Row 컴포넌트
+// ⚡ 실시간 잔량 증감에 따른 네온 깜빡임 이펙트(Neon Flash)를 감지하는 호가별 Row 컴포넌트
 const OrderBookRow: React.FC<{
     price: number;
     qty: number;
     side: 'ask' | 'bid';
     barWidth: number;
     cumVal: number;
-    lastExecTime?: number;
+    lastChanged?: number;
     onClick?: () => void;
-}> = React.memo(({ price, qty, side, barWidth, cumVal, lastExecTime = 0, onClick }) => {
-    const prevExecTime = useRef<number>(lastExecTime);
+}> = React.memo(({ price, qty, side, barWidth, cumVal, lastChanged = 0, onClick }) => {
+    const prevChanged = useRef<number>(lastChanged);
     const [flashClass, setFlashClass] = useState<string>('');
 
     useEffect(() => {
-        if (lastExecTime > 0 && lastExecTime !== prevExecTime.current) {
-            // 체결 시에만 반짝임 효과 적용 (녹색/적색 네온 효과 활용)
+        // 호가 수량이 변하여 lastChanged 타임스탬프가 변경되었을 때만 반짝임 효과 적용 (최초 렌더링 시에는 제외)
+        if (lastChanged > 0 && lastChanged !== prevChanged.current) {
             const newClass = side === 'ask' ? 'flash-ask-inc' : 'flash-bid-inc';
             setFlashClass(newClass);
             
@@ -38,10 +38,11 @@ const OrderBookRow: React.FC<{
                 setFlashClass('');
             }, 450);
             
-            prevExecTime.current = lastExecTime;
+            prevChanged.current = lastChanged;
             return () => clearTimeout(timer);
         }
-    }, [lastExecTime, side]);
+        prevChanged.current = lastChanged;
+    }, [lastChanged, side]);
 
     return (
         <div 
@@ -110,6 +111,54 @@ const OrderBookLadder: React.FC<OrderBookLadderProps> = React.memo(({ fiat, coin
     const spread = useExchangeStore(state => state.spread);
     const volumePower = useExchangeStore(state => state.volumePower);
 
+    // 가격별 이전 수량과 마지막 변경 시점(타임스탬프)을 보관하여 리마운트 후에도 깜빡임 상태를 복원
+    const asksFlashMapRef = useRef<Map<number, { qty: number; lastChanged: number }>>(new Map());
+    const bidsFlashMapRef = useRef<Map<number, { qty: number; lastChanged: number }>>(new Map());
+
+    // 매도 호가 변경 감지
+    const asksWithFlash = useMemo(() => {
+        const now = Date.now();
+        const prevMap = asksFlashMapRef.current;
+        const nextMap = new Map<number, { qty: number; lastChanged: number }>();
+
+        const result = asksList.map(([price, qty]) => {
+            const prev = prevMap.get(price);
+            let lastChanged = prev ? prev.lastChanged : 0;
+
+            if (prev && prev.qty !== qty) {
+                lastChanged = now;
+            }
+
+            nextMap.set(price, { qty, lastChanged });
+            return { price, qty, lastChanged };
+        });
+
+        asksFlashMapRef.current = nextMap;
+        return result;
+    }, [asksList]);
+
+    // 매수 호가 변경 감지
+    const bidsWithFlash = useMemo(() => {
+        const now = Date.now();
+        const prevMap = bidsFlashMapRef.current;
+        const nextMap = new Map<number, { qty: number; lastChanged: number }>();
+
+        const result = bidsList.map(([price, qty]) => {
+            const prev = prevMap.get(price);
+            let lastChanged = prev ? prev.lastChanged : 0;
+
+            if (prev && prev.qty !== qty) {
+                lastChanged = now;
+            }
+
+            nextMap.set(price, { qty, lastChanged });
+            return { price, qty, lastChanged };
+        });
+
+        bidsFlashMapRef.current = nextMap;
+        return result;
+    }, [bidsList]);
+
     return (
         <div className={`${mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col overflow-hidden h-[calc(100vh-120px)] min-h-[650px] order-1 xl:order-none`}>
             <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/2">
@@ -131,17 +180,16 @@ const OrderBookLadder: React.FC<OrderBookLadderProps> = React.memo(({ fiat, coin
                 {/* Ask Side (Sell) */}
                 <div className="flex-1 flex flex-col justify-end divide-y divide-white/2 min-h-0">
                     {(() => {
-                        const asksWithCum = [...asksList];
                         let cum = 0;
-                        const cumList: number[] = new Array(asksWithCum.length);
-                        for (let i = asksWithCum.length - 1; i >= 0; i--) {
-                            cum += asksWithCum[i][1];
+                        const cumList: number[] = new Array(asksWithFlash.length);
+                        for (let i = asksWithFlash.length - 1; i >= 0; i--) {
+                            cum += asksWithFlash[i].qty;
                             cumList[i] = cum;
                         }
                         const maxCum = cum > 0 ? cum : 1;
 
-                        return asksWithCum.map(([price, qty]) => {
-                            const cumVal = cumList[asksWithCum.findIndex(a => a[0] === price)];
+                        return asksWithFlash.map(({ price, qty, lastChanged }) => {
+                            const cumVal = cumList[asksWithFlash.findIndex(a => a.price === price)];
                             const barWidth = Math.min((qty / maxCum) * 350, 100);
                             return (
                                 <OrderBookRow
@@ -151,7 +199,7 @@ const OrderBookLadder: React.FC<OrderBookLadderProps> = React.memo(({ fiat, coin
                                     side="ask"
                                     barWidth={barWidth}
                                     cumVal={cumVal}
-                                    lastExecTime={0}
+                                    lastChanged={lastChanged}
                                     onClick={() => {
                                         setOrderPrice((price / 100.0).toString());
                                         if (orderType === 'MARKET') {
@@ -178,13 +226,13 @@ const OrderBookLadder: React.FC<OrderBookLadderProps> = React.memo(({ fiat, coin
                 <div className="flex-1 flex flex-col justify-start divide-y divide-white/2 min-h-0">
                     {(() => {
                         let cum = 0;
-                        const cumList = bidsList.map(([_, qty]) => {
+                        const cumList = bidsWithFlash.map(({ qty }) => {
                             cum += qty;
                             return cum;
                         });
                         const maxCum = cum > 0 ? cum : 1;
 
-                        return bidsList.map(([price, qty], idx) => {
+                        return bidsWithFlash.map(({ price, qty, lastChanged }, idx) => {
                             const cumVal = cumList[idx];
                             const barWidth = Math.min((qty / maxCum) * 350, 100);
                             return (
@@ -195,7 +243,7 @@ const OrderBookLadder: React.FC<OrderBookLadderProps> = React.memo(({ fiat, coin
                                     side="bid"
                                     barWidth={barWidth}
                                     cumVal={cumVal}
-                                    lastExecTime={0}
+                                    lastChanged={lastChanged}
                                     onClick={() => {
                                         setOrderPrice((price / 100.0).toString());
                                         if (orderType === 'MARKET') {
