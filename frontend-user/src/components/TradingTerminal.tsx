@@ -111,7 +111,7 @@ const OrderBookLadder: React.FC<OrderBookLadderProps> = React.memo(({ fiat, coin
     const volumePower = useExchangeStore(state => state.volumePower);
 
     return (
-        <div className={`${mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col overflow-hidden h-[830px] order-1 xl:order-none`}>
+        <div className={`${mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col overflow-hidden h-[calc(100vh-120px)] min-h-[650px] order-1 xl:order-none`}>
             <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/2">
                 <span className="text-sm font-extrabold text-white flex items-center gap-2">
                     <Layers size={14} className="text-[#8a2be2]" />
@@ -127,9 +127,9 @@ const OrderBookLadder: React.FC<OrderBookLadderProps> = React.memo(({ fiat, coin
                 <span className="text-right">누적 ({coin})</span>
             </div>
 
-            <div className="flex-1 flex flex-col font-mono text-[10px]">
+            <div className="flex-1 flex flex-col font-mono text-[10px] min-h-0">
                 {/* Ask Side (Sell) */}
-                <div className="flex-1 flex flex-col justify-end divide-y divide-white/2">
+                <div className="flex-1 flex flex-col justify-end divide-y divide-white/2 min-h-0">
                     {(() => {
                         const asksWithCum = [...asksList];
                         let cum = 0;
@@ -175,7 +175,7 @@ const OrderBookLadder: React.FC<OrderBookLadderProps> = React.memo(({ fiat, coin
                 </div>
 
                 {/* Bid Side (Buy) */}
-                <div className="flex-1 flex flex-col justify-start divide-y divide-white/2">
+                <div className="flex-1 flex flex-col justify-start divide-y divide-white/2 min-h-0">
                     {(() => {
                         let cum = 0;
                         const cumList = bidsList.map(([_, qty]) => {
@@ -772,7 +772,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                 />
 
                 {/* 2. Middle Panel: Chart + Order Input (중앙 2~3열 - 데스크톱 4열 그리드 규격 준수) */}
-                <div className={`${mobileTab === 'chart' || mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex xl:col-span-2 flex-col gap-6 h-[830px]`}>
+                <div className={`${mobileTab === 'chart' || mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex xl:col-span-2 flex-col gap-6 h-[calc(100vh-120px)] min-h-[650px]`}>
                     
                     {/* Chart Window (모바일 차트 탭 혹은 데스크톱에서만 상시 노출) */}
                     <div className={`${mobileTab === 'chart' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-4 flex-col gap-3 flex-1 overflow-hidden relative`}>
@@ -832,7 +832,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                 </div>
 
                 {/* 3. smart Portfolio & Real-time Trades List (우측 4열) */}
-                <div className={`${mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex flex-col gap-6 h-[830px] xl:col-span-1`}>
+                <div className={`${mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex flex-col gap-6 h-[calc(100vh-120px)] min-h-[650px] xl:col-span-1`}>
                     {/* Portfolio Asset Balance Card */}
                     <PortfolioStatus
                         balances={balances}
