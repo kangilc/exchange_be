@@ -79,6 +79,9 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
     const [selectedSide, setSelectedSide] = useState<'BUY' | 'SELL'>('BUY');
     const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET' | 'STOP'>('LIMIT');
+    
+    // ⚡ 모바일 화면 전용 상단 탭 분리 제어 상태 ('trade' = 호가/주문/체결, 'chart' = 시세 차트)
+    const [mobileTab, setMobileTab] = useState<'trade' | 'chart'>('trade');
 
     // 입력 폼 상태
     const [orderPrice, setOrderPrice] = useState<string>('');
@@ -331,7 +334,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const coin = isBtc ? 'BTC' : 'ADA';
 
     return (
-        <div className="flex-1 flex flex-col gap-6 p-8 overflow-y-auto max-w-[1600px] animate-fade-in">
+        <div className="flex-1 flex flex-col gap-6 p-4 md:p-8 overflow-y-auto max-w-[1600px] animate-fade-in">
             {/* Header Mini Status bar */}
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
                 <div className="flex items-center gap-4 text-xs font-bold">
@@ -346,27 +349,43 @@ export const TradingTerminal: React.FC = React.memo(() => {
                         <span>{isLiveMode ? '실계좌 연동 모드 (Live DB)' : '모의투자 샌드박스 (Sandbox)'}</span>
                     </button>
 
-                    <div className="stat-item flex items-center gap-1.5 text-slate-400">
+                    <div className="stat-item hidden sm:flex items-center gap-1.5 text-slate-400">
                         <span>RTT 지연:</span>
                         <span className="font-mono text-emerald-400">{latency} ms</span>
                     </div>
 
-                    <div className="stat-item flex items-center gap-1.5 text-slate-400">
+                    <div className="stat-item hidden sm:flex items-center gap-1.5 text-slate-400">
                         <span>이벤트 TPS:</span>
                         <span className="font-mono text-[#8a2be2]">{throughput} msgs/s</span>
                     </div>
                 </div>
 
-                <div className="marquee-bar text-xs text-slate-500 font-semibold tracking-tight overflow-hidden w-[400px] text-right">
+                <div className="marquee-bar text-xs text-slate-500 font-semibold tracking-tight overflow-hidden w-[200px] sm:w-[400px] text-right">
                     📢 [안내] 실시간 고성능 바이너리 웹소켓 게이트웨이 정상 가동 중
                 </div>
+            </div>
+
+            {/* ⚡ 모바일 전용 상단 탭 네비게이션 바 (데스크톱 xl 이상에서는 숨김) */}
+            <div className="flex xl:hidden bg-slate-950/60 border border-white/5 rounded-xl p-1 font-extrabold text-xs">
+                <button
+                    onClick={() => setMobileTab('trade')}
+                    className={`flex-1 py-3 rounded-lg text-center transition-all duration-150 ${mobileTab === 'trade' ? 'bg-[#8a2be2] text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-white'}`}
+                >
+                    호가 및 모의 주문
+                </button>
+                <button
+                    onClick={() => setMobileTab('chart')}
+                    className={`flex-1 py-3 rounded-lg text-center transition-all duration-150 ${mobileTab === 'chart' ? 'bg-[#8a2be2] text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-white'}`}
+                >
+                    실시간 시세 차트
+                </button>
             </div>
 
             {/* Main Trading Area Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
                 
-                {/* 1. Real-time Orderbook Ladder (좌측 1열) */}
-                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl flex flex-col overflow-hidden h-[830px]">
+                {/* 1. Real-time Orderbook Ladder (좌측 1열 - 모바일에서는 trade 탭일때 최상단 order-1 배치) */}
+                <div className={`${mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col overflow-hidden h-[830px] order-1 xl:order-none`}>
                     <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/2">
                         <span className="text-sm font-extrabold text-white flex items-center gap-2">
                             <Layers size={14} className="text-[#8a2be2]" />
@@ -465,8 +484,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
                     </div>
                 </div>
 
-                {/* 2. Middle Panel: Chart + Order Input (중앙 2~3열) */}
-                <div className="xl:col-span-2 flex flex-col gap-6 h-[830px]">
+                {/* 2. Middle Panel: Chart (중앙 2~3열 - 모바일 탭 상태 분기 및 성능 최적화형) */}
+                <div className={`${mobileTab === 'chart' ? 'flex' : 'hidden'} xl:flex xl:col-span-2 flex-col gap-6 h-[830px] order-none`}>
                     {/* Chart Window */}
                     <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-4 flex flex-col gap-3 flex-1 overflow-hidden relative">
                         <div className="flex items-center justify-between border-b border-white/5 pb-2">
@@ -500,130 +519,138 @@ export const TradingTerminal: React.FC = React.memo(() => {
                             </div>
                         </div>
                         <div className="flex-1 w-full relative">
+                            {/* ⚡ 차트는 호가창의 과도한 깜빡임 상태와 완전히 격리되어 렌더링되도록 구현되어 프레임 병목이 발생하지 않습니다. */}
                             <TradingViewChart />
                         </div>
                     </div>
+                </div>
 
-                    {/* Order Terminal Input */}
-                    <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex flex-col gap-4">
-                        <div className="flex bg-white/2 border border-white/5 rounded-xl p-0.5 font-bold text-xs">
-                            <button
-                                onClick={() => setSelectedSide('BUY')}
-                                className={`flex-1 py-2.5 rounded-lg transition-all ${selectedSide === 'BUY' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-                            >
-                                매수 (BUY)
-                            </button>
-                            <button
-                                onClick={() => setSelectedSide('SELL')}
-                                className={`flex-1 py-2.5 rounded-lg transition-all ${selectedSide === 'SELL' ? 'bg-rose-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-                            >
-                                매도 (SELL)
-                            </button>
-                        </div>
+                {/* 3. Order Terminal Input (모바일에서는 trade 탭일때 호가창 아래 order-2 배치) */}
+                <div className={`${mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex xl:col-span-1 bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex-col gap-4 order-2 xl:order-none`}>
+                    <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex justify-between items-center">
+                        <span className="flex items-center gap-2">
+                            <Layers size={14} className="text-[#8a2be2]" />
+                            모의 주문 콘솔
+                        </span>
+                    </div>
+                    
+                    <div className="flex bg-white/2 border border-white/5 rounded-xl p-0.5 font-bold text-xs">
+                        <button
+                            onClick={() => setSelectedSide('BUY')}
+                            className={`flex-1 py-2.5 rounded-lg transition-all ${selectedSide === 'BUY' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                        >
+                            매수 (BUY)
+                        </button>
+                        <button
+                            onClick={() => setSelectedSide('SELL')}
+                            className={`flex-1 py-2.5 rounded-lg transition-all ${selectedSide === 'SELL' ? 'bg-rose-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                        >
+                            매도 (SELL)
+                        </button>
+                    </div>
 
-                        <form onSubmit={handleOrderSubmit} className="grid grid-cols-2 gap-4 text-xs font-semibold">
-                            <div className="flex flex-col gap-3">
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-slate-400 uppercase text-[10px]">주문 구분</label>
-                                    <div className="flex bg-white/2 border border-white/5 rounded-lg p-0.5 font-bold">
-                                        <button
-                                            type="button"
-                                            onClick={() => setOrderType('LIMIT')}
-                                            className={`flex-1 py-2 rounded-md text-[10px] transition-all ${orderType === 'LIMIT' ? 'bg-[#8a2be2] text-white' : 'text-slate-400 hover:text-white'}`}
-                                        >
-                                            LIMIT
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setOrderType('MARKET')}
-                                            className={`flex-1 py-2 rounded-md text-[10px] transition-all ${orderType === 'MARKET' ? 'bg-[#8a2be2] text-white' : 'text-slate-400 hover:text-white'}`}
-                                        >
-                                            MARKET
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setOrderType('STOP')}
-                                            className={`flex-1 py-2 rounded-md text-[10px] transition-all ${orderType === 'STOP' ? 'bg-[#8a2be2] text-white' : 'text-slate-400 hover:text-white'}`}
-                                        >
-                                            STOP
-                                        </button>
-                                    </div>
+                    <form onSubmit={handleOrderSubmit} className="flex flex-col gap-4 text-xs font-semibold">
+                        <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className="text-slate-400 uppercase text-[10px]">주문 구분</label>
+                                <div className="flex bg-white/2 border border-white/5 rounded-lg p-0.5 font-bold">
+                                    <button
+                                        type="button"
+                                        onClick={() => setOrderType('LIMIT')}
+                                        className={`flex-1 py-2 rounded-md text-[10px] transition-all ${orderType === 'LIMIT' ? 'bg-[#8a2be2] text-white' : 'text-slate-400 hover:text-white'}`}
+                                    >
+                                        LIMIT
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setOrderType('MARKET')}
+                                        className={`flex-1 py-2 rounded-md text-[10px] transition-all ${orderType === 'MARKET' ? 'bg-[#8a2be2] text-white' : 'text-slate-400 hover:text-white'}`}
+                                    >
+                                        MARKET
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setOrderType('STOP')}
+                                        className={`flex-1 py-2 rounded-md text-[10px] transition-all ${orderType === 'STOP' ? 'bg-[#8a2be2] text-white' : 'text-slate-400 hover:text-white'}`}
+                                    >
+                                        STOP
+                                    </button>
                                 </div>
-
-                                {orderType === 'STOP' && (
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-slate-400 uppercase text-[10px] text-amber-500">감시 가격 (Trigger Price)</label>
-                                        <div className="relative flex items-center">
-                                            <input 
-                                                type="number" 
-                                                value={stopPrice}
-                                                onChange={(e) => setStopPrice(e.target.value)}
-                                                className="w-full p-2.5 bg-black/30 border border-amber-500/40 rounded-lg text-white font-mono font-bold outline-none"
-                                            />
-                                            <span className="absolute right-3 text-amber-500 font-bold">{fiat}</span>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {orderType !== 'MARKET' && (
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-slate-400 uppercase text-[10px]">주문 가격</label>
-                                        <div className="relative flex items-center">
-                                            <input 
-                                                type="number" 
-                                                value={orderPrice}
-                                                onChange={(e) => setOrderPrice(e.target.value)}
-                                                className="w-full p-2.5 bg-black/30 border border-white/10 rounded-lg text-white font-mono font-bold outline-none focus:border-[#8a2be2]"
-                                            />
-                                            <span className="absolute right-3 text-slate-400 font-bold">{fiat}</span>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
 
-                            <div className="flex flex-col gap-3">
+                            {orderType === 'STOP' && (
                                 <div className="flex flex-col gap-1">
-                                    <div className="flex justify-between items-center">
-                                        <label className="text-slate-400 uppercase text-[10px]">주문 수량</label>
-                                        <span className="text-[9px] text-[#00f2fe] font-bold">
-                                            주문가능: {selectedSide === 'BUY' ? `${balances[fiat].toLocaleString()} ${fiat}` : `${balances[coin].toLocaleString()} ${coin}`}
-                                        </span>
-                                    </div>
+                                    <label className="text-slate-400 uppercase text-[10px] text-amber-500">감시 가격 (Trigger Price)</label>
                                     <div className="relative flex items-center">
                                         <input 
                                             type="number" 
-                                            value={orderQty}
-                                            onChange={(e) => setOrderQty(e.target.value)}
-                                            className="w-full p-2.5 bg-black/30 border border-white/10 rounded-lg text-white font-mono font-bold outline-none focus:border-[#8a2be2]"
+                                            value={stopPrice}
+                                            onChange={(e) => setStopPrice(e.target.value)}
+                                            className="w-full p-2.5 bg-black/30 border border-amber-500/40 rounded-lg text-white font-mono font-bold outline-none"
                                         />
-                                        <span className="absolute right-3 text-slate-400 font-bold">{coin}</span>
+                                        <span className="absolute right-3 text-amber-500 font-bold">{fiat}</span>
                                     </div>
                                 </div>
+                            )}
 
-                                <div className="flex justify-between items-center bg-white/2 border border-white/5 rounded-xl p-3.5 mt-1">
-                                    <span className="text-[10px] text-slate-400 font-bold uppercase">주문 총액</span>
-                                    <span className="text-lg font-black font-mono text-[#00f2fe]">
-                                        {orderType === 'MARKET'
-                                            ? 'MARKET PRICE'
-                                            : `${((parseFloat(orderPrice) || 0) * (parseFloat(orderQty) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${fiat}`}
+                            {orderType !== 'MARKET' && (
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-slate-400 uppercase text-[10px]">주문 가격</label>
+                                    <div className="relative flex items-center">
+                                        <input 
+                                            type="number" 
+                                            value={orderPrice}
+                                            onChange={(e) => setOrderPrice(e.target.value)}
+                                            className="w-full p-2.5 bg-black/30 border border-white/10 rounded-lg text-white font-mono font-bold outline-none focus:border-[#8a2be2]"
+                                        />
+                                        <span className="absolute right-3 text-slate-400 font-bold">{fiat}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-1">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-slate-400 uppercase text-[10px]">주문 수량</label>
+                                    <span className="text-[9px] text-[#00f2fe] font-bold">
+                                        주문가능: {selectedSide === 'BUY' ? `${balances[fiat].toLocaleString()} ${fiat}` : `${balances[coin].toLocaleString()} ${coin}`}
                                     </span>
                                 </div>
-
-                                <button
-                                    type="submit"
-                                    className={`w-full py-3.5 rounded-xl font-extrabold text-white text-sm shadow-xl transition-all hover:scale-[1.01] ${selectedSide === 'BUY' ? 'bg-gradient-to-r from-emerald-600 to-emerald-400' : 'bg-gradient-to-r from-rose-600 to-rose-400'}`}
-                                >
-                                    {selectedSide === 'BUY' ? '매수 주문 전송' : '매도 주문 전송'}
-                                </button>
+                                <div className="relative flex items-center">
+                                    <input 
+                                        type="number" 
+                                        value={orderQty}
+                                        onChange={(e) => setOrderQty(e.target.value)}
+                                        className="w-full p-2.5 bg-black/30 border border-white/10 rounded-lg text-white font-mono font-bold outline-none focus:border-[#8a2be2]"
+                                    />
+                                    <span className="absolute right-3 text-slate-400 font-bold">{coin}</span>
+                                </div>
                             </div>
-                        </form>
-                    </div>
+
+                            <div className="flex justify-between items-center bg-white/2 border border-white/5 rounded-xl p-3.5 mt-1">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase">주문 총액</span>
+                                <span className="text-lg font-black font-mono text-[#00f2fe]">
+                                    {orderType === 'MARKET'
+                                        ? 'MARKET PRICE'
+                                        : `${((parseFloat(orderPrice) || 0) * (parseFloat(orderQty) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${fiat}`}
+                                </span>
+                            </div>
+
+                            <button
+                                type="submit"
+                                className={`w-full py-3.5 rounded-xl font-extrabold text-white text-sm shadow-xl transition-all hover:scale-[1.01] ${selectedSide === 'BUY' ? 'bg-gradient-to-r from-emerald-600 to-emerald-400' : 'bg-gradient-to-r from-rose-600 to-rose-400'}`}
+                            >
+                                {selectedSide === 'BUY' ? '매수 주문 전송' : '매도 주문 전송'}
+                            </button>
+                        </div>
+                    </form>
                 </div>
 
-                {/* 3. smart Portfolio & Real-time Trades List (우측 4열) */}
-                <div className="flex flex-col gap-6 h-[830px]">
-                    {/* Portfolio Asset Balance Card */}
-                    <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex flex-col gap-4">
+                {/* 4. Smart Portfolio & Real-time Trades List (우측 4열) */}
+                <div className="flex flex-col gap-6 h-[830px] order-3 xl:order-none">
+                    {/* Portfolio Asset Balance Card (모바일에서는 trade 탭일때 하단 order-4 배치) */}
+                    <div className={`${mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex-col gap-4 order-4 xl:order-none`}>
                         <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex justify-between items-center">
                             <span className="flex items-center gap-2">
                                 <Wallet size={14} className="text-[#8a2be2]" />
@@ -675,8 +702,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
                         </div>
                     </div>
 
-                    {/* Real-time Trades List */}
-                    <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl flex flex-col flex-1 overflow-hidden">
+                    {/* Real-time Trades List (모바일에서는 trade 탭일때 주문창 바로 아래 order-3 배치) */}
+                    <div className={`${mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col flex-1 overflow-hidden order-3 xl:order-none h-[400px] xl:h-auto`}>
                         <div className="p-4 border-b border-white/5 bg-white/2 text-sm font-extrabold text-white">
                             실시간 체결 내역
                         </div>
