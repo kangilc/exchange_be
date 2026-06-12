@@ -300,9 +300,10 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         throughput: 0,
 
         initStore: async () => {
-            const host = window.location.hostname || '127.0.0.1';
-            let base = `http://${host}:8181`;
-            let wsUrl = `ws://${host}:8088/ws`;
+            let apiHost = window.location.hostname || '127.0.0.1';
+            if (apiHost === 'localhost') apiHost = '127.0.0.1';
+            let base = `http://${apiHost}:8181`;
+            let wsUrl = `ws://${apiHost}:8088/ws`;
 
             try {
                 // config.json 동적 연동
