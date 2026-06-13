@@ -168,8 +168,8 @@ CREATE INDEX IF NOT EXISTS idx_ledger_journal_user_type_created_at ON ledger_jou
 CREATE INDEX IF NOT EXISTS idx_ledger_journal_user_currency_created_at ON ledger_journal(user_id, currency, created_at DESC);
 
 -- 체결 내역 조회 최적화 (마켓별 최근 체결 및 차트 데이터 생성용)
-CREATE INDEX IF NOT EXISTS idx_trades_symbol_created_at ON trades(symbol, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_trades_created_at ON trades(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trades_symbol_executed_at ON trades(symbol, executed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trades_executed_at ON trades(executed_at DESC);
 -- 주문 삭제 시 CASCADE Sequential Scan 성능 저하 방지를 위한 외래키(FK) 인덱스
 CREATE INDEX IF NOT EXISTS idx_trades_buy_order_id ON trades(buy_order_id);
 CREATE INDEX IF NOT EXISTS idx_trades_sell_order_id ON trades(sell_order_id);
