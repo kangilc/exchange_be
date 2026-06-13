@@ -59,11 +59,11 @@ const OrderBookRow: React.FC<{
                 className={`absolute top-0 bottom-0 transition-all duration-300 pointer-events-none ${side === 'ask' ? 'left-0 bg-blue-500/10' : 'right-0 bg-rose-500/10'}`} 
                 style={{ width: `${barWidth}%` }} 
             />
-            <div className="flex flex-col relative z-10">
+            <div className="flex items-center gap-1.5 relative z-10">
                 <span className={`font-bold ${side === 'ask' ? 'text-blue-400' : 'text-rose-400'}`}>
                     {realPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </span>
-                <span className={`text-[9px] font-bold ${changeColor}`}>
+                <span className={`text-[9px] font-bold ${changeColor} opacity-90`}>
                     {percentText}
                 </span>
             </div>

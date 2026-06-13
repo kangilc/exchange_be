@@ -157,9 +157,9 @@ export function updateOrderbookUI() {
             const changeClass = diffPercent > 0 ? 'up' : (diffPercent < 0 ? 'down' : 'stable');
 
             priceCell.innerHTML = `
-                <div class="price-wrapper" style="display: flex; flex-direction: column; align-items: center; line-height: 1.2;">
-                    <span class="price-val">${(price / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    <span class="price-change ${changeClass}" style="font-size: 0.65rem; font-weight: bold; margin-top: 1px;">${percentText}</span>
+                <div class="price-wrapper" style="display: flex; align-items: center; gap: 0.35rem; justify-content: center; width: 100%;">
+                    <span class="price-val" style="font-weight: 700;">${(price / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span class="price-change ${changeClass}" style="font-size: 0.65rem; font-weight: bold; opacity: 0.85;">${percentText}</span>
                 </div>
             `;
             qtyVal.innerText = qty.toLocaleString();
@@ -231,9 +231,9 @@ export function updateOrderbookUI() {
             const changeClass = diffPercent > 0 ? 'up' : (diffPercent < 0 ? 'down' : 'stable');
 
             priceCell.innerHTML = `
-                <div class="price-wrapper" style="display: flex; flex-direction: column; align-items: center; line-height: 1.2;">
-                    <span class="price-val">${(price / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    <span class="price-change ${changeClass}" style="font-size: 0.65rem; font-weight: bold; margin-top: 1px;">${percentText}</span>
+                <div class="price-wrapper" style="display: flex; align-items: center; gap: 0.35rem; justify-content: center; width: 100%;">
+                    <span class="price-val" style="font-weight: 700;">${(price / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span class="price-change ${changeClass}" style="font-size: 0.65rem; font-weight: bold; opacity: 0.85;">${percentText}</span>
                 </div>
             `;
             qtyVal.innerText = qty.toLocaleString();
