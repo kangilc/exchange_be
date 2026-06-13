@@ -155,17 +155,26 @@ export const TradingTerminal: React.FC = React.memo(() => {
         return result;
     }, [bidsList]);
 
-    // 실시간 체결 리스트 메모화 가공
+    // 실시간 체결 리스트 메모화 가공 (날짜 파싱 예외 방어 적용)
     const recentTrades = useMemo(() => {
         return tradesLog
-            .filter(t => t.symbol === activeSymbol)
-            .map(t => ({
-                tradeId: t.tradeId,
-                time: new Date(t.executedAt).toTimeString().split(' ')[0],
-                price: t.price,
-                qty: t.qty,
-                side: t.side
-            }));
+            .filter(t => t && t.symbol === activeSymbol)
+            .map(t => {
+                let timeStr = '--:--:--';
+                if (t.executedAt) {
+                    const d = new Date(t.executedAt);
+                    if (!isNaN(d.getTime())) {
+                        timeStr = d.toTimeString().split(' ')[0];
+                    }
+                }
+                return {
+                    tradeId: t.tradeId || Math.random().toString(),
+                    time: timeStr,
+                    price: t.price || 0,
+                    qty: t.qty || 0,
+                    side: t.side || 'BUY'
+                };
+            });
     }, [tradesLog, activeSymbol]);
 
     // 심볼별 기본 디폴트 금액 세팅
