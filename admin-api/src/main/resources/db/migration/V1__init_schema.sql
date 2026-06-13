@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS trades (
     qty BIGINT NOT NULL,
     fee_rate NUMERIC(10, 6) DEFAULT 0.0,
     fee_amount NUMERIC(36, 18) DEFAULT 0.0,
-    executed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(100),
     updated_by VARCHAR(100)
@@ -154,7 +154,7 @@ COMMENT ON COLUMN trades.buy_order_id IS '매수 주문 ID (orders.order_id 참�
 COMMENT ON COLUMN trades.sell_order_id IS '매도 주문 ID (orders.order_id 참조)';
 COMMENT ON COLUMN trades.price IS '체결 가격';
 COMMENT ON COLUMN trades.qty IS '체결 수량';
-COMMENT ON COLUMN trades.executed_at IS '체결 일시';
+COMMENT ON COLUMN trades.created_at IS '체결 일시';
 
 COMMENT ON TABLE ledger_journal IS '자산 변경 이력 (원장 분개장)';
 COMMENT ON COLUMN ledger_journal.journal_id IS '원장 기록 고유 일련번호';
@@ -173,8 +173,8 @@ CREATE INDEX IF NOT EXISTS idx_ledger_journal_user_type_created_at ON ledger_jou
 CREATE INDEX IF NOT EXISTS idx_ledger_journal_user_currency_created_at ON ledger_journal(user_id, currency, created_at DESC);
 
 -- 체결 내역 조회 최적화 (마켓별 최근 체결 및 차트 데이터 생성용)
-CREATE INDEX IF NOT EXISTS idx_trades_symbol_executed_at ON trades(symbol, executed_at DESC);
-CREATE INDEX IF NOT EXISTS idx_trades_executed_at ON trades(executed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trades_symbol_created_at ON trades(symbol, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trades_created_at ON trades(created_at DESC);
 -- 주문 삭제 시 CASCADE Sequential Scan 성능 저하 방지를 위한 외래키(FK) 인덱스
 CREATE INDEX IF NOT EXISTS idx_trades_buy_order_id ON trades(buy_order_id);
 CREATE INDEX IF NOT EXISTS idx_trades_sell_order_id ON trades(sell_order_id);

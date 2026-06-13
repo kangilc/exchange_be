@@ -96,7 +96,7 @@ FROM orders
 WHERE order_id BETWEEN 10000001 AND 10050000;
 
 -- C. BTC-USD 체결 내역(Trades) 5만 건 연결 생성
-INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, executed_at)
+INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, created_at)
 SELECT 
     30000000 + (order_id - 10000000),
     'BTC-USD',
@@ -138,7 +138,7 @@ FROM orders
 WHERE order_id BETWEEN 40000001 AND 40050000;
 
 -- F. ADA-KRW 체결 내역 5만 건 연결 생성
-INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, executed_at)
+INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, created_at)
 SELECT 
     60000000 + (order_id - 40000000),
     'ADA-KRW',
