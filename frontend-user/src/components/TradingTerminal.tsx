@@ -14,6 +14,8 @@ interface StopLimitOrder {
     status: string;
 }
 
+
+
 // ⚡ 실시간 잔량 증감에 따른 네온 깜빡임 이펙트(Neon Flash)를 감지하는 호가별 Row 컴포넌트
 const OrderBookRow: React.FC<{
     price: number;
@@ -21,36 +23,50 @@ const OrderBookRow: React.FC<{
     side: 'ask' | 'bid';
     barWidth: number;
     cumVal: number;
+    basePrice: number;
     lastChanged?: number;
     onClick?: () => void;
-}> = React.memo(({ price, qty, side, barWidth, cumVal, lastChanged = 0, onClick }) => {
+}> = React.memo(({ price, qty, side, barWidth, cumVal, basePrice, lastChanged = 0, onClick }) => {
     const prevChanged = useRef<number>(lastChanged);
     const [flashClass, setFlashClass] = useState<string>('');
 
     useEffect(() => {
-        // 호가 수량이 변하여 lastChanged 타임스탬프가 변경되었을 때만 반짝임 효과 적용 (최초 렌더링 시에는 제외)
         if (lastChanged > 0 && lastChanged !== prevChanged.current) {
             const newClass = side === 'ask' ? 'flash-ask-inc' : 'flash-bid-inc';
             setFlashClass(newClass);
-            
-            // 450ms 경과 후 플래시 CSS 클래스 자동 초기화
             const timer = setTimeout(() => {
                 setFlashClass('');
             }, 450);
-            
             prevChanged.current = lastChanged;
             return () => clearTimeout(timer);
         }
         prevChanged.current = lastChanged;
     }, [lastChanged, side]);
 
+    const realPrice = price / 100.0;
+    const diffPercent = basePrice > 0 ? ((realPrice - basePrice) / basePrice) * 100 : 0;
+    const sign = diffPercent > 0 ? '+' : '';
+    const percentText = `${sign}${diffPercent.toFixed(2)}%`;
+    const changeColor = diffPercent > 0 ? 'text-rose-400' : (diffPercent < 0 ? 'text-blue-400' : 'text-slate-400');
+
     return (
         <div 
             onClick={onClick}
             className="grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150 cursor-pointer"
         >
-            <div className={`absolute right-0 top-0 bottom-0 transition-all duration-300 pointer-events-none ${side === 'ask' ? 'bg-rose-500/8' : 'bg-emerald-500/8'}`} style={{ width: `${barWidth}%` }} />
-            <span className={`relative z-10 font-bold ${side === 'ask' ? 'text-rose-400' : 'text-emerald-400'}`}>{(price / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            {/* 업비트 스타일 가로 백그라운드 색상 채우기: 매도는 좌측(left-0), 매수는 우측(right-0) */}
+            <div 
+                className={`absolute top-0 bottom-0 transition-all duration-300 pointer-events-none ${side === 'ask' ? 'left-0 bg-blue-500/10' : 'right-0 bg-rose-500/10'}`} 
+                style={{ width: `${barWidth}%` }} 
+            />
+            <div className="flex flex-col relative z-10">
+                <span className={`font-bold ${side === 'ask' ? 'text-blue-400' : 'text-rose-400'}`}>
+                    {realPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+                <span className={`text-[9px] font-bold ${changeColor}`}>
+                    {percentText}
+                </span>
+            </div>
             <span className={`text-slate-300 relative z-10 text-right font-semibold rounded px-1.5 py-0.5 transition-all duration-150 ${flashClass}`}>{qty.toLocaleString()}</span>
             <span className="text-slate-500 relative z-10 text-right font-medium">{cumVal.toLocaleString()}</span>
         </div>
@@ -76,6 +92,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const setActiveResolution = useExchangeStore(state => state.setActiveResolution);
 
     // 1. 거래 터미널 로컬 코어 상태
+    const basePrice = activeSymbol === 'BTC-USD' ? 65000 : 500;
     const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
     const [selectedSide, setSelectedSide] = useState<'BUY' | 'SELL'>('BUY');
     const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET' | 'STOP'>('LIMIT');
@@ -478,6 +495,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                             side="ask"
                                             barWidth={barWidth}
                                             cumVal={cumVal}
+                                            basePrice={basePrice}
                                             lastChanged={lastChanged}
                                             onClick={() => {
                                                 setOrderPrice((price / 100.0).toString());
@@ -495,8 +513,17 @@ export const TradingTerminal: React.FC = React.memo(() => {
                         <div className="bg-slate-950/85 border-y border-white/5 py-3 px-4 flex justify-between items-center text-center">
                             <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider">Ask Spread</span>
                             <div className="flex flex-col items-center">
-                                <span className="text-sm text-white font-black tracking-tight">{midPrice > 0 ? midPrice.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '--'}</span>
-                                <span className="text-[9px] text-[#00f2fe] font-bold mt-0.5">갭: {spread.toLocaleString(undefined, { minimumFractionDigits: 2 })} {fiat}</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-white font-black tracking-tight">
+                                        {midPrice > 0 ? (midPrice / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '--'}
+                                    </span>
+                                    {midPrice > 0 && (
+                                        <span className={`text-[10px] font-black ${midPrice / 100.0 - basePrice >= 0 ? 'text-rose-400' : 'text-blue-400'}`}>
+                                            {midPrice / 100.0 - basePrice >= 0 ? '+' : ''}{(((midPrice / 100.0 - basePrice) / basePrice) * 100).toFixed(2)}%
+                                        </span>
+                                    )}
+                                </div>
+                                <span className="text-[9px] text-[#00f2fe] font-bold mt-0.5">갭: {(spread / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })} {fiat}</span>
                             </div>
                             <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider">Bid Spread</span>
                         </div>
@@ -522,6 +549,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                             side="bid"
                                             barWidth={barWidth}
                                             cumVal={cumVal}
+                                            basePrice={basePrice}
                                             lastChanged={lastChanged}
                                             onClick={() => {
                                                 setOrderPrice((price / 100.0).toString());
