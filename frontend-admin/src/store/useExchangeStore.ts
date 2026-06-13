@@ -504,6 +504,20 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             const url = `http://${host}:${port}/snapshot`;
 
             try {
+                // admin-api로부터 현재가(lastPrice) 동적 연동 (최초 1회 동기화)
+                try {
+                    const tickerUrl = `${get().apiBaseUrl}/admin/stats/ticker?symbol=${symbol}`;
+                    const tickerRes = await fetchWithAuth(tickerUrl);
+                    if (tickerRes.ok) {
+                        const tickerData = await tickerRes.json();
+                        if (tickerData && typeof tickerData.lastPrice === 'number') {
+                            set({ lastPrice: tickerData.lastPrice });
+                        }
+                    }
+                } catch (tickerErr) {
+                    console.warn(`[티커] 현재가 조회 실패:`, tickerErr);
+                }
+
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const data = await response.json();

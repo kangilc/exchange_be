@@ -151,7 +151,17 @@ export function updateOrderbookUI() {
             const [price, qty] = askData;
             const prev = book.lastRenderedAsks[i];
 
-            priceCell.innerText = (price / 100).toFixed(2);
+            const diffPercent = book.basePrice ? (((price / 100) - book.basePrice) / book.basePrice) * 100 : 0;
+            const sign = diffPercent > 0 ? '+' : '';
+            const percentText = `${sign}${diffPercent.toFixed(2)}%`;
+            const changeClass = diffPercent > 0 ? 'up' : (diffPercent < 0 ? 'down' : 'stable');
+
+            priceCell.innerHTML = `
+                <div class="price-wrapper" style="display: flex; flex-direction: column; align-items: center; line-height: 1.2;">
+                    <span class="price-val">${(price / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span class="price-change ${changeClass}" style="font-size: 0.65rem; font-weight: bold; margin-top: 1px;">${percentText}</span>
+                </div>
+            `;
             qtyVal.innerText = qty.toLocaleString();
             rowEl.onclick = () => fillPriceInput(price);
 
@@ -170,6 +180,9 @@ export function updateOrderbookUI() {
             const widthPercent = Math.min((qty / maxDepth) * 100, 100);
             depthBar.style.width = `${widthPercent}%`;
 
+            // 업비트 스타일: tr(rowEl) 안에 수량 비례 백그라운드 색상 채우기 (매도는 좌측 컬럼이므로 left->right 방향)
+            rowEl.style.background = `linear-gradient(to right, rgba(59, 130, 246, 0.12) ${widthPercent}%, var(--color-ask-bg) ${widthPercent}%)`;
+
             // Neon flashing updates
             const flashState = state.priceFlashStates.get(price);
             if (flashState) {
@@ -187,6 +200,7 @@ export function updateOrderbookUI() {
             priceCell.innerText = '--';
             qtyVal.innerText = '--';
             depthBar.style.width = '0%';
+            rowEl.style.background = '';
             rowEl.onclick = null;
             rowEl.onmouseenter = null;
             rowEl.onmousemove = null;
@@ -211,7 +225,17 @@ export function updateOrderbookUI() {
             const [price, qty] = bidData;
             const prev = book.lastRenderedBids[i];
 
-            priceCell.innerText = (price / 100).toFixed(2);
+            const diffPercent = book.basePrice ? (((price / 100) - book.basePrice) / book.basePrice) * 100 : 0;
+            const sign = diffPercent > 0 ? '+' : '';
+            const percentText = `${sign}${diffPercent.toFixed(2)}%`;
+            const changeClass = diffPercent > 0 ? 'up' : (diffPercent < 0 ? 'down' : 'stable');
+
+            priceCell.innerHTML = `
+                <div class="price-wrapper" style="display: flex; flex-direction: column; align-items: center; line-height: 1.2;">
+                    <span class="price-val">${(price / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span class="price-change ${changeClass}" style="font-size: 0.65rem; font-weight: bold; margin-top: 1px;">${percentText}</span>
+                </div>
+            `;
             qtyVal.innerText = qty.toLocaleString();
             rowEl.onclick = () => fillPriceInput(price);
 
@@ -227,6 +251,9 @@ export function updateOrderbookUI() {
 
             const widthPercent = Math.min((qty / maxDepth) * 100, 100);
             depthBar.style.width = `${widthPercent}%`;
+
+            // 업비트 스타일: tr(rowEl) 안에 수량 비례 백그라운드 색상 채우기 (매수는 우측 컬럼이므로 right->left 방향)
+            rowEl.style.background = `linear-gradient(to left, rgba(239, 68, 68, 0.12) ${widthPercent}%, var(--color-bid-bg) ${widthPercent}%)`;
 
             const flashState = state.priceFlashStates.get(price);
             if (flashState) {
@@ -244,6 +271,7 @@ export function updateOrderbookUI() {
             priceCell.innerText = '--';
             qtyVal.innerText = '--';
             depthBar.style.width = '0%';
+            rowEl.style.background = '';
             rowEl.onclick = null;
             rowEl.onmouseenter = null;
             rowEl.onmousemove = null;
@@ -269,7 +297,17 @@ export function updateOrderbookUI() {
         const unit = state.currentSymbol === 'BTC-USD' ? '$' : '₩';
         
         if (midPriceEl) {
-            midPriceEl.innerText = `${unit}${midVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const diff = midVal - book.basePrice;
+            const diffPercent = book.basePrice ? (diff / book.basePrice) * 100 : 0;
+            const sign = diff >= 0 ? '+' : '';
+            const diffColor = diff > 0 ? '#ef4444' : (diff < 0 ? '#3b82f6' : '#94a3b8');
+
+            midPriceEl.innerHTML = `
+                <div class="mid-price-wrapper" style="display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+                    <span class="mid-price-val">${unit}${midVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span class="mid-price-change" style="color: ${diffColor}; font-size: 0.75rem; font-weight: bold;">${sign}${diffPercent.toFixed(2)}%</span>
+                </div>
+            `;
         }
         
         if (spreadGapEl) {
