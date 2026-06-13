@@ -57,7 +57,16 @@ public final class WsBroadcaster implements Runnable {
                         long deltaQty = json.get("deltaQty").asLong();
                         
                         ByteBuffer buffer = BinaryCodec.encodeDelta(symbolId, seq, price, deltaQty, side);
-                        clients.writeAndFlush(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(buffer)));
+                        io.netty.buffer.ByteBuf nettyBuf = Unpooled.wrappedBuffer(buffer);
+                        try {
+                            for (io.netty.channel.Channel c : clients) {
+                                if (c.isWritable()) {
+                                    c.writeAndFlush(new BinaryWebSocketFrame(nettyBuf.retainedDuplicate()));
+                                }
+                            }
+                        } finally {
+                            nettyBuf.release();
+                        }
                         WsMetricsServer.getInstance().incrementMessages();
                     } catch (Exception e) {
                         System.err.println("Failed to parse or broadcast event: " + e.getMessage());

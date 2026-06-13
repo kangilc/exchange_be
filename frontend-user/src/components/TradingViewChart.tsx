@@ -29,10 +29,7 @@ export const TradingViewChart: React.FC = React.memo(() => {
     const ma7SeriesRef = useRef<any>(null);
     const ma25SeriesRef = useRef<any>(null);
     
-    const activeSymbol = useExchangeStore(state => state.activeSymbol);
-    const activeResolution = useExchangeStore(state => state.activeResolution);
-    const apiBaseUrl = useExchangeStore(state => state.apiBaseUrl);
-    const lastPrice = useExchangeStore(state => state.lastPrice);
+    const { activeSymbol, activeResolution, apiBaseUrl, lastPrice } = useExchangeStore();
     
     // 차트의 실시간 캔들 관리 버퍼
     const loadedBufferRef = useRef<any[]>([]);

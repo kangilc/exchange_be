@@ -82,6 +82,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
     let updateTimer: any = null;
     let tpsTimer: any = null;
     let pingTimer: any = null;
+    let reconnectTimer: any = null; // ⚡ 재접속 타이머 누수 방지 변수 추가
     let orderbookChanged = false; // ⚡ 오더북 실질 데이터 변경 플래그
 
     const startUpdateLoop = () => {
@@ -93,19 +94,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             // ⚡ 신규 체결 정보도 없고 오더북 변동도 없으면 렌더 업데이트 및 연산 전체 생략!
             if (!hasNewTrades && !orderbookChanged) return;
 
-            // 1. 체결강도 갱신 (최근 30초 필터)
-            const now = Date.now();
-            recentTradesPower = recentTradesPower.filter(t => now - t.time < 30000);
-
-            let buySum = 0;
-            let sellSum = 0;
-            recentTradesPower.forEach(t => {
-                if (t.side === 1) buySum += t.qty;
-                else sellSum += t.qty;
-            });
-            const power = sellSum > 0 ? (buySum / sellSum) * 100 : 100;
-
-            // 2. 오더북 가공 (매수/매도 10단 정렬)
+            // 1. 오더북 10단 파싱 및 화면용 반전 정렬
             const bidsArr = Array.from(bidsMap.entries())
                 .sort((a, b) => b[0] - a[0])
                 .slice(0, 10);
@@ -117,32 +106,40 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             let diff = 0;
             if (bidsArr.length > 0 && asksArr.length > 0) {
                 const topBid = bidsArr[0][0] / 100.0;
-                const topAsk = asksArr[0][0] / 100.0; // asksArr은 오름차순 정렬이므로 0번이 최선호가
+                const topAsk = asksArr[0][0] / 100.0;
                 mid = (topBid + topAsk) / 2.0;
                 diff = topAsk - topBid;
             }
 
-            // 3. Zustand 스토어 일괄 업데이트
+            // 2. 체결 강도(Volume Power) 계산
+            const now = Date.now();
+            recentTradesPower = recentTradesPower.filter(t => now - t.time < 10000);
+            let buySum = 0;
+            let sellSum = 0;
+            recentTradesPower.forEach(t => {
+                if (t.side === 1) buySum += t.qty;
+                else sellSum += t.qty;
+            });
+            const power = sellSum > 0 ? (buySum / sellSum) * 100.0 : 100.0;
+
+            // 3. 체결 내역 업데이트 및 상태 반영 (어드민과 100% 동일화)
             set((state) => {
-                let nextLogs = state.tradesLog; // ⚡ 변경 없을 시 얕은복사를 통한 불필요 참조 갱신 방지
+                let nextLogs = state.tradesLog;
                 if (hasNewTrades) {
-                    // 최신 체결건이 위로 가도록 안전하게 복제 후 반전 정렬하여 앞에 붙여줌
-                    const copiedBuffer = [...recentTradesBuffer].reverse();
-                    nextLogs = [...copiedBuffer, ...state.tradesLog].slice(0, 50);
-                    // ⚡ 배열의 메모리 주소(참조)를 유지한 채 내용만 완전히 비워 경합 및 클로저 꼬임 해결
-                    recentTradesBuffer.length = 0;
+                    nextLogs = [...recentTradesBuffer, ...nextLogs].slice(0, 50);
+                    recentTradesBuffer = [];
                 }
 
-                const matchingLog = nextLogs.find(l => l.symbol === currentSymbol);
-                const lastPrice = matchingLog ? matchingLog.price : state.lastPrice;
+                const matchingLogs = nextLogs.filter(t => t.symbol === currentSymbol);
+                const nextLastPrice = matchingLogs.length > 0 ? matchingLogs[0].price : state.lastPrice;
 
                 const nextState: any = {
                     bids: bidsArr,
-                    asks: [...asksArr].reverse(), // 화면 렌더링용으로 반전
+                    asks: [...asksArr].reverse(),
                     midPrice: mid,
                     spread: diff,
                     volumePower: power,
-                    lastPrice
+                    lastPrice: nextLastPrice
                 };
 
                 if (hasNewTrades) {
@@ -159,10 +156,16 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             if (finalPrice > 0) {
                 get().addRealtimeTick(finalPrice);
             }
-        }, 100); // ⚡ 100ms 초고속 스로틀링 배치 업데이트
+        }, 30); // ⚡ 30ms 초고속 스로틀링 배치 업데이트
     };
 
     const connectWebSocket = (wsUrl: string) => {
+        // ⚡ 기존에 예약된 재접속 타이머가 있다면 확실하게 제거하여 중복 실행 방지
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
+
         if (ws) {
             ws.onopen = null;
             ws.onclose = null;
@@ -177,6 +180,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         ws.onopen = () => {
             set({ wsConnected: true });
             console.log('[거래소 웹소켓] 연결 성공.');
+
+            // ⚡ 연결 성공했으므로 재접속 타이머 확실하게 해제
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
 
             // PING-PONG 계측 주기 루프
             if (pingTimer) clearInterval(pingTimer);
@@ -204,7 +213,9 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             if (tpsTimer) clearInterval(tpsTimer);
             if (updateTimer) clearInterval(updateTimer);
 
-            setTimeout(() => {
+            // ⚡ 기존에 생성된 타이머를 지우고 단 하나의 재접속 타이머만 새로 예약
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(() => {
                 const currentWsUrl = get().wsUrl;
                 if (currentWsUrl) connectWebSocket(currentWsUrl);
             }, 3000);
@@ -213,7 +224,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         ws.onmessage = (event) => {
             msgCount++;
             const data = event.data;
+
+            // ⚡ 디버깅용 수신 상태 로그 비활성화
+            // console.log(`[WS 수신] 데이터 타입: ${typeof data}, 크기: ${data instanceof ArrayBuffer ? data.byteLength : 'N/A'}`);
+
             if (typeof data === 'string') {
+                // console.log("[WS 수신 문자열 내용]:", data);
                 try {
                     const parsed = JSON.parse(data);
                     if (parsed.action === 'PONG') {
@@ -225,7 +241,10 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             }
 
             const buffer: ArrayBuffer = data;
-            if (buffer.byteLength !== 32) return;
+            if (buffer.byteLength !== 32) {
+                console.warn(`[WS 에러] 데이터 바이너리 크기 불일치: ${buffer.byteLength} (기대값: 32)`);
+                return;
+            }
 
             const view = new DataView(buffer);
             const symbolId = view.getInt32(0, false);
@@ -239,7 +258,10 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             let msgSymbol = '';
             if (symbolId === BTC_SYMBOL_ID) msgSymbol = 'BTC-USD';
             else if (symbolId === ADA_SYMBOL_ID) msgSymbol = 'ADA-KRW';
-            else return;
+            else {
+                console.warn(`[WS 에러] 일치하지 않는 심볼 ID 수신: ${symbolId} (BTC 기대값: ${BTC_SYMBOL_ID}, ADA 기대값: ${ADA_SYMBOL_ID})`);
+                return;
+            }
 
             const currentSymbol = get().activeSymbol;
 
@@ -331,6 +353,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
             // 최초 활성 심볼 스냅샷 적재
             await get().fetchFullSnapshot(get().activeSymbol);
+
+            // ⚡ 이미 웹소켓이 연결 중이거나 연결된 상태이면 중복 연결 실행을 차단
+            if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+                console.log('[거래소 웹소켓] 이미 연결되어 있거나 연결 중입니다. 중복 연결 생략.');
+                return;
+            }
 
             // 웹소켓 자동 접속 트리거
             connectWebSocket(wsUrl);
