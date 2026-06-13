@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS trades (
     qty BIGINT NOT NULL,
     fee_rate NUMERIC(10, 6) DEFAULT 0.0,
     fee_amount NUMERIC(36, 18) DEFAULT 0.0,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    executed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(100),
     updated_by VARCHAR(100)
@@ -118,7 +118,7 @@ COMMENT ON COLUMN trades.buy_order_id IS '매수 주문 ID (orders.order_id 참�
 COMMENT ON COLUMN trades.sell_order_id IS '매도 주문 ID (orders.order_id 참조)';
 COMMENT ON COLUMN trades.price IS '체결 가격';
 COMMENT ON COLUMN trades.qty IS '체결 수량';
-COMMENT ON COLUMN trades.created_at IS '체결 일시';
+COMMENT ON COLUMN trades.executed_at IS '체결 일시';
 
 COMMENT ON TABLE ledger_journal IS '자산 변경 이력 (원장 분개장)';
 COMMENT ON COLUMN ledger_journal.journal_id IS '원장 기록 고유 일련번호';
@@ -258,7 +258,7 @@ FROM orders
 WHERE order_id BETWEEN 10000001 AND 10050000;
 
 -- C. BTC-USD 체결 내역(Trades) 5만 건 연결 생성
-INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, created_at)
+INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, executed_at)
 SELECT 
     30000000 + (order_id - 10000000),
     'BTC-USD',
@@ -301,7 +301,7 @@ FROM orders
 WHERE order_id BETWEEN 40000001 AND 40050000;
 
 -- F. ADA-KRW 체결 내역 5만 건 연결 생성
-INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, created_at)
+INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, executed_at)
 SELECT 
     60000000 + (order_id - 40000000),
     'ADA-KRW',
