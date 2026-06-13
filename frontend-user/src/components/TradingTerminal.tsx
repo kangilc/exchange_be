@@ -47,20 +47,20 @@ const OrderBookRow: React.FC<{
     const diffPercent = basePrice > 0 ? ((realPrice - basePrice) / basePrice) * 100 : 0;
     const sign = diffPercent > 0 ? '+' : '';
     const percentText = `${sign}${diffPercent.toFixed(2)}%`;
-    const changeColor = diffPercent > 0 ? 'text-rose-400' : (diffPercent < 0 ? 'text-blue-400' : 'text-slate-400');
+    const changeColor = diffPercent > 0 ? 'text-rose-400' : (diffPercent < 0 ? 'text-emerald-400' : 'text-slate-400');
 
     return (
         <div 
             onClick={onClick}
             className="grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150 cursor-pointer"
         >
-            {/* 업비트 스타일 가로 백그라운드 색상 채우기: 매도는 좌측(left-0), 매수는 우측(right-0) */}
+            {/* 기존 스타일 가로 백그라운드 색상 채우기: 매도는 좌측(left-0), 매수는 우측(right-0) */}
             <div 
-                className={`absolute top-0 bottom-0 transition-all duration-300 pointer-events-none ${side === 'ask' ? 'left-0 bg-blue-500/10' : 'right-0 bg-rose-500/10'}`} 
+                className={`absolute top-0 bottom-0 transition-all duration-300 pointer-events-none ${side === 'ask' ? 'left-0 bg-rose-500/10' : 'right-0 bg-emerald-500/10'}`} 
                 style={{ width: `${barWidth}%` }} 
             />
             <div className="flex items-center gap-1.5 relative z-10">
-                <span className={`font-bold ${side === 'ask' ? 'text-blue-400' : 'text-rose-400'}`}>
+                <span className={`font-bold ${side === 'ask' ? 'text-rose-400' : 'text-emerald-400'}`}>
                     {realPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </span>
                 <span className={`text-[9px] font-bold ${changeColor} opacity-90`}>
@@ -518,7 +518,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                         {midPrice > 0 ? (midPrice / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '--'}
                                     </span>
                                     {midPrice > 0 && (
-                                        <span className={`text-[10px] font-black ${midPrice / 100.0 - basePrice >= 0 ? 'text-rose-400' : 'text-blue-400'}`}>
+                                        <span className={`text-[10px] font-black ${midPrice / 100.0 - basePrice >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                                             {midPrice / 100.0 - basePrice >= 0 ? '+' : ''}{(((midPrice / 100.0 - basePrice) / basePrice) * 100).toFixed(2)}%
                                         </span>
                                     )}

@@ -180,8 +180,8 @@ export function updateOrderbookUI() {
             const widthPercent = Math.min((qty / maxDepth) * 100, 100);
             depthBar.style.width = `${widthPercent}%`;
 
-            // 업비트 스타일: tr(rowEl) 안에 수량 비례 백그라운드 색상 채우기 (매도는 좌측 컬럼이므로 left->right 방향)
-            rowEl.style.background = `linear-gradient(to right, rgba(59, 130, 246, 0.12) ${widthPercent}%, var(--color-ask-bg) ${widthPercent}%)`;
+            // 기존 스타일: tr(rowEl) 안에 수량 비례 백그라운드 색상 채우기 (매도는 좌측 컬럼이므로 left->right 방향)
+            rowEl.style.background = `linear-gradient(to right, rgba(239, 68, 68, 0.12) ${widthPercent}%, var(--color-ask-bg) ${widthPercent}%)`;
 
             // Neon flashing updates
             const flashState = state.priceFlashStates.get(price);
@@ -252,8 +252,8 @@ export function updateOrderbookUI() {
             const widthPercent = Math.min((qty / maxDepth) * 100, 100);
             depthBar.style.width = `${widthPercent}%`;
 
-            // 업비트 스타일: tr(rowEl) 안에 수량 비례 백그라운드 색상 채우기 (매수는 우측 컬럼이므로 right->left 방향)
-            rowEl.style.background = `linear-gradient(to left, rgba(239, 68, 68, 0.12) ${widthPercent}%, var(--color-bid-bg) ${widthPercent}%)`;
+            // 기존 스타일: tr(rowEl) 안에 수량 비례 백그라운드 색상 채우기 (매수도 우측 컬럼이므로 right->left 방향)
+            rowEl.style.background = `linear-gradient(to left, rgba(16, 185, 129, 0.12) ${widthPercent}%, var(--color-bid-bg) ${widthPercent}%)`;
 
             const flashState = state.priceFlashStates.get(price);
             if (flashState) {
