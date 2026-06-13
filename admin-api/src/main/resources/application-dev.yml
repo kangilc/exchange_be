@@ -10,8 +10,7 @@ spring:
       connection-timeout: 20000
       max-lifetime: 1800000
   jpa:
-    hibernate:
-      ddl-auto: none
+    open-in-view: false
 
 ethereum:
   rpc-url: ${EVM_RPC_URL:http://localhost:8545}

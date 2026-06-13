@@ -102,7 +102,11 @@ graph TD
         *   **사용자 주체 작업:** 어드민 대시보드 API 호출 등 로그인한 사용자가 요청할 때는 Spring Security of Principal(이메일 등) 정보가 `createdBy` / `updatedBy`에 자동으로 주입됩니다.
         *   **시스템 주체 작업:** 백그라운드 데몬, 스케줄러, 카프카 컨슈머 등 백그라운드 시스템이 작업을 유발할 때는 `@SystemAuditor("시스템식별자")` 어노테이션을 부착하여 스레드 안전하게 ThreadLocal을 관리하며, 이를 통해 등록자/수정자에 `"SYSTEM:시스템식별자"`가 자동 기록됩니다.
         *   **메모리 누수 방지 가드:** AOP Aspect 내의 `finally` 절에서 ThreadLocal 리소스를 강제 해제(`remove()`)함으로써 WAS 스레드 풀 환경에서의 오염이나 OOM (Memory Leak) 리스크를 원천 제거하였습니다.
-    *   **시작 시 DDL 자동 마이그레이션 적용:** 서버 최초 기동 시 데이터베이스 테이블들을 역동적으로 검사하여 누락된 오디팅 관련 컬럼을 자동 생성(`ALTER TABLE`)하고 동기화하도록 `AdminApiApplication` 실행 주기를 고도화함.
+    *   **Flyway 데이터베이스 형상 관리(Migration) 도입 (🌟 신규):** 
+        *   기존 Java 애플리케이션 기동 시 수행하던 불완전한 동적 DDL 패치 및 임시 패치 로직을 완전히 제거했습니다.
+        *   [V1__init_schema.sql](file:///home/administrator/exchange_be/admin-api/src/main/resources/db/migration/V1__init_schema.sql)을 통해 전체 테이블, 제약 조건, 코멘트 및 인덱스 구조를 Flyway로 버전 관리합니다.
+        *   애플리케이션 기동 시 Flyway 엔진이 DB의 스키마 변경 이력을 자동으로 검사하고 마이그레이션을 적용합니다.
+        *   스키마 정의(DDL)는 Flyway가 전담하고, 초기 시드 및 대량 데이터(DML)는 Postgres 초기화 스크립트([postgres-init.sql](file:///home/administrator/exchange_be/postgres-init.sql))가 담당하도록 역할 구조를 물리적으로 완벽히 분리했습니다.
 *   **PostgreSQL 성능 최적화:** 500 에러를 유발할 수 있는 복잡한 Native Time-Bucket Parameter Binding 문제점을 표준적인 `GROUP BY 1, 2, 3` 및 `ORDER BY 1 DESC` 인덱스 기법으로 튜닝 완료했습니다.
 
 ### 2. 프리미엄 다크 글래스모피즘 웹 어드민 ([admin.html](./frontend/admin.html))
