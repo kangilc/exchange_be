@@ -20,7 +20,7 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
     }
 
     @Query(value = "SELECT " +
-            "to_char(date_trunc(:timeBucket, executed_at), 'YYYY-MM-DD HH24:MI:SS') as bucket, " +
+            "to_char(date_trunc(:timeBucket, created_at), 'YYYY-MM-DD HH24:MI:SS') as bucket, " +
             "COUNT(trade_id) as tradeCount, " +
             "SUM(qty) as totalQty, " +
             "CAST(AVG(price) AS double precision) as avgPrice, " +
@@ -44,13 +44,13 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
 
     @Query(value = "SELECT t.trade_id as tradeId, t.symbol as symbol, " +
             "t.buy_order_id as buyOrderId, t.sell_order_id as sellOrderId, " +
-            "t.price as price, t.qty as qty, t.executed_at as executedAt, " +
+            "t.price as price, t.qty as qty, t.created_at as executedAt, " +
             "CASE WHEN o_buy.user_id = :userId THEN 'BUY' ELSE 'SELL' END as side " +
             "FROM trades t " +
             "JOIN orders o_buy ON t.buy_order_id = o_buy.order_id " +
             "JOIN orders o_sell ON t.sell_order_id = o_sell.order_id " +
             "WHERE o_buy.user_id = :userId OR o_sell.user_id = :userId " +
-            "ORDER BY t.executed_at DESC",
+            "ORDER BY t.created_at DESC",
             countQuery = "SELECT COUNT(*) FROM trades t " +
                     "JOIN orders o_buy ON t.buy_order_id = o_buy.order_id " +
                     "JOIN orders o_sell ON t.sell_order_id = o_sell.order_id " +
