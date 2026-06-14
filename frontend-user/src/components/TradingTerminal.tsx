@@ -90,11 +90,15 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const sendOrder = useExchangeStore(state => state.sendOrder);
     const setActiveSymbol = useExchangeStore(state => state.setActiveSymbol);
     const setActiveResolution = useExchangeStore(state => state.setActiveResolution);
+    const authUserId = useExchangeStore(state => state.authUserId);
+    const fetchUserBalances = useExchangeStore(state => state.fetchUserBalances);
+    const fetchUserTrades = useExchangeStore(state => state.fetchUserTrades);
+    const fetchUserLedgers = useExchangeStore(state => state.fetchUserLedgers);
 
     // 1. 거래 터미널 로컬 코어 상태
     const basePrice = activeSymbol === 'BTC-USD' ? 65000 : 500;
     const [activeTab, setActiveTab] = useState<'trade' | 'custody' | 'investment'>('trade');
-    const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
+    const [isLiveMode, setIsLiveMode] = useState<boolean>(true);
     const [selectedSide, setSelectedSide] = useState<'BUY' | 'SELL'>('BUY');
     const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET' | 'STOP'>('LIMIT');
     
@@ -108,10 +112,10 @@ export const TradingTerminal: React.FC = React.memo(() => {
 
     // 보유 자산 상태 (샌드박스/라이브 모드 통합 지원)
     const [balances, setBalances] = useState<{ [key: string]: number }>({
-        KRW: 1000000000,
-        USD: 10000,
-        BTC: 10,
-        ADA: 100000,
+        KRW: 0,
+        USD: 0,
+        BTC: 0,
+        ADA: 0,
         JAF: 0
     });
 
@@ -126,17 +130,16 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const [otpInput, setOtpInput] = useState<string>('');
     const [custodyAction, setCustodyAction] = useState<'DEPOSIT' | 'WITHDRAW'>('DEPOSIT');
     
-    const [custodyHistory, setCustodyHistory] = useState<any[]>([
-        { time: '2026-06-14 10:20:15', currency: 'KRW', amount: 1000000000, type: 'DEPOSIT', status: 'SUCCESS' },
-        { time: '2026-06-14 10:22:40', currency: 'BTC', amount: 10.0, type: 'DEPOSIT', status: 'SUCCESS' },
-        { time: '2026-06-14 10:23:10', currency: 'ADA', amount: 100000.0, type: 'DEPOSIT', status: 'SUCCESS' }
-    ]);
+    const [custodyHistory, setCustodyHistory] = useState<any[]>([]);
 
     // 입출금 팝업 제어 (레거시 코드 호환용)
     const [showDepositModal, setShowDepositModal] = useState(false);
     const [showWithdrawModal, setShowWithdrawModal] = useState(false);
     const [modalCurrency, setModalCurrency] = useState('KRW');
     const [modalAmount, setModalAmount] = useState('');
+
+    // 실제 유저의 거래 내역 보관 상태
+    const [userTrades, setUserTrades] = useState<any[]>([]);
 
     // 가격별 이전 수량과 마지막 변경 시점(타임스탬프)을 보관하여 리마운트 후에도 깜빡임 상태를 복원
     const asksFlashMapRef = useRef<Map<number, { qty: number; lastChanged: number }>>(new Map());
@@ -221,33 +224,43 @@ export const TradingTerminal: React.FC = React.memo(() => {
         }
     }, [activeSymbol]);
 
+    // 지갑 자산 조회 및 사용자 거래 내역/원장 조회 연동
+    const loadUserData = useCallback(async () => {
+        if (!isLiveMode) return;
+        
+        // 1. 잔고 조회
+        const userBal = await fetchUserBalances();
+        if (userBal && Object.keys(userBal).length > 0) {
+            setBalances(prev => ({ ...prev, ...userBal }));
+        }
+
+        // 2. 최근 체결 내역 조회
+        const trades = await fetchUserTrades();
+        setUserTrades(trades);
+
+        // 3. 원장 입출금 이력 조회
+        const ledgers = await fetchUserLedgers();
+        const historyMapped = ledgers.map((item: any) => ({
+            time: item.createdAt ? item.createdAt.replace('T', ' ').substring(0, 19) : '--',
+            currency: item.currency,
+            amount: item.amount,
+            type: item.type,
+            status: 'SUCCESS'
+        }));
+        setCustodyHistory(historyMapped);
+    }, [isLiveMode, fetchUserBalances, fetchUserTrades, fetchUserLedgers]);
+
+    useEffect(() => {
+        loadUserData();
+    }, [loadUserData, activeTab, activeSymbol]);
+
     // 콘솔 로그 유틸리티
     const appendLog = useCallback((type: 'buy' | 'sell' | 'system' | 'warning' | 'stop', message: string) => {
         const timeStr = new Date().toLocaleTimeString();
         setConsoleLogs(prev => [{ time: timeStr, type, message }, ...prev].slice(0, 50));
     }, []);
 
-    // 지갑 자산 조회 (Live 모드 연동)
-    const fetchLiveBalances = useCallback(async () => {
-        if (!isLiveMode) return;
-        try {
-            const res = await fetch(`${apiBaseUrl}/admin/wallets/user/1`); // 기본 1번 유저 바인딩
-            if (res.ok) {
-                const data = await res.json();
-                const balMap: any = {};
-                data.forEach((w: any) => {
-                    balMap[w.currency] = parseFloat(w.balance);
-                });
-                setBalances(prev => ({ ...prev, ...balMap }));
-            }
-        } catch (err) {
-            console.error("Failed to fetch live balances", err);
-        }
-    }, [isLiveMode, apiBaseUrl]);
 
-    useEffect(() => {
-        fetchLiveBalances();
-    }, [fetchLiveBalances]);
 
     // 웹소켓 연결 상태 로깅
     useEffect(() => {
@@ -339,7 +352,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
         // Live 백엔드 자산 동기화 (Live 모드 시)
         if (isLiveMode) {
             try {
-                await fetch(`${apiBaseUrl}/admin/users/1/assets/adjust`, {
+                const userId = authUserId || 1;
+                await fetch(`${apiBaseUrl}/admin/users/${userId}/assets/adjust`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -347,7 +361,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                         amount: selectedSide === 'BUY' ? -totalCost : -qtyVal
                     })
                 });
-                await fetch(`${apiBaseUrl}/admin/users/1/assets/adjust`, {
+                await fetch(`${apiBaseUrl}/admin/users/${userId}/assets/adjust`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -355,7 +369,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                         amount: selectedSide === 'BUY' ? qtyVal : totalCost
                     })
                 });
-                setTimeout(fetchLiveBalances, 1500); // 1.5초 후 최종 정산 잔고 확인
+                setTimeout(loadUserData, 1500); // 1.5초 후 최종 정산 잔고 확인
             } catch (err) {}
         }
 
@@ -375,7 +389,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
         } else {
             appendLog('warning', '주문 전송 실패: 웹소켓 연결 상태를 확인해주세요.');
         }
-    }, [wsConnected, orderPrice, orderQty, activeSymbol, orderType, midPrice, tradesLog, selectedSide, balances, stopPrice, isLiveMode, apiBaseUrl, fetchLiveBalances, sendOrder, appendLog]);
+    }, [wsConnected, orderPrice, orderQty, activeSymbol, orderType, midPrice, tradesLog, selectedSide, balances, stopPrice, isLiveMode, apiBaseUrl, loadUserData, sendOrder, appendLog, authUserId]);
 
     // 레거시 모달창 처리 및 공통 입출금 핵심 비즈니스 로직
     const handleCustodySubmit = async (e: React.FormEvent) => {
@@ -413,12 +427,13 @@ export const TradingTerminal: React.FC = React.memo(() => {
         // DB 백엔드 동기화 (Live 모드 시)
         if (isLiveMode) {
             try {
-                await fetch(`${apiBaseUrl}/admin/users/1/assets/adjust`, {
+                const userId = authUserId || 1;
+                await fetch(`${apiBaseUrl}/admin/users/${userId}/assets/adjust`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ currency: custodyCurrency, amount: finalAmt })
                 });
-                setTimeout(fetchLiveBalances, 1500);
+                setTimeout(loadUserData, 1500);
             } catch (e) {}
         }
 
@@ -1047,76 +1062,104 @@ export const TradingTerminal: React.FC = React.memo(() => {
             {activeTab === 'investment' && (
                 <div className="flex flex-col gap-6 animate-fade-in text-xs font-semibold">
                     {/* 상단: 총 투자 평가 요약 카드 */}
-                    <div className="bg-gradient-to-r from-[#0d1426] to-[#0a1020] border border-white/5 rounded-2xl p-6 grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">총 평가 금액 (환산 원화)</span>
-                            <span className="text-2xl font-black font-mono text-white mt-1">
-                                {totalAssetEvalValue.toLocaleString()} 원
-                            </span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">총 매수 금액 (모의 시드)</span>
-                            <span className="text-2xl font-black font-mono text-slate-300 mt-1">
-                                1,014,500,000 원
-                            </span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">평가 손익금</span>
-                            <span className={`text-2xl font-black font-mono mt-1 ${(totalAssetEvalValue - 1014500000) >= 0 ? 'text-rose-400' : 'text-blue-400'}`}>
-                                {totalAssetEvalValue - 1014500000 >= 0 ? '+' : ''}{(totalAssetEvalValue - 1014500000).toLocaleString()} 원
-                            </span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">총 평가 수익률</span>
-                            <span className={`text-2xl font-black font-mono mt-1 ${(totalAssetEvalValue - 1014500000) >= 0 ? 'text-rose-400' : 'text-blue-400'}`}>
-                                {totalAssetEvalValue - 1014500000 >= 0 ? '+' : ''}{(((totalAssetEvalValue - 1014500000) / 1014500000) * 100).toFixed(2)}%
-                            </span>
-                        </div>
-                    </div>
+                    {(() => {
+                        // userTrades 기반 매수 단가 동적 연산
+                        const btcBuyOrders = userTrades.filter(t => t.symbol === 'BTC-USD' && t.side === 'BUY');
+                        const btcTotalQty = btcBuyOrders.reduce((sum, t) => sum + Number(t.qty), 0);
+                        const btcAvgPrice = btcTotalQty > 0 ? (btcBuyOrders.reduce((sum, t) => sum + (Number(t.qty) * (Number(t.price) / 100.0)), 0) / btcTotalQty) : 65000;
 
-                    {/* 중단: 자산별 상세 평가 목록 테이블 */}
-                    <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
-                        <span className="text-sm font-extrabold text-white border-b border-white/5 pb-2">코인별 평가 현황 원장</span>
-                        <div className="overflow-x-auto w-full rounded-xl border border-white/5 bg-slate-950/20">
-                            <table className="w-full text-left text-xs font-semibold">
-                                <thead className="bg-white/2 text-slate-400 font-bold uppercase tracking-wider text-[9px]">
-                                    <tr>
-                                        <th className="px-5 py-3.5">보유 자산</th>
-                                        <th className="px-5 py-3.5 text-right">보유 수량</th>
-                                        <th className="px-5 py-3.5 text-right">매수 평균가</th>
-                                        <th className="px-5 py-3.5 text-right">평가 금액</th>
-                                        <th className="px-5 py-3.5 text-right">평가 손익 (%)</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5 font-bold font-mono">
-                                    {/* BTC */}
-                                    <tr className="hover:bg-white/2 transition-colors">
-                                        <td className="px-5 py-4 text-white font-extrabold">BTC (비트코인)</td>
-                                        <td className="px-5 py-4 text-right">{balances.BTC.toLocaleString(undefined, { minimumFractionDigits: 8 })} BTC</td>
-                                        <td className="px-5 py-4 text-right">$65,000.00</td>
-                                        <td className="px-5 py-4 text-right">{(balances.BTC * 65000).toLocaleString(undefined, { minimumFractionDigits: 2 })} USD</td>
-                                        <td className="px-5 py-4 text-right text-slate-400">0.00%</td>
-                                    </tr>
-                                    {/* ADA */}
-                                    <tr className="hover:bg-white/2 transition-colors">
-                                        <td className="px-5 py-4 text-white font-extrabold">ADA (에이다)</td>
-                                        <td className="px-5 py-4 text-right">{balances.ADA.toLocaleString(undefined, { minimumFractionDigits: 8 })} ADA</td>
-                                        <td className="px-5 py-4 text-right">500.00 KRW</td>
-                                        <td className="px-5 py-4 text-right">{(balances.ADA * 500).toLocaleString()} KRW</td>
-                                        <td className="px-5 py-4 text-right text-slate-400">0.00%</td>
-                                    </tr>
-                                    {/* KRW */}
-                                    <tr className="hover:bg-white/2 transition-colors">
-                                        <td className="px-5 py-4 text-white font-extrabold">KRW (대한민국 원)</td>
-                                        <td className="px-5 py-4 text-right">{balances.KRW.toLocaleString()} KRW</td>
-                                        <td className="px-5 py-4 text-right">1.00 KRW</td>
-                                        <td className="px-5 py-4 text-right">{balances.KRW.toLocaleString()} KRW</td>
-                                        <td className="px-5 py-4 text-right text-slate-400">0.00%</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                        const adaBuyOrders = userTrades.filter(t => t.symbol === 'ADA-KRW' && t.side === 'BUY');
+                        const adaTotalQty = adaBuyOrders.reduce((sum, t) => sum + Number(t.qty), 0);
+                        const adaAvgPrice = adaTotalQty > 0 ? (adaBuyOrders.reduce((sum, t) => sum + (Number(t.qty) * (Number(t.price) / 100.0)), 0) / adaTotalQty) : 500;
+
+                        // 실제 매수된 총 금액 원화 환산 (BTC: USD -> KRW 고정환율 1350원)
+                        const btcInvestedKrw = btcTotalQty * btcAvgPrice * 1350;
+                        const adaInvestedKrw = adaTotalQty * adaAvgPrice;
+                        const totalInvestedKrw = btcInvestedKrw + adaInvestedKrw;
+
+                        // 현재 자산 평가액 원화 환산
+                        const btcCurrentKrw = balances.BTC * 65000 * 1350;
+                        const adaCurrentKrw = balances.ADA * 500;
+                        const totalCurrentAssetKrw = btcCurrentKrw + adaCurrentKrw;
+
+                        const profitKrw = totalCurrentAssetKrw - totalInvestedKrw;
+                        const profitPercent = totalInvestedKrw > 0 ? (profitKrw / totalInvestedKrw) * 100 : 0;
+
+                        return (
+                            <>
+                                <div className="bg-gradient-to-r from-[#0d1426] to-[#0a1020] border border-white/5 rounded-2xl p-6 grid grid-cols-1 md:grid-cols-4 gap-6">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">총 평가 금액 (환산 원화)</span>
+                                        <span className="text-2xl font-black font-mono text-white mt-1">
+                                            {totalAssetEvalValue.toLocaleString()} 원
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">총 매수 금액 (원화 환산)</span>
+                                        <span className="text-2xl font-black font-mono text-slate-300 mt-1">
+                                            {totalInvestedKrw.toLocaleString(undefined, { maximumFractionDigits: 0 })} 원
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">평가 손익금</span>
+                                        <span className={`text-2xl font-black font-mono mt-1 ${profitKrw >= 0 ? 'text-rose-400' : 'text-blue-400'}`}>
+                                            {profitKrw >= 0 ? '+' : ''}{profitKrw.toLocaleString(undefined, { maximumFractionDigits: 0 })} 원
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">총 평가 수익률</span>
+                                        <span className={`text-2xl font-black font-mono mt-1 ${profitKrw >= 0 ? 'text-rose-400' : 'text-blue-400'}`}>
+                                            {profitKrw >= 0 ? '+' : ''}{profitPercent.toFixed(2)}%
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* 중단: 자산별 상세 평가 목록 테이블 */}
+                                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
+                                    <span className="text-sm font-extrabold text-white border-b border-white/5 pb-2">코인별 평가 현황 원장</span>
+                                    <div className="overflow-x-auto w-full rounded-xl border border-white/5 bg-slate-950/20">
+                                        <table className="w-full text-left text-xs font-semibold">
+                                            <thead className="bg-white/2 text-slate-400 font-bold uppercase tracking-wider text-[9px]">
+                                                <tr>
+                                                    <th className="px-5 py-3.5">보유 자산</th>
+                                                    <th className="px-5 py-3.5 text-right">보유 수량</th>
+                                                    <th className="px-5 py-3.5 text-right">매수 평균가</th>
+                                                    <th className="px-5 py-3.5 text-right">평가 금액</th>
+                                                    <th className="px-5 py-3.5 text-right">평가 손익 (%)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5 font-bold font-mono">
+                                                {/* BTC */}
+                                                <tr className="hover:bg-white/2 transition-colors">
+                                                    <td className="px-5 py-4 text-white font-extrabold">BTC (비트코인)</td>
+                                                    <td className="px-5 py-4 text-right">{balances.BTC.toLocaleString(undefined, { minimumFractionDigits: 8 })} BTC</td>
+                                                    <td className="px-5 py-4 text-right">${btcAvgPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                                    <td className="px-5 py-4 text-right">{(balances.BTC * 65000).toLocaleString(undefined, { minimumFractionDigits: 2 })} USD</td>
+                                                    <td className="px-5 py-4 text-right text-slate-400">0.00%</td>
+                                                </tr>
+                                                {/* ADA */}
+                                                <tr className="hover:bg-white/2 transition-colors">
+                                                    <td className="px-5 py-4 text-white font-extrabold">ADA (에이다)</td>
+                                                    <td className="px-5 py-4 text-right">{balances.ADA.toLocaleString(undefined, { minimumFractionDigits: 8 })} ADA</td>
+                                                    <td className="px-5 py-4 text-right">{adaAvgPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })} KRW</td>
+                                                    <td className="px-5 py-4 text-right">{(balances.ADA * 500).toLocaleString()} KRW</td>
+                                                    <td className="px-5 py-4 text-right text-slate-400">0.00%</td>
+                                                </tr>
+                                                {/* KRW */}
+                                                <tr className="hover:bg-white/2 transition-colors">
+                                                    <td className="px-5 py-4 text-white font-extrabold">KRW (대한민국 원)</td>
+                                                    <td className="px-5 py-4 text-right">{balances.KRW.toLocaleString()} KRW</td>
+                                                    <td className="px-5 py-4 text-right">1.00 KRW</td>
+                                                    <td className="px-5 py-4 text-right">{balances.KRW.toLocaleString()} KRW</td>
+                                                    <td className="px-5 py-4 text-right text-slate-400">0.00%</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </>
+                        );
+                    })()}
 
                     {/* 하단: 미체결 예약 대기 주문 리스트 */}
                     <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex flex-col gap-3">

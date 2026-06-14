@@ -30,6 +30,60 @@ export interface CandleData {
     close: number;
 }
 
+// TODO(security): localStorage is vulnerable to XSS token theft.
+// In a production release, these authentication tokens should be stored in secure, HttpOnly cookies.
+const getLocalAccessToken = () => localStorage.getItem('user_access_token');
+const getLocalRefreshToken = () => localStorage.getItem('user_refresh_token');
+const setLocalTokens = (access: string | null, refresh: string | null) => {
+    if (access) localStorage.setItem('user_access_token', access);
+    else localStorage.removeItem('user_access_token');
+    if (refresh) localStorage.setItem('user_refresh_token', refresh);
+    else localStorage.removeItem('user_refresh_token');
+};
+
+// 동적으로 API 토큰을 가산하고 만료 시 자동 토큰 회전(RTR)을 수행하는 안전한 fetch 래퍼 함수임
+export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
+    let access = getLocalAccessToken();
+    if (!options.headers) {
+        options.headers = {};
+    }
+    if (access) {
+        (options.headers as any)['Authorization'] = `Bearer ${access}`;
+    }
+
+    let res = await fetch(url, options);
+
+    // 401 Unauthorized 또는 403 Forbidden 시 Refresh Token 기반 RTR 토큰 교체 자동 개시
+    if ((res.status === 401 || res.status === 403) && getLocalRefreshToken()) {
+        try {
+            console.log("[Auth] 토큰 만료 또는 비인가 요청 차단 감지. Refresh Token으로 갱신 수행 중...");
+            // URL의 API 호스트 부분을 유동적으로 적용하기 위해 useExchangeStore 상태를 참조할 수 있도록 base URL 추출
+            const origin = new URL(url).origin;
+            const refreshRes = await fetch(`${origin}/admin/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refreshToken: getLocalRefreshToken() })
+            });
+            if (refreshRes.ok) {
+                const tokens = await refreshRes.json();
+                setLocalTokens(tokens.accessToken, tokens.refreshToken);
+                // 새로 발급받은 Access Token 재주입 후 원래 요청 재시도
+                (options.headers as any)['Authorization'] = `Bearer ${tokens.accessToken}`;
+                res = await fetch(url, options);
+            } else {
+                console.warn("[Auth] Refresh Token 세션 갱신 실패. 강제 로그아웃됨.");
+                setLocalTokens(null, null);
+                localStorage.removeItem('user_auth_email');
+                localStorage.removeItem('user_auth_id');
+                window.location.reload(); // 강제 화면 새로고침하여 로그인 화면 유도
+            }
+        } catch (e) {
+            console.error("[Auth] 토큰 갱신 에러", e);
+        }
+    }
+    return res;
+};
+
 // 유저 거래소 중앙 상태 인터페이스
 interface ExchangeState {
     apiBaseUrl: string;
@@ -51,6 +105,18 @@ interface ExchangeState {
     volumePower: number;
     latency: number;
     throughput: number;
+
+    // 인증 관련 상태 및 액션
+    isAuthenticated: boolean;
+    authEmail: string | null;
+    authUserId: number | null;
+    login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
+    logout: () => void;
+
+    // 개인화 데이터 API 액션
+    fetchUserBalances: () => Promise<Record<string, number>>;
+    fetchUserTrades: () => Promise<any[]>;
+    fetchUserLedgers: () => Promise<any[]>;
 
     // 액션 메서드 선언
     initStore: () => Promise<void>;
@@ -320,6 +386,126 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         volumePower: 100.0,
         latency: 0,
         throughput: 0,
+
+        // 인증 상태 초기화 값 설정
+        isAuthenticated: !!getLocalAccessToken(),
+        authEmail: localStorage.getItem('user_auth_email') || null,
+        authUserId: localStorage.getItem('user_auth_id') ? parseInt(localStorage.getItem('user_auth_id')!) : null,
+
+        // 로그인 액션 구현
+        login: async (email, password) => {
+            try {
+                const res = await fetch(`${get().apiBaseUrl}/admin/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                if (res.ok) {
+                    const tokens = await res.json();
+                    setLocalTokens(tokens.accessToken, tokens.refreshToken);
+                    
+                    // JWT Access Token 파싱하여 userId 가져오기 혹은 이메일 기반으로 User ID 정보 획득
+                    // '/admin/users' 에서 email 매칭을 통해 사용자 ID를 획득합니다.
+                    const userListRes = await fetch(`${get().apiBaseUrl}/admin/users`);
+                    let userId = 1; // fallback
+                    if (userListRes.ok) {
+                        const users = await userListRes.json();
+                        const foundUser = users.find((u: any) => u.email === tokens.email);
+                        if (foundUser) {
+                            userId = foundUser.userId;
+                        }
+                    }
+
+                    localStorage.setItem('user_auth_email', tokens.email);
+                    localStorage.setItem('user_auth_id', userId.toString());
+                    
+                    set({ 
+                        isAuthenticated: true, 
+                        authEmail: tokens.email,
+                        authUserId: userId
+                    });
+                    console.log("[Auth] 사용자 로그인 성공. ID:", userId);
+                    return { success: true };
+                } else {
+                    const errData = await res.json();
+                    return { success: false, message: errData.message || "로그인 실패" };
+                }
+            } catch (err) {
+                console.error("[Auth] 로그인 처리 실패", err);
+                return { success: false, message: "서버에 연결할 수 없습니다." };
+            }
+        },
+
+        // 로그아웃 액션 구현
+        logout: async () => {
+            try {
+                const email = get().authEmail;
+                if (email) {
+                    await fetch(`${get().apiBaseUrl}/admin/auth/logout`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+                }
+            } catch (err) {
+                console.error("[Auth] 로그아웃 전송 실패", err);
+            }
+            setLocalTokens(null, null);
+            localStorage.removeItem('user_auth_email');
+            localStorage.removeItem('user_auth_id');
+            set({ isAuthenticated: false, authEmail: null, authUserId: null });
+            console.log("[Auth] 로그아웃 성공. 세션 데이터 파괴.");
+            window.location.reload();
+        },
+
+        // 개인 지갑 잔고 조회 연동
+        fetchUserBalances: async () => {
+            const userId = get().authUserId || 1;
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/wallets/user/${userId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const balMap: Record<string, number> = {};
+                    data.forEach((w: any) => {
+                        balMap[w.currency] = parseFloat(w.balance);
+                    });
+                    return balMap;
+                }
+            } catch (err) {
+                console.error("Failed to fetch user balances", err);
+            }
+            return {};
+        },
+
+        // 개인 체결 거래 이력 연동
+        fetchUserTrades: async () => {
+            const userId = get().authUserId || 1;
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/${userId}/trades?page=0&size=50`);
+                if (res.ok) {
+                    const data = await res.json();
+                    return data.content || [];
+                }
+            } catch (err) {
+                console.error("Failed to fetch user trades", err);
+            }
+            return [];
+        },
+
+        // 개인 원장 변동(입출금) 이력 연동
+        fetchUserLedgers: async () => {
+            const userId = get().authUserId || 1;
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/${userId}/ledgers?page=0&size=50`);
+                if (res.ok) {
+                    const data = await res.json();
+                    return data.content || [];
+                }
+            } catch (err) {
+                console.error("Failed to fetch user ledgers", err);
+            }
+            return [];
+        },
 
         initStore: async () => {
             let apiHost = window.location.hostname || '127.0.0.1';

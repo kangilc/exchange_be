@@ -49,11 +49,6 @@ public class AuthController {
 
         User user = userOpt.get();
 
-        // 관리자 전용 로그인 검증 (어드민 등급 확인)
-        if (!"ADMIN".equalsIgnoreCase(user.getGrade())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "관리자 권한이 없습니다."));
-        }
-
         // 비밀번호 대조
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "이메일 또는 비밀번호가 올바르지 않습니다."));
