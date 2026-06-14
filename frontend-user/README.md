@@ -1,73 +1,41 @@
-# React + TypeScript + Vite
+# JavaF 거래소 사용자단 웹 클라이언트 (frontend-user)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+JavaF 고성능 매칭 엔진과 실시간 게이트웨이에 연동하여 거래 서비스를 이용할 수 있는 React + TypeScript + Vite 기반의 사용자 전용 웹 터미널입니다.
 
-Currently, two official plugins are available:
+## 🌟 주요 기능 및 설계
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### 1. 비로그인 접근 및 실시간 시세 조회
+- **로그인 프리 접속**: 서비스 진입 시 인증 절차 없이 즉시 메인 화면으로 진입할 수 있습니다.
+- **실시간 호가 및 체결 연동**: 바이너리 웹소켓 게이트웨이를 통해 60fps 속도로 전송되는 실시간 10단 호가 잔량 및 시세 차트, 최근 체결 내역을 비로그인 상태에서도 정상적으로 구독하고 렌더링합니다.
 
-## React Compiler
+### 2. 글로벌 로그인 모달 및 모듈 접근 제어
+- **온디맨드 모달 팝업**: 비로그인 상태에서 헤더의 "로그인" 버튼을 클릭하거나, 인증이 요구되는 핵심 비즈니스 로직 실행 시 세련된 글래스모피즘 오버레이 모달이 나타납니다.
+- **거래 권한 제한 (주문 가드)**: 비로그인 상태에서 매도/매수 주문 제출 시 주문 전송이 차단되며 로그인 안내 알림과 함께 모달 로그인 창이 표시됩니다.
+- **개인 탭 보호 (인증 가드)**:
+  - `입출금 센터` 탭 및 자산 요약의 입출금 바로가기 버튼 차단 및 로그인 유도
+  - `투자내역 및 원장` 탭 진입 차단 및 로그인 유도
+  - 비로그인 상태일 경우, 보유 자산 잔고 정보 영역을 노출하지 않고 `"로그인 필요"` 문구로 대체 처리
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 3. 고성능 인메모리 스토어 (Zustand)
+- [useExchangeStore.ts](src/store/useExchangeStore.ts) 전역 스토어를 통해 실시간 오더북/체결 상태, RTT Latency, TPS 및 **로그인 세션 정보와 전역 로그인 모달 활성화 상태**를 반응형으로 중앙 집중식 관리합니다.
 
-## Expanding the ESLint configuration
+## 🛠️ 개발 및 빌드 환경
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 실행 및 빌드 명령어
+```bash
+# 의존성 패키지 설치
+npm install
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+# 로컬 개발 서버 실행
+npm run dev
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# 프로덕션 빌드 컴파일
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 도커(Docker) 기반 서비스 관리
+해당 프로젝트는 루트 디렉토리의 `docker-compose.yml` 내에서 컨테이너화되어 관리됩니다.
+```bash
+# 프론트엔드 컨테이너 빌드 검증 및 재시작
+docker compose up -d --build frontend-user
 ```

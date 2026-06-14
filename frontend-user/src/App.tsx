@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useExchangeStore } from './store/useExchangeStore';
 import { TradingTerminal } from './components/TradingTerminal';
-import { LogOut, Lock, Mail } from 'lucide-react';
+import { LogOut, Lock, Mail, X } from 'lucide-react';
 import './App.css';
 
 export const App: React.FC = () => {
@@ -10,6 +10,8 @@ export const App: React.FC = () => {
     const initStore = useExchangeStore(state => state.initStore);
     const isAuthenticated = useExchangeStore(state => state.isAuthenticated);
     const authEmail = useExchangeStore(state => state.authEmail);
+    const isLoginModalOpen = useExchangeStore(state => state.isLoginModalOpen);
+    const setLoginModalOpen = useExchangeStore(state => state.setLoginModalOpen);
     const login = useExchangeStore(state => state.login);
     const logout = useExchangeStore(state => state.logout);
 
@@ -32,76 +34,21 @@ export const App: React.FC = () => {
         setLoading(false);
         if (!res.success) {
             setLoginError(res.message || '이메일 또는 비밀번호가 올바르지 않습니다.');
+        } else {
+            setEmailInput('');
+            setPasswordInput('');
         }
     };
 
-    if (!isAuthenticated) {
-        return (
-            <div className="app-container min-h-screen text-slate-100 flex flex-col font-sans bg-[#070b15] items-center justify-center p-4 relative overflow-hidden">
-                {/* Background ambient glows */}
-                <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] bg-[#8a2be2]/10 rounded-full blur-[120px] pointer-events-none" />
-                <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-[#00f2fe]/10 rounded-full blur-[120px] pointer-events-none" />
-
-                <div className="w-full max-w-md bg-[#0a1020]/60 border border-white/5 rounded-3xl p-8 backdrop-blur-xl shadow-2xl relative z-10">
-                    <div className="flex flex-col items-center gap-3 mb-8">
-                        <div className="logo-glow w-10 h-10 rounded-full bg-gradient-to-r from-[#8a2be2] to-[#00f2fe] shadow-[0_0_20px_#8a2be2] flex items-center justify-center font-bold text-white text-base">JF</div>
-                        <h2 className="font-extrabold text-2xl tracking-tight text-white mt-2">JavaF 거래소 로그인</h2>
-                        <p className="text-xs text-slate-400 font-medium text-center">모의투자 및 입출금 관리를 위해 계정으로 로그인해 주세요.</p>
-                        <p className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">초기 이메일: user1@exchange.com / 비번: password123</p>
-                    </div>
-
-                    <form onSubmit={handleLoginSubmit} className="flex flex-col gap-5 text-xs font-semibold">
-                        {loginError && (
-                            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 font-bold text-center">
-                                {loginError}
-                            </div>
-                        )}
-
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-slate-400 uppercase text-[10px] tracking-wider">이메일 주소</label>
-                            <div className="relative flex items-center">
-                                <Mail size={16} className="absolute left-3.5 text-slate-500" />
-                                <input 
-                                    type="email"
-                                    required
-                                    value={emailInput}
-                                    onChange={(e) => setEmailInput(e.target.value)}
-                                    placeholder="your-email@exchange.com"
-                                    className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white outline-none focus:border-[#8a2be2] font-mono text-sm transition-all"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-slate-400 uppercase text-[10px] tracking-wider">비밀번호</label>
-                            <div className="relative flex items-center">
-                                <Lock size={16} className="absolute left-3.5 text-slate-500" />
-                                <input 
-                                    type="password"
-                                    required
-                                    value={passwordInput}
-                                    onChange={(e) => setPasswordInput(e.target.value)}
-                                    placeholder="••••••••"
-                                    className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white outline-none focus:border-[#8a2be2] text-sm transition-all"
-                                />
-                            </div>
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full py-3.5 mt-2 rounded-xl bg-gradient-to-r from-[#8a2be2] to-[#6366f1] text-white font-extrabold text-sm shadow-xl transition-all hover:scale-[1.01] hover:brightness-110 disabled:opacity-50"
-                        >
-                            {loading ? '로그인 처리 중...' : '거래소 로그인'}
-                        </button>
-                    </form>
-                </div>
-            </div>
-        );
-    }
+    const handleCloseModal = () => {
+        setLoginModalOpen(false);
+        setLoginError('');
+        setEmailInput('');
+        setPasswordInput('');
+    };
 
     return (
-        <div className="app-container min-h-screen text-slate-100 flex flex-col font-sans bg-[#070b15]">
+        <div className="app-container min-h-screen text-slate-100 flex flex-col font-sans bg-[#070b15] relative">
             {/* Top Glowing Header (User Version) */}
             <header className="header-bar flex items-center justify-between px-8 py-4 sticky top-0 z-50 backdrop-blur-xl border-b border-white/5 bg-[#070b15]/95 shadow-2xl">
                 <div className="logo-section flex items-center gap-3">
@@ -122,17 +69,26 @@ export const App: React.FC = () => {
                         <span>{wsConnected ? 'WS CONNECTED' : 'WS DISCONNECTED'}</span>
                     </div>
 
-                    {authEmail && (
-                        <div className="flex items-center gap-3 border-l border-white/5 pl-4 ml-1">
-                            <span className="text-slate-300 font-mono hidden sm:inline">{authEmail}</span>
-                            <button
-                                onClick={logout}
-                                title="로그아웃"
-                                className="p-2 rounded-xl bg-white/2 border border-white/5 hover:bg-rose-500/10 hover:border-rose-500/35 hover:text-rose-400 transition-all"
-                            >
-                                <LogOut size={14} />
-                            </button>
-                        </div>
+                    {!isAuthenticated ? (
+                        <button
+                            onClick={() => setLoginModalOpen(true)}
+                            className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#8a2be2] to-[#6366f1] text-white font-extrabold hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer shadow-lg shadow-indigo-500/20"
+                        >
+                            로그인
+                        </button>
+                    ) : (
+                        authEmail && (
+                            <div className="flex items-center gap-3 border-l border-white/5 pl-4 ml-1">
+                                <span className="text-slate-300 font-mono hidden sm:inline">{authEmail}</span>
+                                <button
+                                    onClick={logout}
+                                    title="로그아웃"
+                                    className="p-2 rounded-xl bg-white/2 border border-white/5 hover:bg-rose-500/10 hover:border-rose-500/35 hover:text-rose-400 transition-all cursor-pointer"
+                                >
+                                    <LogOut size={14} />
+                                </button>
+                            </div>
+                        )
                     )}
                 </div>
             </header>
@@ -140,6 +96,78 @@ export const App: React.FC = () => {
             <div className="flex-1 flex flex-col">
                 <TradingTerminal />
             </div>
+
+            {/* 🌌 글로벌 로그인 모달 팝업 */}
+            {isLoginModalOpen && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+                    {/* Background ambient glows inside modal area */}
+                    <div className="absolute top-[20%] left-[20%] w-[40%] h-[40%] bg-[#8a2be2]/10 rounded-full blur-[100px] pointer-events-none" />
+                    <div className="absolute bottom-[20%] right-[20%] w-[40%] h-[40%] bg-[#00f2fe]/10 rounded-full blur-[100px] pointer-events-none" />
+
+                    <div className="w-full max-w-md bg-[#0a1020]/90 border border-white/10 rounded-3xl p-8 backdrop-blur-2xl shadow-2xl relative animate-scale-up">
+                        {/* 닫기 버튼 */}
+                        <button
+                            onClick={handleCloseModal}
+                            className="absolute top-5 right-5 text-slate-400 hover:text-white transition-all cursor-pointer"
+                        >
+                            <X size={18} />
+                        </button>
+
+                        <div className="flex flex-col items-center gap-3 mb-6 mt-2">
+                            <div className="logo-glow w-10 h-10 rounded-full bg-gradient-to-r from-[#8a2be2] to-[#00f2fe] shadow-[0_0_20px_#8a2be2] flex items-center justify-center font-bold text-white text-base">JF</div>
+                            <h2 className="font-extrabold text-xl tracking-tight text-white mt-1">JavaF 거래소 로그인</h2>
+                            <p className="text-xs text-slate-400 font-medium text-center">모의투자 및 입출금 관리를 위해 계정으로 로그인해 주세요.</p>
+                            <p className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">초기 이메일: user1@exchange.com / 비번: password123</p>
+                        </div>
+
+                        <form onSubmit={handleLoginSubmit} className="flex flex-col gap-5 text-xs font-semibold">
+                            {loginError && (
+                                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 font-bold text-center">
+                                    {loginError}
+                                </div>
+                            )}
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-slate-400 uppercase text-[10px] tracking-wider">이메일 주소</label>
+                                <div className="relative flex items-center">
+                                    <Mail size={16} className="absolute left-3.5 text-slate-500" />
+                                    <input 
+                                        type="email"
+                                        required
+                                        value={emailInput}
+                                        onChange={(e) => setEmailInput(e.target.value)}
+                                        placeholder="your-email@exchange.com"
+                                        className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white outline-none focus:border-[#8a2be2] font-mono text-sm transition-all"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-slate-400 uppercase text-[10px] tracking-wider">비밀번호</label>
+                                <div className="relative flex items-center">
+                                    <Lock size={16} className="absolute left-3.5 text-slate-500" />
+                                    <input 
+                                        type="password"
+                                        required
+                                        value={passwordInput}
+                                        onChange={(e) => setPasswordInput(e.target.value)}
+                                        placeholder="••••••••"
+                                        className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white outline-none focus:border-[#8a2be2] text-sm transition-all"
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full py-3.5 mt-2 rounded-xl bg-gradient-to-r from-[#8a2be2] to-[#6366f1] text-white font-extrabold text-sm shadow-xl transition-all hover:scale-[1.01] hover:brightness-110 disabled:opacity-50 cursor-pointer"
+                            >
+                                {loading ? '로그인 처리 중...' : '거래소 로그인'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

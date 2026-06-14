@@ -110,6 +110,8 @@ interface ExchangeState {
     isAuthenticated: boolean;
     authEmail: string | null;
     authUserId: number | null;
+    isLoginModalOpen: boolean;
+    setLoginModalOpen: (open: boolean) => void;
     login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
     logout: () => void;
 
@@ -391,6 +393,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         isAuthenticated: !!getLocalAccessToken(),
         authEmail: localStorage.getItem('user_auth_email') || null,
         authUserId: localStorage.getItem('user_auth_id') ? parseInt(localStorage.getItem('user_auth_id')!) : null,
+        isLoginModalOpen: false,
+        setLoginModalOpen: (open) => set({ isLoginModalOpen: open }),
 
         // 로그인 액션 구현
         login: async (email, password) => {
@@ -422,7 +426,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     set({ 
                         isAuthenticated: true, 
                         authEmail: tokens.email,
-                        authUserId: userId
+                        authUserId: userId,
+                        isLoginModalOpen: false
                     });
                     console.log("[Auth] 사용자 로그인 성공. ID:", userId);
                     return { success: true };

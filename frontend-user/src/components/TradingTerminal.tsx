@@ -91,6 +91,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const setActiveSymbol = useExchangeStore(state => state.setActiveSymbol);
     const setActiveResolution = useExchangeStore(state => state.setActiveResolution);
     const authUserId = useExchangeStore(state => state.authUserId);
+    const isAuthenticated = useExchangeStore(state => state.isAuthenticated);
+    const setLoginModalOpen = useExchangeStore(state => state.setLoginModalOpen);
     const fetchUserBalances = useExchangeStore(state => state.fetchUserBalances);
     const fetchUserTrades = useExchangeStore(state => state.fetchUserTrades);
     const fetchUserLedgers = useExchangeStore(state => state.fetchUserLedgers);
@@ -274,6 +276,11 @@ export const TradingTerminal: React.FC = React.memo(() => {
     // 4. 주문 터미널 제출 처리
     const handleOrderSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!isAuthenticated) {
+            alert('주문을 전송하려면 로그인이 필요합니다.');
+            setLoginModalOpen(true);
+            return;
+        }
         if (!wsConnected) {
             appendLog('warning', '터미널이 게이트웨이와 연결되어 있지 않습니다.');
             return;
@@ -522,13 +529,27 @@ export const TradingTerminal: React.FC = React.memo(() => {
                     📈 거래 터미널
                 </button>
                 <button
-                    onClick={() => setActiveTab('custody')}
+                    onClick={() => {
+                        if (!isAuthenticated) {
+                            alert('입출금 센터를 이용하시려면 로그인이 필요합니다.');
+                            setLoginModalOpen(true);
+                            return;
+                        }
+                        setActiveTab('custody');
+                    }}
                     className={`flex-1 py-3 rounded-xl text-center transition-all duration-150 ${activeTab === 'custody' ? 'bg-[#8a2be2] text-white shadow-lg shadow-[#8a2be2]/25' : 'text-slate-400 hover:text-white'}`}
                 >
                     💰 입출금 센터
                 </button>
                 <button
-                    onClick={() => setActiveTab('investment')}
+                    onClick={() => {
+                        if (!isAuthenticated) {
+                            alert('투자내역 및 원장을 조회하시려면 로그인이 필요합니다.');
+                            setLoginModalOpen(true);
+                            return;
+                        }
+                        setActiveTab('investment');
+                    }}
                     className={`flex-1 py-3 rounded-xl text-center transition-all duration-150 ${activeTab === 'investment' ? 'bg-[#8a2be2] text-white shadow-lg shadow-[#8a2be2]/25' : 'text-slate-400 hover:text-white'}`}
                 >
                     📊 투자내역 및 원장
@@ -789,7 +810,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                             <div className="flex justify-between items-center">
                                                 <label className="text-slate-400 uppercase text-[10px]">주문 수량</label>
                                                 <span className="text-[9px] text-[#00f2fe] font-bold">
-                                                    주문가능: {selectedSide === 'BUY' ? `${balances[fiat].toLocaleString()} ${fiat}` : `${balances[coin].toLocaleString()} ${coin}`}
+                                                    주문가능: {!isAuthenticated ? '로그인 필요' : (selectedSide === 'BUY' ? `${balances[fiat].toLocaleString()} ${fiat}` : `${balances[coin].toLocaleString()} ${coin}`)}
                                                 </span>
                                             </div>
                                             <div className="relative flex items-center">
@@ -836,39 +857,49 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                 <div className="flex flex-col gap-3 font-mono text-xs">
                                     <div className="flex justify-between border-b border-dashed border-white/5 pb-2">
                                         <span className="text-slate-400">보유 KRW</span>
-                                        <span className="text-white font-bold">{balances.KRW.toLocaleString()} KRW</span>
+                                        <span className="text-white font-bold">{!isAuthenticated ? '로그인 필요' : `${balances.KRW.toLocaleString()} KRW`}</span>
                                     </div>
                                     <div className="flex justify-between border-b border-dashed border-white/5 pb-2">
                                         <span className="text-slate-400">보유 USD</span>
-                                        <span className="text-white font-bold">{balances.USD.toLocaleString(undefined, { minimumFractionDigits: 2 })} USD</span>
+                                        <span className="text-white font-bold">{!isAuthenticated ? '로그인 필요' : `${balances.USD.toLocaleString(undefined, { minimumFractionDigits: 2 })} USD`}</span>
                                     </div>
                                     <div className="flex justify-between border-b border-dashed border-white/5 pb-2">
                                         <span className="text-slate-400">보유 BTC</span>
-                                        <span className="text-[#00f2fe] font-bold">{balances.BTC.toLocaleString(undefined, { minimumFractionDigits: 8 })} BTC</span>
+                                        <span className="text-[#00f2fe] font-bold">{!isAuthenticated ? '로그인 필요' : `${balances.BTC.toLocaleString(undefined, { minimumFractionDigits: 8 })} BTC`}</span>
                                     </div>
                                     <div className="flex justify-between border-b border-dashed border-white/5 pb-2">
                                         <span className="text-slate-400">보유 ADA</span>
-                                        <span className="text-[#c084fc] font-bold">{balances.ADA.toLocaleString(undefined, { minimumFractionDigits: 8 })} ADA</span>
+                                        <span className="text-[#c084fc] font-bold">{!isAuthenticated ? '로그인 필요' : `${balances.ADA.toLocaleString(undefined, { minimumFractionDigits: 8 })} ADA`}</span>
                                     </div>
                                 </div>
                                 <div className="flex gap-3 text-[10px] font-bold mt-1">
                                     <button 
                                         onClick={() => {
+                                            if (!isAuthenticated) {
+                                                alert('입출금 센터를 이용하시려면 로그인이 필요합니다.');
+                                                setLoginModalOpen(true);
+                                                return;
+                                            }
                                             setCustodyCurrency('KRW');
                                             setCustodyAction('DEPOSIT');
                                             setActiveTab('custody');
                                         }}
-                                        className="flex-1 py-2.5 rounded-lg border border-emerald-500/25 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 transition-all text-center"
+                                        className="flex-1 py-2.5 rounded-lg border border-emerald-500/25 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 transition-all text-center cursor-pointer"
                                     >
                                         입금하기
                                     </button>
                                     <button 
                                         onClick={() => {
+                                            if (!isAuthenticated) {
+                                                alert('입출금 센터를 이용하시려면 로그인이 필요합니다.');
+                                                setLoginModalOpen(true);
+                                                return;
+                                            }
                                             setCustodyCurrency('KRW');
                                             setCustodyAction('WITHDRAW');
                                             setActiveTab('custody');
                                         }}
-                                        className="flex-1 py-2.5 rounded-lg border border-rose-500/25 bg-rose-500/5 text-rose-400 hover:bg-rose-500/10 transition-all text-center"
+                                        className="flex-1 py-2.5 rounded-lg border border-rose-500/25 bg-rose-500/5 text-rose-400 hover:bg-rose-500/10 transition-all text-center cursor-pointer"
                                     >
                                         출금하기
                                     </button>
