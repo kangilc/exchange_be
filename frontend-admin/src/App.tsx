@@ -467,7 +467,13 @@ export const App: React.FC = () => {
                     )}
                 </main>
             </>
-        </div>
+            </div>
+
+            {/* Footer */}
+            <footer className="py-6 flex flex-col items-center gap-2 text-center text-[10px] text-slate-500 font-semibold border-t border-white/5 bg-[#070b15]">
+                <img src="/JavaF_logo_tiny_400.png" alt="JavaF Logo" className="w-[400px] max-w-full object-contain" />
+                <span>© 2026 JavaF Exchange. All rights reserved.</span>
+            </footer>
 
             {/* ======================================================= */}
             {/* MODALS WINDOWS (팝업 모달 시스템) */}
