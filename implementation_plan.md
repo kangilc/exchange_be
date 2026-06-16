@@ -36,10 +36,10 @@
       price_decimals INT NOT NULL,
       min_qty NUMERIC(20, 8) NOT NULL,
       status VARCHAR(20) NOT NULL,
-      created_at TIMESTAMP NOT NULL, -- markets of created_at
-      updated_at TIMESTAMP NOT NULL, -- markets of updated_at
-      created_by VARCHAR(100),       -- markets of created_by
-      updated_by VARCHAR(100)        -- markets of updated_by
+      created_at TIMESTAMP NOT NULL, -- markets의 created_at과 동일
+      updated_at TIMESTAMP NOT NULL, -- markets의 updated_at과 동일
+      created_by VARCHAR(100),       -- markets의 created_by와 동일
+      updated_by VARCHAR(100)        -- markets의 updated_by와 동일
   );
   ```
 * [MODIFY] [V1__init_schema.sql](file:///home/administrator/exchange_be/admin-api/src/main/resources/db/migration/V1__init_schema.sql):
@@ -54,8 +54,13 @@
 ### 3. Backend (admin-api)
 * [MODIFY] [AdminApiApplication.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/AdminApiApplication.java):
   초기 데이터 검사 쿼리를 `SELECT symbol, fee_rate FROM market_fees`에서 `SELECT symbol, fee_rate FROM markets`로 수정한다.
+* [MODIFY] [AdminSettings.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/config/AdminSettings.java):
+  하드코딩되어 저장되던 특정 마켓 수수료 변수(`btcUsdFeeRate`, `adaKrwFeeRate`) 및 관련 Getter/Setter를 완전히 제거하고, 대신 DB의 `markets` 테이블 정보를 맵 형태 등으로 참조하도록 수정한다.
 * [MODIFY] [SettingsController.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/controller/SettingsController.java):
-  수수료율 설정 등록/수정 쿼리를 `market_fees` 테이블 대신 `markets` 테이블 대상 쿼리로 수정한다.
+  - 기존 수수료 수정 쿼리(`updateFeeInDb`)가 `market_fees` 테이블 대신 `markets` 테이블을 업데이트 하도록 쿼리를 변경한다.
+  - 설정값 조회(`GET /admin/settings`) 및 저장(`POST /admin/settings`) 시, 하드코딩된 수수료율 키 대신 상장된 전체 마켓의 수수료율 정보(`markets` 테이블 목록)를 동적으로 연동하여 조회 및 업데이트하도록 변경한다.
+* [MODIFY] [StatsService.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/service/StatsService.java):
+  - 통계 요약 및 화면 갱신 데이터 구성 시, 하드코딩된 static 설정을 읽어오는 대신 `markets` 테이블을 조인 및 조회하여 동적으로 마켓별 수수료율 데이터를 반환한다.
 * **서비스 레이어 명시적 이력 로깅 (Service-level Explicit Logging)**:
   마켓 수정이 발생하는 백엔드 비즈니스 서비스 코드단에서 명시적으로 `MarketHistory` 객체를 생성하여 저장(Save)하는 로직을 직접 구현한다.
   * **값의 복사**: `MarketHistory` 저장 시 생성/수정 일시 및 생성/수정자 필드는 변경 완료된 `Market` 엔티티의 필드 값을 그대로 대입하여 저장한다.
