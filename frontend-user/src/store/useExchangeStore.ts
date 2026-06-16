@@ -673,7 +673,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         markets: [],
         fetchMarkets: async () => {
             try {
-                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/stats/markets`);
+                const res = await fetch(`${get().apiBaseUrl}/admin/stats/markets`);
                 if (res.ok) {
                     const data = await res.json();
                     set({ markets: data || [] });
