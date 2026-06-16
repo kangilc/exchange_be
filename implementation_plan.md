@@ -9,6 +9,7 @@
 ### 1. Database Schema
 * **`market_fees` 테이블 폐지 및 `markets` 테이블 통합**:
   기존의 `market_fees` 수수료율 설정 테이블을 없애고, 신규 생성할 `markets` 테이블에 수수료율(`fee_rate`)을 통합하여 함께 관리한다.
+  또한 다른 테이블 및 자바 `BaseEntity`와의 매핑 정합성을 위해 **`created_by` 및 `updated_by` (등록자/수정자) 컬럼을 함께 추가**한다.
   ```sql
   CREATE TABLE IF NOT EXISTS markets (
       symbol VARCHAR(20) PRIMARY KEY,
@@ -19,7 +20,9 @@
       min_qty NUMERIC(20, 8) DEFAULT 0.0001,
       status VARCHAR(20) DEFAULT 'ACTIVE',
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      created_by VARCHAR(100),
+      updated_by VARCHAR(100)
   );
   ```
 * [MODIFY] [V1__init_schema.sql](file:///home/administrator/exchange_be/admin-api/src/main/resources/db/migration/V1__init_schema.sql):
