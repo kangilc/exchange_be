@@ -27,7 +27,7 @@
   ```
 * **`market_histories` (마켓 변경 이력 관리 테이블) 신규 추가**:
   마켓 메타데이터 정보가 수정될 때마다 그 변경 기록을 추적 및 감사할 수 있도록 이력 테이블을 신설한다.
-  데이터 추적의 정확성과 표준 `BaseEntity` 상속을 위해 **수정일시(`updated_at`) 및 수정자(`updated_by`) 컬럼을 함께 포함**한다.
+  **이력 테이블의 등록/수정자 및 일시 정보(`created_at`, `updated_at`, `created_by`, `updated_by`)는 변경 대상이 된 `markets` 테이블의 값을 그대로 이관받아 기록**한다.
   ```sql
   CREATE TABLE IF NOT EXISTS market_histories (
       history_id BIGSERIAL PRIMARY KEY,
@@ -36,10 +36,10 @@
       price_decimals INT NOT NULL,
       min_qty NUMERIC(20, 8) NOT NULL,
       status VARCHAR(20) NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      created_by VARCHAR(100),
-      updated_by VARCHAR(100)
+      created_at TIMESTAMP NOT NULL, -- markets의 created_at과 동일
+      updated_at TIMESTAMP NOT NULL, -- markets의 updated_at과 동일
+      created_by VARCHAR(100),       -- markets의 created_by와 동일
+      updated_by VARCHAR(100)        -- markets의 updated_by와 동일
   );
   ```
 * [MODIFY] [V1__init_schema.sql](file:///home/administrator/exchange_be/admin-api/src/main/resources/db/migration/V1__init_schema.sql):
@@ -55,15 +55,15 @@
 * [MODIFY] [SettingsController.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/controller/SettingsController.java):
   수수료율 설정 등록/수정 쿼리를 `market_fees` 테이블 대신 `markets` 테이블 대상 쿼리로 수정한다.
 * **서비스 레이어 명시적 이력 로깅 (Service-level Explicit Logging)**:
-  암묵적인 동작 방식을 피해 디버깅 편의성을 극대화하기 위해, **마켓 수정이 발생하는 백엔드 비즈니스 서비스 코드단에서 명시적으로 `MarketHistory` 객체를 생성하여 저장(Save)하는 로직을 직접 구현**한다.
-  * 마켓 생성/수정 메소드가 끝날 때 `marketHistoryRepository.save(new MarketHistory(...))`를 명시적으로 호출하여 데이터 정합성과 가독성을 보장한다.
+  마켓 수정이 발생하는 백엔드 비즈니스 서비스 코드단에서 명시적으로 `MarketHistory` 객체를 생성하여 저장(Save)하는 로직을 직접 구현한다.
+  * **값의 복사**: `MarketHistory` 저장 시 생성/수정 일시 및 생성/수정자 필드는 변경 완료된 `Market` 엔티티의 필드 값을 그대로 대입하여 저장한다.
 * **마켓 및 수수료 관리 API**: 신규 마켓 추가, 상장 상태 제어, 수수료율 수정을 처리하는 REST API를 개발한다.
 * **Lazy Wallet Initialization**: 입금 요청 및 체결 완료 처리 시 지갑 미존재 시 자동 생성하는 공통 유틸리티를 적용한다.
 * **카프카 라우팅 단일화**: 마켓별 토픽 대신 단일 토픽(`order-commands`, `matching-events`)에 `symbol`을 파티션 키로 지정하여 스트리밍하도록 변경한다.
 
 ### 4. Matching Engine (engine-core & db-persister)
 * [MODIFY] [DbPersisterRunner.java](file:///home/administrator/exchange_be/adapter-kafka/src/main/java/exchange/kafka/db/DbPersisterRunner.java):
-  수수료 캐시 로딩 쿼리를 `SELECT symbol, fee_rate FROM market_fees`에서 `SELECT symbol, fee_rate FROM markets`로 수정한다.
+  수수료 캐시 로딩 쿼리를 `SELECT symbol, fee_rate FROM market_fees`set `SELECT symbol, fee_rate FROM markets`로 수정한다.
 * **동적 엔진 풀(MatchingEnginePool) 도입**: 심볼당 1개의 도커 컨테이너를 정적으로 띄우는 배포 구조를 개선한다. 단일 엔진 프로세스 내에서 DB의 활성 마켓 정보를 주기적으로 조회하거나 Redis Pub/Sub 알림을 통해 개별 매칭 엔진 스레드를 실시간으로 추가/종료할 수 있도록 아키텍처를 개편한다.
 
 ---
@@ -71,9 +71,9 @@
 ## Verification Plan
 
 ### Automated Tests
-* DB 신규 마켓 추가, 수수료 변경 및 Java 비즈니스 서비스 단에서의 명시적 이력 기록(history) 검증 API 단위 테스트
+* DB 신규 마켓 추가, 수수료 변경 및 Java 비즈니스 서비스 단에서의 명시적 이력 기록(history) 검증 API 단위 테스트 (등록/수정 정보 동일 여부 확인)
 * 지갑 동시 자동 생성 로직 동기화 정합성 테스트
 
 ### Manual Verification
-* 어드민 콘솔에서 신규 마켓 `ETH-USDT` 상장 등록 및 수수료 변경 조작 후 `market_histories` 테이블에 로그가 정상적으로 명시적 인서트 되는지 검증
+* 어드민 콘솔에서 신규 마켓 `ETH-USDT` 상장 등록 및 수수료 변경 조작 후 `market_histories` 테이블에 로그가 정상적으로 명시적 인서트 되는지 검증 (created_at, updated_at, created_by, updated_by 값이 markets와 같은지 확인)
 * 유저 화면 노출 및 체결 정상 동작 여부 최종 검증
