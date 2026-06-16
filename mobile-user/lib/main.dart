@@ -140,47 +140,51 @@ class _TradingTerminalPageState extends ConsumerState<TradingTerminalPage> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0A1020),
         elevation: 0,
-        title: Row(
-          children: [
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF8A2BE2), Color(0xFF00F2FE)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF8A2BE2).withOpacity(0.5),
-                    blurRadius: 8,
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF8A2BE2), Color(0xFF00F2FE)],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              'JavaF Mobile',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(width: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF00F2FE).withOpacity(0.4)),
-                color: const Color(0xFF00F2FE).withOpacity(0.05),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                'USER CLIENT',
-                style: TextStyle(
-                  fontSize: 8,
-                  color: Color(0xFF00F2FE),
-                  fontWeight: FontWeight.bold,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF8A2BE2).withOpacity(0.5),
+                      blurRadius: 8,
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              const Text(
+                'JavaF Mobile',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFF00F2FE).withOpacity(0.4)),
+                  color: const Color(0xFF00F2FE).withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'USER CLIENT',
+                  style: TextStyle(
+                    fontSize: 8,
+                    color: Color(0xFF00F2FE),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           // 연결상태 뱃지
