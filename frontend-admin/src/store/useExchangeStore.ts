@@ -509,7 +509,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     if (tickerRes.ok) {
                         const tickerData = await tickerRes.json();
                         if (tickerData && typeof tickerData.lastPrice === 'number') {
-                            set({ lastPrice: tickerData.lastPrice });
+                            set({ lastPrice: tickerData.lastPrice / 100.0 });
                         }
                     }
                 } catch (tickerErr) {
