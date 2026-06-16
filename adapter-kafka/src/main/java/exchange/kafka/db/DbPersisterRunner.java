@@ -339,7 +339,7 @@ public final class DbPersisterRunner {
         // 10초 주기로 DB에서 최신 설정값을 리로드
         if (now - lastFeeRatesLoadTs > 10000 || feeRatesCache.isEmpty()) {
             try {
-                String sql = "SELECT symbol, fee_rate FROM market_fees";
+                String sql = "SELECT symbol, fee_rate FROM markets";
                 try (PreparedStatement ps = conn.prepareStatement(sql);
                      ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
@@ -352,12 +352,6 @@ public final class DbPersisterRunner {
             }
         }
         
-        return feeRatesCache.computeIfAbsent(symbol, s -> {
-            if ("ADA-KRW".equals(s)) {
-                return 0.0005;
-            } else {
-                return 0.001;
-            }
-        });
+        return feeRatesCache.getOrDefault(symbol, 0.001);
     }
 }

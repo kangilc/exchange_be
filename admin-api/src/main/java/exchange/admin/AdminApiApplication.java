@@ -10,7 +10,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.Statement;
 
@@ -65,15 +64,11 @@ public class AdminApiApplication {
                 // 2. DB의 현재 수수료율 값을 읽어서 AdminSettings 인메모리 홀더 동기화
                 log.info("Caching market fee rates from database to AdminSettings...");
                 try (Statement stmt = connection.createStatement();
-                     ResultSet rs = stmt.executeQuery("SELECT symbol, fee_rate FROM market_fees")) {
+                     ResultSet rs = stmt.executeQuery("SELECT symbol, fee_rate FROM markets")) {
                     while (rs.next()) {
                         String sym = rs.getString("symbol");
                         double rate = rs.getDouble("fee_rate");
-                        if ("BTC-USD".equals(sym)) {
-                            exchange.admin.config.AdminSettings.setBtcUsdFeeRate(rate);
-                        } else if ("ADA-KRW".equals(sym)) {
-                            exchange.admin.config.AdminSettings.setAdaKrwFeeRate(rate);
-                        }
+                        exchange.admin.config.AdminSettings.setFeeRate(sym, rate);
                     }
                     log.info("AdminSettings fee rate cache sync completed!");
                 }

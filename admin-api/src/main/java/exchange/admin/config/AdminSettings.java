@@ -11,24 +11,21 @@ public class AdminSettings {
     private static volatile int ethConfirmations = 12;
     private static volatile int adaConfirmations = 5;
     private static volatile boolean walletSimulationEnabled = true;
-    private static volatile double btcUsdFeeRate = 0.001000; // 0.1%
-    private static volatile double adaKrwFeeRate = 0.000500; // 0.05%
+    private static final java.util.concurrent.ConcurrentHashMap<String, Double> marketFeeRates = 
+            new java.util.concurrent.ConcurrentHashMap<>();
 
-    public static double getBtcUsdFeeRate() {
-        return btcUsdFeeRate;
+    public static double getFeeRate(String symbol) {
+        return marketFeeRates.getOrDefault(symbol, 0.001000);
     }
 
-    public static void setBtcUsdFeeRate(double feeRate) {
-        btcUsdFeeRate = feeRate;
+    public static void setFeeRate(String symbol, double feeRate) {
+        marketFeeRates.put(symbol, feeRate);
     }
 
-    public static double getAdaKrwFeeRate() {
-        return adaKrwFeeRate;
+    public static java.util.Map<String, Double> getMarketFeeRates() {
+        return java.util.Collections.unmodifiableMap(marketFeeRates);
     }
 
-    public static void setAdaKrwFeeRate(double feeRate) {
-        adaKrwFeeRate = feeRate;
-    }
 
     public static boolean isWalletSimulationEnabled() {
         return walletSimulationEnabled;

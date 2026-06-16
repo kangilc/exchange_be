@@ -89,7 +89,7 @@ graph TD
 *   **통화별 총 유통 자산 지표 조회 (`/admin/wallets/summary`):** 거래소 내에 보관된 전체 자산(KRW, USD, BTC, ADA)의 사용 가능한 잔액 및 거래 진행중 락(Locked)이 걸린 자산의 합산 수치를 원자적으로 조회합니다.
 *   **실시간 성능 및 시스템 통계 요약 (`/admin/stats/summary`):** 총 등록 회원 수, 활성 지갑 수, 금일 누적 매칭 거래 수, 누적 거래 대금(Volume)을 즉각 취합하여 반환합니다.
 *   **거래소 실적 분석 통계 조회 (`/admin/stats/performance`):** (🌟 신규) 마켓별 누적 및 24시간 수수료 수입, 24H DAU / 30D MAU, 자산 유통 속도(Trading Velocity), 오더 체결 성공률 및 경쟁사(Binance, Upbit, Coinbase) 성능 벤치마킹 통합 분석 데이터를 반환합니다.
-*   **마켓별 동적 수수료율 설정 및 조회 (`/admin/settings`):** (🌟 신규) `POST` 요청을 통해 `btcUsdFeeRate` 및 `adaKrwFeeRate` 수수료 설정을 동적으로 변경하고 DB 영속화와 인메모리 `AdminSettings` 캐시 동기화를 즉시 처리합니다.
+*   **마켓별 동적 수수료율 설정 및 조회 (`/admin/settings`):** (🌟 신규) `POST` 요청을 통해 `markets` 테이블과 연동된 전체 마켓의 수수료 설정을 동적으로 변경하고 DB 영속화와 인메모리 `AdminSettings` 캐시 동기화를 즉시 처리합니다. 마켓 수수료율 등 정보 수정 발생 시 `market_histories` 테이블에 등록/수정 일시 및 담당자 필드를 동일하게 복사하여 변경 이력을 명시적으로 로그 적재합니다.
 *   **유입 유저 지표 조회 (`/admin/stats/users`):** 일간, 주간, 월간, 분기, 연간 해상도 변수(Resolution)를 주입받아 시간에 따른 신규 회원 가입 유입량을 반환합니다.
 *   **매칭 거래 분석 및 자산 변경 이력 조회 (`/admin/stats/trades` / `/admin/stats/assets`):** 기간별 거래소 내의 원화 및 USD, 각종 코인 자산의 증감 흐름과 누적 체결 수치를 다각도로 조회합니다.
 *   **회원 원장 관리 (CRUD):** 회원 가입 등록(`POST /admin/users`), 정보 수정(`PUT /admin/users/{id}`), VIP 등급/거래정지(SUSPENDED) 관리 기능이 완벽 제공됩니다.

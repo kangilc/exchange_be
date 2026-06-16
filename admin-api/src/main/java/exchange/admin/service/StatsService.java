@@ -244,8 +244,8 @@ public class StatsService {
             feeRevenue.put("btcUsdFees24hUsd", btcFees24h);
             feeRevenue.put("adaKrwVolume24hKrw", adaVolume24h);
             feeRevenue.put("adaKrwFees24hKrw", adaFees24h);
-            feeRevenue.put("btcUsdCurrentFeeRate", exchange.admin.config.AdminSettings.getBtcUsdFeeRate());
-            feeRevenue.put("adaKrwCurrentFeeRate", exchange.admin.config.AdminSettings.getAdaKrwFeeRate());
+            feeRevenue.put("btcUsdCurrentFeeRate", exchange.admin.config.AdminSettings.getFeeRate("BTC-USD"));
+            feeRevenue.put("adaKrwCurrentFeeRate", exchange.admin.config.AdminSettings.getFeeRate("ADA-KRW"));
             perf.put("feeRevenue", feeRevenue);
 
             // 2. Active Users (DAU 24H / MAU 30D)
@@ -374,8 +374,8 @@ public class StatsService {
             
             competitors.add(java.util.Map.of(
                 "exchange", "HFX (우리 거래소)",
-                "btcUsdFeeRatePercent", exchange.admin.config.AdminSettings.getBtcUsdFeeRate() * 100.0,
-                "adaKrwFeeRatePercent", exchange.admin.config.AdminSettings.getAdaKrwFeeRate() * 100.0,
+                "btcUsdFeeRatePercent", exchange.admin.config.AdminSettings.getFeeRate("BTC-USD") * 100.0,
+                "adaKrwFeeRatePercent", exchange.admin.config.AdminSettings.getFeeRate("ADA-KRW") * 100.0,
                 "avgLatencyMs", 0.05,
                 "tps", 100000,
                 "reliabilityPercent", 99.99

@@ -6,7 +6,7 @@
 
 ## Proposed Changes
 
-### 1. Database Schema
+### 1. Database Schema & Migration
 * **`market_fees` 테이블 폐지 및 `markets` 테이블 통합**:
   기존의 `market_fees` 수수료율 설정 테이블을 없애고, 신규 생성할 `markets` 테이블에 수수료율(`fee_rate`)을 통합하여 함께 관리한다.
   또한 다른 테이블 및 자바 `BaseEntity`와의 매핑 정합성을 위해 **`created_by` 및 `updated_by` (등록자/수정자) 컬럼을 함께 추가**한다.
@@ -44,7 +44,12 @@
   ```
 * [MODIFY] [V1__init_schema.sql](file:///home/administrator/exchange_be/admin-api/src/main/resources/db/migration/V1__init_schema.sql):
   `market_fees` 테이블 생성 구문을 제거하고 `markets` 및 `market_histories` 테이블 생성 구문으로 교체한다. (데이터베이스 트리거 및 리스너는 사용하지 않음)
+* [MODIFY] [V2__seed_data.sql](file:///home/administrator/exchange_be/admin-api/src/main/resources/db/migration/V2__seed_data.sql):
+  기존 `market_fees` 테이블 대상 인서트 구문을 제거하고, 신규 규격의 `markets` 테이블에 초기 마켓 데이터(`BTC-USD`, `ADA-KRW`)와 기본 수수료 정보를 적재하도록 쿼리를 수정한다.
 * **지갑 동적 생성 지원**: 지갑이 필요해지는 시점에 지갑 레코드를 자동 생성할 수 있도록 `INSERT ... ON CONFLICT DO NOTHING` 처리를 강화한다.
+* > [!WARNING]
+  > **Flyway 마이그레이션 체크섬 사이드 이펙트 해결**:
+  > 기존 DB 인스턴스의 볼륨 데이터가 남아있으면 Flyway 체크섬 오류로 크래시가 발생하므로, 배포/시작 전에 반드시 기존 도커 볼륨을 클리어해야 한다 (`docker compose down -v`).
 
 ### 2. User & Admin Frontend (UI)
 * **마켓 목록 및 API 기반 동적 렌더링**:
@@ -66,12 +71,14 @@
   * **값의 복사**: `MarketHistory` 저장 시 생성/수정 일시 및 생성/수정자 필드는 변경 완료된 `Market` 엔티티의 필드 값을 그대로 대입하여 저장한다.
 * **마켓 및 수수료 관리 API**: 신규 마켓 추가, 상장 상태 제어, 수수료율 수정을 처리하는 REST API를 개발한다.
 * **Lazy Wallet Initialization**: 입금 요청 및 체결 완료 처리 시 지갑 미존재 시 자동 생성하는 공통 유틸리티를 적용한다.
-* **카프카 라우팅 단일화**: 마켓별 토픽 대신 단일 토픽(`order-commands`, `matching-events`)에 `symbol`을 파티션 키로 지정하여 스트리밍하도록 변경한다.
+* **카프카 토픽 및 엔진 격리 유지**: 마켓 간 완벽한 성능 격리를 위해 기존의 마켓별 개별 토픽(`order-commands-{symbol}`, `matching-events-{symbol}`) 구조와 docker-compose 기반 독립 매칭 엔진 컨테이너 배포 구조를 그대로 유지한다.
 
 ### 4. Matching Engine (engine-core & db-persister)
 * [MODIFY] [DbPersisterRunner.java](file:///home/administrator/exchange_be/adapter-kafka/src/main/java/exchange/kafka/db/DbPersisterRunner.java):
-  수수료 캐시 로딩 쿼리를 `SELECT symbol, fee_rate FROM market_fees`에서 `SELECT symbol, fee_rate FROM markets`로 수정한다.
-* **동적 엔진 풀(MatchingEnginePool) 도입**: 심볼당 1개의 도커 컨테이너를 정적으로 띄우는 배포 구조를 개선한다. 단일 엔진 프로세스 내에서 DB의 활성 마켓 정보를 주기적으로 조회하거나 Redis Pub/Sub 알림을 통해 개별 매칭 엔진 스레드를 실시간으로 추가/종료할 수 있도록 아키텍처를 개편한다.
+  - 수수료 캐시 로딩 쿼리를 `SELECT symbol, fee_rate FROM market_fees`에서 `SELECT symbol, fee_rate FROM markets`로 수정한다.
+  - > [!TIP]
+    > **수수료 캐시 폴백 일반화**: 캐시 로드 실패 시 적용되는 하드코딩된 분기(`if ("ADA-KRW".equals(symbol))`)를 지우고, 임의의 마켓에 대해 시스템 글로벌 기본 수수료율(예: `0.001`)이 폴백되도록 리팩토링한다.
+
 
 ---
 
@@ -82,5 +89,6 @@
 * 지갑 동시 자동 생성 로직 동기화 정합성 테스트
 
 ### Manual Verification
+* 변경 배포 시 반드시 `docker compose down -v`를 실행하여 Flyway 정합성 초기화 후 정상 빌드 및 실행 여부 검증
 * 어드민 콘솔에서 신규 마켓 `ETH-USDT` 상장 등록 및 수수료 변경 조작 후 `market_histories` 테이블에 로그가 정상적으로 명시적 인서트 되는지 검증 (created_at, updated_at, created_by, updated_by 값이 markets와 같은지 확인)
 * 유저 화면 노출 및 체결 정상 동작 여부 최종 검증

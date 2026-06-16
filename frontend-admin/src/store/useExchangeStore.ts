@@ -142,8 +142,7 @@ interface ExchangeState {
     btcConfirmations: number;
     ethConfirmations: number;
     adaConfirmations: number;
-    btcUsdFeeRate: number;
-    adaKrwFeeRate: number;
+    marketFeeRates: Record<string, number>;
     cryptoWithdrawals: any[];
     hotWallets: any[];
     userCryptoAddresses: any[];
@@ -154,7 +153,7 @@ interface ExchangeState {
     toggleOnChainDepositMonitoring: (enabled: boolean) => Promise<void>;
     toggleWalletSimulation: (enabled: boolean) => Promise<void>;
     updateConfirmationsSettings: (btc: number, eth: number, ada: number) => Promise<void>;
-    updateFeeSettings: (btcUsd: number, adaKrw: number) => Promise<void>;
+    updateFeeSettings: (rates: Record<string, number>) => Promise<void>;
     fetchPerformanceStats: () => Promise<any>;
     sendWsMessage: (message: any) => boolean;
     fetchCryptoWithdrawals: () => Promise<void>;
@@ -397,8 +396,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         btcConfirmations: 3,
         ethConfirmations: 12,
         adaConfirmations: 5,
-        btcUsdFeeRate: 0.001,
-        adaKrwFeeRate: 0.0005,
+        marketFeeRates: {},
         cryptoWithdrawals: [],
         hotWallets: [],
         userCryptoAddresses: [],
@@ -782,8 +780,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                             btcConfirmations: typeof data.btcConfirmations === 'number' ? data.btcConfirmations : 3,
                             ethConfirmations: typeof data.ethConfirmations === 'number' ? data.ethConfirmations : 12,
                             adaConfirmations: typeof data.adaConfirmations === 'number' ? data.adaConfirmations : 5,
-                            btcUsdFeeRate: typeof data.btcUsdFeeRate === 'number' ? data.btcUsdFeeRate : 0.001,
-                            adaKrwFeeRate: typeof data.adaKrwFeeRate === 'number' ? data.adaKrwFeeRate : 0.0005
+                            marketFeeRates: data.marketFeeRates || {}
                         });
                     }
                 }
@@ -792,22 +789,20 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             }
         },
 
-        updateFeeSettings: async (btcUsd: number, adaKrw: number) => {
+        updateFeeSettings: async (rates: Record<string, number>) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/settings`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        btcUsdFeeRate: btcUsd,
-                        adaKrwFeeRate: adaKrw
+                        marketFeeRates: rates
                     })
                 });
                 if (res.ok) {
                     const data = await res.json();
                     if (data) {
                         set({
-                            btcUsdFeeRate: typeof data.btcUsdFeeRate === 'number' ? data.btcUsdFeeRate : btcUsd,
-                            adaKrwFeeRate: typeof data.adaKrwFeeRate === 'number' ? data.adaKrwFeeRate : adaKrw
+                            marketFeeRates: data.marketFeeRates || rates
                         });
                     }
                 }

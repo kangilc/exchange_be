@@ -10,8 +10,7 @@ export const SettingsTab: React.FC = () => {
         btcConfirmations,
         ethConfirmations,
         adaConfirmations,
-        btcUsdFeeRate,
-        adaKrwFeeRate,
+        marketFeeRates,
         toggleDuplicateLoginBlock,
         toggleOnChainDepositMonitoring,
         toggleWalletSimulation,
@@ -30,8 +29,7 @@ export const SettingsTab: React.FC = () => {
     const [ethInput, setEthInput] = useState<number>(6);
     const [adaInput, setAdaInput] = useState<number>(10);
 
-    const [btcFeeInput, setBtcFeeInput] = useState<string>('0.1');
-    const [adaFeeInput, setAdaFeeInput] = useState<string>('0.05');
+    const [feeInputs, setFeeInputs] = useState<Record<string, string>>({});
 
     // Sync settings on load or change
     useEffect(() => {
@@ -41,9 +39,12 @@ export const SettingsTab: React.FC = () => {
     }, [btcConfirmations, ethConfirmations, adaConfirmations]);
 
     useEffect(() => {
-        setBtcFeeInput((btcUsdFeeRate * 100).toString());
-        setAdaFeeInput((adaKrwFeeRate * 100).toString());
-    }, [btcUsdFeeRate, adaKrwFeeRate]);
+        const inputs: Record<string, string> = {};
+        Object.entries(marketFeeRates).forEach(([symbol, rate]) => {
+            inputs[symbol] = (rate * 100).toString();
+        });
+        setFeeInputs(inputs);
+    }, [marketFeeRates]);
 
     const handleSaveConfirmations = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -53,7 +54,11 @@ export const SettingsTab: React.FC = () => {
 
     const handleSaveFees = async (e: React.FormEvent) => {
         e.preventDefault();
-        await updateFeeSettings(Number(btcFeeInput) / 100.0, Number(adaFeeInput) / 100.0);
+        const updatedRates: Record<string, number> = {};
+        Object.entries(feeInputs).forEach(([symbol, val]) => {
+            updatedRates[symbol] = Number(val) / 100.0;
+        });
+        await updateFeeSettings(updatedRates);
         alert('거래 수수료 설정이 성공적으로 저장되었습니다.');
     };
 
@@ -200,26 +205,21 @@ export const SettingsTab: React.FC = () => {
                     </div>
                     <form onSubmit={handleSaveFees} className="flex flex-col gap-4">
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] text-slate-400">BTC-USD 수수료율 (%)</label>
-                                <input 
-                                    type="number"
-                                    step="0.001"
-                                    value={btcFeeInput}
-                                    onChange={(e) => setBtcFeeInput(e.target.value)}
-                                    className="p-2 bg-slate-950 border border-white/10 rounded-lg text-white text-xs font-mono outline-none focus:border-[#8a2be2]"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="text-[10px] text-slate-400">ADA-KRW 수수료율 (%)</label>
-                                <input 
-                                    type="number"
-                                    step="0.001"
-                                    value={adaFeeInput}
-                                    onChange={(e) => setAdaFeeInput(e.target.value)}
-                                    className="p-2 bg-slate-950 border border-white/10 rounded-lg text-white text-xs font-mono outline-none focus:border-[#8a2be2]"
-                                />
-                            </div>
+                            {Object.keys(marketFeeRates).map((symbol) => (
+                                <div key={symbol} className="flex flex-col gap-1">
+                                    <label className="text-[10px] text-slate-400">{symbol} 수수료율 (%)</label>
+                                    <input 
+                                        type="number"
+                                        step="0.001"
+                                        value={feeInputs[symbol] || ''}
+                                        onChange={(e) => setFeeInputs({
+                                            ...feeInputs,
+                                            [symbol]: e.target.value
+                                        })}
+                                        className="p-2 bg-slate-950 border border-white/10 rounded-lg text-white text-xs font-mono outline-none focus:border-[#8a2be2]"
+                                    />
+                                </div>
+                            ))}
                         </div>
                         <button
                             type="submit"
