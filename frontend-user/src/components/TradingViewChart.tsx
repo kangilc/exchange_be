@@ -123,7 +123,12 @@ export const TradingViewChart: React.FC = React.memo(() => {
             }
         };
 
-        window.addEventListener('resize', handleResize);
+        const resizeObserver = new ResizeObserver(() => {
+            handleResize();
+        });
+        if (containerRef.current) {
+            resizeObserver.observe(containerRef.current);
+        }
 
         // 최초 캔들 피팅
         setTimeout(() => {
@@ -131,7 +136,7 @@ export const TradingViewChart: React.FC = React.memo(() => {
         }, 100);
 
         return () => {
-            window.removeEventListener('resize', handleResize);
+            resizeObserver.disconnect();
             chart.remove();
         };
     }, []);
