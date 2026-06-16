@@ -51,7 +51,10 @@ source ~/.bashrc
   ```bash
   /home/administrator/sdk/flutter/bin/flutter run -d linux
   ```
-  *(단, Clang, CMake, Ninja, GTK 라이브러리 등 리눅스 빌드 도구 사전 설치 필요)*
+  *(단, 아래 리눅스 빌드 도구 사전 설치 필요)*:
+  ```bash
+  sudo apt update && sudo apt install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+  ```
 
 ---
 
