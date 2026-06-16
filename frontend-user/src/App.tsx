@@ -114,8 +114,9 @@ export const App: React.FC = () => {
             </div>
 
             {/* Footer */}
-            <footer className="py-4 text-center text-[10px] text-slate-500 font-semibold border-t border-white/5 bg-[#070b15]">
-                © 2026 JavaF Exchange. All rights reserved.
+            <footer className="py-6 flex flex-col items-center gap-2 text-center text-[10px] text-slate-500 font-semibold border-t border-white/5 bg-[#070b15]">
+                <img src="/JavaF_logo_tiny_400.png" alt="JavaF Logo" className="h-5 opacity-40 hover:opacity-70 transition-opacity object-contain" />
+                <span>© 2026 JavaF Exchange. All rights reserved.</span>
             </footer>
 
             {/* 🌌 글로벌 로그인 모달 팝업 */}
