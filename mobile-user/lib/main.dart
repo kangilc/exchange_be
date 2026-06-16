@@ -23,7 +23,6 @@ class JavaFExchangeApp extends StatelessWidget {
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF070B15),
-        fontFamily: 'Outfit',
       ),
       home: const TradingTerminalPage(),
     );

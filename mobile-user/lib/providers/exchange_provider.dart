@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -121,10 +122,10 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
   final List<Map<String, dynamic>> _tradesPowerWindow = [];
 
   void initStore() async {
-    // 호스트 IP 연동 로직
-    const String host = '10.0.2.2'; // 기본 로컬 테스트 IP
-    const String base = 'http://$host:8181';
-    const String wsUrl = 'ws://$host:8088/ws';
+    // 호스트 IP 연동 로직 (안드로이드 에뮬레이터는 10.0.2.2, 리눅스 데스크톱/웹/기타는 127.0.0.1 사용)
+    final String host = (!kIsWeb && Platform.isAndroid) ? '10.0.2.2' : '127.0.0.1';
+    final String base = 'http://$host:8181';
+    final String wsUrl = 'ws://$host:8088/ws';
 
     state = state.copyWith(apiBaseUrl: base, wsUrl: wsUrl);
 
@@ -157,8 +158,8 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
   /// 전체 호가 스냅샷 API 동기화
   Future<void> fetchFullSnapshot(String symbol) async {
     final int port = symbol == 'BTC-USD' ? 9100 : 9101;
-    // 에뮬레이터에서 호스트 호가 스냅샷 서버 포트로 바인딩
-    final String url = 'http://10.0.2.2:$port/snapshot';
+    final String host = (!kIsWeb && Platform.isAndroid) ? '10.0.2.2' : '127.0.0.1';
+    final String url = 'http://$host:$port/snapshot';
 
     try {
       final response = await _dio.get(url);
