@@ -113,6 +113,11 @@ export const App: React.FC = () => {
                 <TradingTerminal />
             </div>
 
+            {/* Footer */}
+            <footer className="py-4 text-center text-[10px] text-slate-500 font-semibold border-t border-white/5 bg-[#070b15]">
+                © 2026 JavaF Exchange. All rights reserved.
+            </footer>
+
             {/* 🌌 글로벌 로그인 모달 팝업 */}
             {isLoginModalOpen && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
