@@ -26,7 +26,8 @@
   );
   ```
 * **`market_histories` (마켓 변경 이력 관리 테이블) 신규 추가**:
-  마켓 메타데이터 정보(수수료율 변경, 상태값 정지/활성화 전환 등)가 수정될 때마다 그 변경 기록을 추적 및 감사할 수 있도록 이력 테이블을 신설한다.
+  마켓 메타데이터 정보가 수정될 때마다 그 변경 기록을 추적 및 감사할 수 있도록 이력 테이블을 신설한다.
+  데이터 추적의 정확성과 표준 `BaseEntity` 상속을 위해 **수정일시(`updated_at`) 및 수정자(`updated_by`) 컬럼을 함께 포함**한다.
   ```sql
   CREATE TABLE IF NOT EXISTS market_histories (
       history_id BIGSERIAL PRIMARY KEY,
@@ -36,7 +37,9 @@
       min_qty NUMERIC(20, 8) NOT NULL,
       status VARCHAR(20) NOT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      created_by VARCHAR(100)
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      created_by VARCHAR(100),
+      updated_by VARCHAR(100)
   );
   ```
 * [MODIFY] [V1__init_schema.sql](file:///home/administrator/exchange_be/admin-api/src/main/resources/db/migration/V1__init_schema.sql):
