@@ -25,6 +25,22 @@ export const App: React.FC = () => {
         initStore();
     }, [initStore]);
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                handleCloseModal();
+            }
+        };
+
+        if (isLoginModalOpen) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isLoginModalOpen]);
+
     const handleLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoginError('');
