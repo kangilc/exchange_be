@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:dio/dio.dart';
@@ -123,8 +123,8 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
   void initStore() async {
     // 호스트 IP 연동 로직
     const String host = '10.0.2.2'; // 기본 로컬 테스트 IP
-    final String base = 'http://$host:8181';
-    final String wsUrl = 'ws://$host:8088/ws';
+    const String base = 'http://$host:8181';
+    const String wsUrl = 'ws://$host:8088/ws';
 
     state = state.copyWith(apiBaseUrl: base, wsUrl: wsUrl);
 
@@ -181,7 +181,7 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
         _updateOrderBookCalculations();
       }
     } catch (e) {
-      print('[스냅샷 에러] $symbol 호가 동기화 실패: $e');
+      debugPrint('[스냅샷 에러] $symbol 호가 동기화 실패: $e');
     }
   }
 
@@ -191,7 +191,7 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
     _channel?.sink.close();
     _reconnectTimer?.cancel();
 
-    print('[웹소켓 연결 시도] ${state.wsUrl}');
+    debugPrint('[웹소켓 연결 시도] ${state.wsUrl}');
     try {
       _channel = WebSocketChannel.connect(Uri.parse(state.wsUrl));
       state = state.copyWith(wsConnected: true);
@@ -204,16 +204,16 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
           }
         },
         onError: (err) {
-          print('[웹소켓 에러] $err');
+          debugPrint('[웹소켓 에러] $err');
           _handleDisconnect();
         },
         onDone: () {
-          print('[웹소켓 끊김]');
+          debugPrint('[웹소켓 끊김]');
           _handleDisconnect();
         },
       );
     } catch (e) {
-      print('[웹소켓 연결 예외] $e');
+      debugPrint('[웹소켓 연결 예외] $e');
       _handleDisconnect();
     }
   }

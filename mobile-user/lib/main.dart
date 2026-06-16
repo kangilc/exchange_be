@@ -264,11 +264,11 @@ class TradingTerminalPage extends ConsumerWidget {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
+                                const Text(
                                   '스프레드',
                                   style: TextStyle(
                                     fontSize: 8,
-                                    color: const Color(0xFF64748B),
+                                    color: Color(0xFF64748B),
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
