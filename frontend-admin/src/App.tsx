@@ -251,7 +251,7 @@ export const App: React.FC = () => {
                 
                 <div className="relative z-10 w-[420px] bg-slate-900/60 border border-white/5 rounded-3xl p-8 backdrop-blur-2xl shadow-2xl flex flex-col gap-6">
                     <div className="flex flex-col items-center gap-3">
-                        <div className="logo-glow w-6 h-6 rounded-full bg-gradient-to-r from-[#8a2be2] to-[#00f2fe] shadow-[0_0_20px_#8a2be2] animate-pulse" />
+                        <img src="/JavaF_logo_tiny_400.png" alt="JavaF Logo" />
                         <h1 className="text-2xl font-black tracking-tight text-white mt-2">JavaF 어드민 콘솔</h1>
                         <p className="text-xs text-slate-400 text-center">보안 구역 로그인이 필요함</p>
                     </div>
@@ -314,7 +314,7 @@ export const App: React.FC = () => {
             {/* Top Glowing Header */}
             <header className="header-bar flex items-center justify-between px-8 py-4 sticky top-0 z-50 backdrop-blur-xl border-b border-white/5 bg-[#070b15]/95 shadow-2xl">
                 <div className="logo-section flex items-center gap-3">
-                    <div className="logo-glow w-4.5 h-4.5 rounded-full bg-gradient-to-r from-[#8a2be2] to-[#00f2fe] shadow-[0_0_15px_#8a2be2]" />
+                    <img src="/JavaF_ico_tiny_50.png" alt="JavaF Logo" />
                     <span className="logo-title font-extrabold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">
                         JavaF <span className="text-xs logo-badge uppercase border border-[#00f2fe]/40 bg-[#00f2fe]/5 px-1.5 py-0.5 rounded text-[#00f2fe] font-bold tracking-wider ml-1">EXCHANGE ADMIN</span>
                     </span>
