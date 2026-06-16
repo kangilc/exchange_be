@@ -706,7 +706,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                         </div>
 
                         {/* [2~3열] Middle Panel: Chart + Order Input */}
-                        <div className={`${mobileTab === 'chart' || mobileTab === 'order' ? 'flex' : 'hidden'} xl:flex xl:col-span-2 flex-col gap-6 h-[calc(100vh-220px)] min-h-[650px]`}>
+                        <div className={`${mobileTab === 'chart' || mobileTab === 'order' ? 'flex' : 'hidden'} xl:flex xl:col-span-2 flex-col gap-6 h-[calc(100vh-220px)] min-h-[650px] order-2 xl:order-none`}>
                             {/* Chart Window */}
                             <div className={`${mobileTab === 'chart' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-4 flex-col gap-3 flex-1 overflow-hidden relative`}>
                                 <div className="flex items-center justify-between border-b border-white/5 pb-2">
