@@ -57,7 +57,6 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
     if ((res.status === 401 || res.status === 403) && getLocalRefreshToken()) {
         try {
             console.log("[Auth] 토큰 만료 또는 비인가 요청 차단 감지. Refresh Token으로 갱신 수행 중...");
-            // URL의 API 호스트 부분을 유동적으로 적용하기 위해 useExchangeStore 상태를 참조할 수 있도록 base URL 추출
             const origin = new URL(url).origin;
             const refreshRes = await fetch(`${origin}/admin/auth/refresh`, {
                 method: 'POST',
@@ -75,7 +74,10 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
                 setLocalTokens(null, null);
                 localStorage.removeItem('user_auth_email');
                 localStorage.removeItem('user_auth_id');
-                window.location.reload(); // 강제 화면 새로고침하여 로그인 화면 유도
+                // 무한 루프나 세션 만료 깜빡임을 막기 위해, 로그인 상태가 활성화되어 있었던 경우에만 새로고침을 트리거합니다.
+                if (localStorage.getItem('user_access_token')) {
+                    window.location.reload();
+                }
             }
         } catch (e) {
             console.error("[Auth] 토큰 갱신 에러", e);
