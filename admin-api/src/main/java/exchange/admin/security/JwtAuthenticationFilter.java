@@ -55,9 +55,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                         SecurityContextHolder.getContext().setAuthentication(authentication);
-                    } else {
-                        // 중복 로그인 차단 기능이 ON이고 토큰이 유효하지 않으면 인증 거부 (401/403 유발)
-                        SecurityContextHolder.getContext().setAuthentication(null);
                     }
                 }
             }
