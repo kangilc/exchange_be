@@ -43,6 +43,10 @@ class _TradingTerminalPageState extends ConsumerState<TradingTerminalPage> {
   bool _isLimit = true;
   String _lastSymbol = '';
 
+  // 깜빡임 효과 계측용 맵
+  final Map<double, int> _prevQuantities = {};
+  final Map<double, DateTime> _flashTimes = {};
+
   @override
   void dispose() {
     _priceController.dispose();
@@ -115,6 +119,29 @@ class _TradingTerminalPageState extends ConsumerState<TradingTerminalPage> {
         });
       });
     }
+
+    // 깜빡임 감지 로직
+    state.asks.forEach((priceCents, qty) {
+      final double price = priceCents / 100.0;
+      if (_prevQuantities.containsKey(price) && _prevQuantities[price] != qty) {
+        _flashTimes[price] = DateTime.now();
+        Future.delayed(const Duration(milliseconds: 400), () {
+          if (mounted) setState(() {});
+        });
+      }
+      _prevQuantities[price] = qty;
+    });
+
+    state.bids.forEach((priceCents, qty) {
+      final double price = priceCents / 100.0;
+      if (_prevQuantities.containsKey(price) && _prevQuantities[price] != qty) {
+        _flashTimes[price] = DateTime.now();
+        Future.delayed(const Duration(milliseconds: 400), () {
+          if (mounted) setState(() {});
+        });
+      }
+      _prevQuantities[price] = qty;
+    });
 
     final priceFormat = NumberFormat.decimalPattern();
     final qtyFormat = NumberFormat('#,##0.####');
@@ -302,14 +329,27 @@ class _TradingTerminalPageState extends ConsumerState<TradingTerminalPage> {
                             ),
                             color: Colors.white.withOpacity(0.02),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('가격 ($fiat)',
-                                    style: const TextStyle(
-                                        fontSize: 9, color: Color(0xFF64748B))),
-                                Text('수량 ($coin)',
-                                    style: const TextStyle(
-                                        fontSize: 9, color: Color(0xFF64748B))),
+                                Expanded(
+                                  flex: 3,
+                                  child: Text('가격 ($fiat)',
+                                      style: const TextStyle(
+                                          fontSize: 9, color: Color(0xFF64748B))),
+                                ),
+                                Expanded(
+                                  flex: 3,
+                                  child: Text('수량 ($coin)',
+                                      textAlign: TextAlign.right,
+                                      style: const TextStyle(
+                                          fontSize: 9, color: Color(0xFF64748B))),
+                                ),
+                                Expanded(
+                                  flex: 4,
+                                  child: Text('누적 ($coin)',
+                                      textAlign: TextAlign.right,
+                                      style: const TextStyle(
+                                          fontSize: 9, color: Color(0xFF64748B))),
+                                ),
                               ],
                             ),
                           ),
@@ -319,18 +359,29 @@ class _TradingTerminalPageState extends ConsumerState<TradingTerminalPage> {
                             child: ListView(
                               reverse: true,
                               physics: const ClampingScrollPhysics(),
-                              children: state.asks.entries.map((entry) {
-                                final double price = entry.key / 100.0;
-                                final int qty = entry.value;
-                                final double barWidthPercent = qty / maxQty;
-                                return _buildOrderbookRow(
-                                  price: price,
-                                  qty: qty,
-                                  isAsk: true,
-                                  barWidthPercent: barWidthPercent,
-                                  priceFormat: priceFormat,
-                                );
-                              }).toList(),
+                              children: () {
+                                final entries = state.asks.entries.toList();
+                                int cum = 0;
+                                final List<int> cums = List.filled(entries.length, 0);
+                                for (int i = 0; i < entries.length; i++) {
+                                  cum += entries[i].value;
+                                  cums[i] = cum;
+                                }
+                                return List.generate(entries.length, (idx) {
+                                  final entry = entries[idx];
+                                  final double price = entry.key / 100.0;
+                                  final int qty = entry.value;
+                                  final double barWidthPercent = qty / maxQty;
+                                  return _buildOrderbookRow(
+                                    price: price,
+                                    qty: qty,
+                                    cumQty: cums[idx],
+                                    isAsk: true,
+                                    barWidthPercent: barWidthPercent,
+                                    priceFormat: priceFormat,
+                                  );
+                                });
+                              }(),
                             ),
                           ),
                           
@@ -374,18 +425,29 @@ class _TradingTerminalPageState extends ConsumerState<TradingTerminalPage> {
                           Expanded(
                             child: ListView(
                               physics: const ClampingScrollPhysics(),
-                              children: state.bids.entries.map((entry) {
-                                final double price = entry.key / 100.0;
-                                final int qty = entry.value;
-                                final double barWidthPercent = qty / maxQty;
-                                return _buildOrderbookRow(
-                                  price: price,
-                                  qty: qty,
-                                  isAsk: false,
-                                  barWidthPercent: barWidthPercent,
-                                  priceFormat: priceFormat,
-                                );
-                              }).toList(),
+                              children: () {
+                                final entries = state.bids.entries.toList();
+                                int cum = 0;
+                                final List<int> cums = List.filled(entries.length, 0);
+                                for (int i = 0; i < entries.length; i++) {
+                                  cum += entries[i].value;
+                                  cums[i] = cum;
+                                }
+                                return List.generate(entries.length, (idx) {
+                                  final entry = entries[idx];
+                                  final double price = entry.key / 100.0;
+                                  final int qty = entry.value;
+                                  final double barWidthPercent = qty / maxQty;
+                                  return _buildOrderbookRow(
+                                    price: price,
+                                    qty: qty,
+                                    cumQty: cums[idx],
+                                    isAsk: false,
+                                    barWidthPercent: barWidthPercent,
+                                    priceFormat: priceFormat,
+                                  );
+                                });
+                              }(),
                             ),
                           ),
                         ],
@@ -629,6 +691,7 @@ class _TradingTerminalPageState extends ConsumerState<TradingTerminalPage> {
                                               fontSize: 9,
                                               color: Color(0xFF64748B),
                                               fontFamily: 'monospace',
+                                              fontWeight: FontWeight.bold,
                                             ),
                                           ),
                                           Text(
@@ -700,14 +763,19 @@ class _TradingTerminalPageState extends ConsumerState<TradingTerminalPage> {
   Widget _buildOrderbookRow({
     required double price,
     required int qty,
+    required int cumQty,
     required bool isAsk,
     required double barWidthPercent,
     required NumberFormat priceFormat,
   }) {
     final color = isAsk ? const Color(0xFFEF4444) : const Color(0xFF10B981);
+    
+    // 깜빡임 감지 여부
+    final bool isFlashing = DateTime.now().difference(_flashTimes[price] ?? DateTime.fromMillisecondsSinceEpoch(0)) < const Duration(milliseconds: 400);
+
     final bgColor = isAsk
-        ? const Color(0xFFEF4444).withOpacity(0.12)
-        : const Color(0xFF10B981).withOpacity(0.12);
+        ? (isFlashing ? const Color(0xFFEF4444).withOpacity(0.4) : const Color(0xFFEF4444).withOpacity(0.12))
+        : (isFlashing ? const Color(0xFF10B981).withOpacity(0.4) : const Color(0xFF10B981).withOpacity(0.12));
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -734,23 +802,44 @@ class _TradingTerminalPageState extends ConsumerState<TradingTerminalPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      priceFormat.format(price),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'monospace',
-                        color: color,
+                    // 가격 (30%)
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        priceFormat.format(price),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'monospace',
+                          color: color,
+                        ),
                       ),
                     ),
-                    Text(
-                      qty.toString(),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontFamily: 'monospace',
-                        color: Colors.white70,
+                    // 수량 (30%)
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        qty.toString(),
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                    // 누적 수량 (40%)
+                    Expanded(
+                      flex: 4,
+                      child: Text(
+                        cumQty.toString(),
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                     ),
                   ],
