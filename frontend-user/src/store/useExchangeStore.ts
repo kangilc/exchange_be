@@ -408,16 +408,16 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     const tokens = await res.json();
                     setLocalTokens(tokens.accessToken, tokens.refreshToken);
                     
-                    // JWT Access Token 파싱하여 userId 가져오기 혹은 이메일 기반으로 User ID 정보 획득
-                    // '/admin/users' 에서 email 매칭을 통해 사용자 ID를 획득합니다.
-                    const userListRes = await fetch(`${get().apiBaseUrl}/admin/users`);
-                    let userId = 1; // fallback
-                    if (userListRes.ok) {
-                        const users = await userListRes.json();
-                        const foundUser = users.find((u: any) => u.email === tokens.email);
-                        if (foundUser) {
-                            userId = foundUser.userId;
+                    let userId = 1;
+                    try {
+                        const base64Url = tokens.accessToken.split('.')[1];
+                        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                        const payload = JSON.parse(window.atob(base64));
+                        if (payload.userId) {
+                            userId = Number(payload.userId);
                         }
+                    } catch (err) {
+                        console.error("[Auth] JWT 디코딩 에러", err);
                     }
 
                     localStorage.setItem('user_auth_email', tokens.email);

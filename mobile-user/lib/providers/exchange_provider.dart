@@ -382,27 +382,19 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
         final refreshToken = data['refreshToken'] ?? '';
         final resEmail = data['email'] ?? email;
 
-        // 사용자 리스트에서 email 기반으로 userId 획득 (일반 사용자는 403 권한 거부가 날 수 있으므로 예외처리 후 폴백 적용)
         int userId = 1;
         try {
-          final usersRes = await _dio.get('${state.apiBaseUrl}/admin/users');
-          if (usersRes.statusCode == 200 && usersRes.data is List) {
-            final List usersList = usersRes.data;
-            final foundUser = usersList.firstWhere(
-              (u) => u['email'] == resEmail,
-              orElse: () => null,
-            );
-            if (foundUser != null) {
-              userId = foundUser['userId'] as int;
+          final parts = accessToken.split('.');
+          if (parts.length > 1) {
+            final String normalized = base64.normalize(parts[1]);
+            final String decoded = utf8.decode(base64.decode(normalized));
+            final Map<String, dynamic> payload = jsonDecode(decoded);
+            if (payload['userId'] != null) {
+              userId = (payload['userId'] as num).toInt();
             }
           }
         } catch (e) {
-          debugPrint('[사용자 조회 권한 제한] 403 Forbidden 발생 시 이메일 번호로 대체 파싱: $e');
-          // 'user123@exchange.com' 패턴에서 숫자 123을 파싱하여 UID로 자동 세팅
-          final match = RegExp(r'user(\d+)@').firstMatch(resEmail);
-          if (match != null) {
-            userId = int.tryParse(match.group(1) ?? '1') ?? 1;
-          }
+          debugPrint('[JWT 디코딩 에러] $e');
         }
 
         state = state.copyWith(

@@ -56,7 +56,7 @@ public class AuthController {
 
         // 토큰 쌍 생성
         String refreshToken = tokenProvider.generateRefreshToken(user.getEmail());
-        String accessToken = tokenProvider.generateAccessToken(user.getEmail(), user.getGrade(), refreshToken);
+        String accessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), user.getGrade(), refreshToken);
 
         // 중복 로그인 여부 판별 (차단 설정이 켜져 있고 이전 리프레시 토큰이 DB에 있으면 이미 로그인된 상태임)
         boolean priorLoginExisted = AdminSettings.isDuplicateLoginBlockEnabled()
@@ -70,6 +70,7 @@ public class AuthController {
         response.put("accessToken", accessToken);
         response.put("refreshToken", refreshToken);
         response.put("email", user.getEmail());
+        response.put("userId", user.getUserId());
         response.put("grade", user.getGrade());
         response.put("priorLoginExisted", priorLoginExisted);
 
@@ -109,7 +110,7 @@ public class AuthController {
 
         // 3. 토큰 회전(RTR) 적용: 새 Access Token 및 새 Refresh Token 발급
         String newRefreshToken = tokenProvider.generateRefreshToken(user.getEmail());
-        String newAccessToken = tokenProvider.generateAccessToken(user.getEmail(), user.getGrade(), newRefreshToken);
+        String newAccessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), user.getGrade(), newRefreshToken);
 
         // 새 Refresh Token 데이터베이스 업데이트
         user.setRefreshToken(newRefreshToken);
