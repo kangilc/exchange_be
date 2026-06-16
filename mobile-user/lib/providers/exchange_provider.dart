@@ -60,8 +60,14 @@ class ExchangeState {
   final double volumePower;
   final Map<String, double> balances;
 
+  // 인증 관련 상태 추가
+  final bool isAuthenticated;
+  final String authEmail;
+  final int authUserId;
+  final String accessToken;
+  final String refreshToken;
+
   ExchangeState({
-    // 안드로이드 에뮬레이터에서 호스트 PC의 로컬 서버에 접근하기 위한 디폴트 IP는 10.0.2.2 입니다.
     this.apiBaseUrl = 'http://10.0.2.2:8181',
     this.wsUrl = 'ws://10.0.2.2:8088/ws',
     this.activeSymbol = 'BTC-USD',
@@ -74,6 +80,11 @@ class ExchangeState {
     this.spread = 0.0,
     this.volumePower = 100.0,
     this.balances = const {'KRW': 0.0, 'USD': 0.0, 'BTC': 0.0, 'ADA': 0.0, 'JAF': 0.0},
+    this.isAuthenticated = false,
+    this.authEmail = '',
+    this.authUserId = 1,
+    this.accessToken = '',
+    this.refreshToken = '',
   });
 
   ExchangeState copyWith({
@@ -89,6 +100,11 @@ class ExchangeState {
     double? spread,
     double? volumePower,
     Map<String, double>? balances,
+    bool? isAuthenticated,
+    String? authEmail,
+    int? authUserId,
+    String? accessToken,
+    String? refreshToken,
   }) {
     return ExchangeState(
       apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
@@ -103,6 +119,11 @@ class ExchangeState {
       spread: spread ?? this.spread,
       volumePower: volumePower ?? this.volumePower,
       balances: balances ?? this.balances,
+      isAuthenticated: isAuthenticated ?? this.isAuthenticated,
+      authEmail: authEmail ?? this.authEmail,
+      authUserId: authUserId ?? this.authUserId,
+      accessToken: accessToken ?? this.accessToken,
+      refreshToken: refreshToken ?? this.refreshToken,
     );
   }
 }
@@ -348,10 +369,83 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
     );
   }
 
+  /// 사용자 로그인 처리
+  Future<Map<String, dynamic>> login(String email, String password) async {
+    try {
+      final response = await _dio.post(
+        '${state.apiBaseUrl}/admin/auth/login',
+        data: {'email': email, 'password': password},
+      );
+      if (response.statusCode == 200) {
+        final data = response.data;
+        final accessToken = data['accessToken'] ?? '';
+        final refreshToken = data['refreshToken'] ?? '';
+        final resEmail = data['email'] ?? email;
+
+        // 사용자 리스트에서 email 기반으로 userId 획득
+        final usersRes = await _dio.get('${state.apiBaseUrl}/admin/users');
+        int userId = 1;
+        if (usersRes.statusCode == 200 && usersRes.data is List) {
+          final List usersList = usersRes.data;
+          final foundUser = usersList.firstWhere(
+            (u) => u['email'] == resEmail,
+            orElse: () => null,
+          );
+          if (foundUser != null) {
+            userId = foundUser['userId'] as int;
+          }
+        }
+
+        state = state.copyWith(
+          isAuthenticated: true,
+          authEmail: resEmail,
+          authUserId: userId,
+          accessToken: accessToken,
+          refreshToken: refreshToken,
+        );
+
+        // 로그인에 연계해 잔고 동기화
+        await fetchUserBalances();
+        return {'success': true};
+      }
+      return {'success': false, 'message': '로그인 실패'};
+    } catch (e) {
+      debugPrint('[로그인 에러] $e');
+      String msg = '서버에 연결할 수 없습니다.';
+      if (e is DioException && e.response != null) {
+        msg = e.response?.data?['message'] ?? '이메일 또는 비밀번호가 올바르지 않습니다.';
+      }
+      return {'success': false, 'message': msg};
+    }
+  }
+
+  /// 로그아웃 처리
+  Future<void> logout() async {
+    try {
+      if (state.authEmail.isNotEmpty) {
+        await _dio.post(
+          '${state.apiBaseUrl}/admin/auth/logout',
+          data: {'email': state.authEmail},
+        );
+      }
+    } catch (e) {
+      debugPrint('[로그아웃 에러] $e');
+    }
+
+    state = state.copyWith(
+      isAuthenticated: false,
+      authEmail: '',
+      authUserId: 1,
+      accessToken: '',
+      refreshToken: '',
+      balances: {'KRW': 0.0, 'USD': 0.0, 'BTC': 0.0, 'ADA': 0.0, 'JAF': 0.0},
+    );
+  }
+
   /// 사용자 지갑 자산 실시간 조회 연동
   Future<void> fetchUserBalances() async {
     try {
-      final response = await _dio.get('${state.apiBaseUrl}/admin/wallets/user/1');
+      final response = await _dio.get('${state.apiBaseUrl}/admin/wallets/user/${state.authUserId}');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         final Map<String, double> newBalances = {};
@@ -399,11 +493,11 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
       final double coinDelta = side == 'BUY' ? qty : -qty;
 
       await _dio.post(
-        '${state.apiBaseUrl}/admin/users/1/assets/adjust',
+        '${state.apiBaseUrl}/admin/users/${state.authUserId}/assets/adjust',
         data: {'currency': fiat, 'amount': fiatDelta},
       );
       await _dio.post(
-        '${state.apiBaseUrl}/admin/users/1/assets/adjust',
+        '${state.apiBaseUrl}/admin/users/${state.authUserId}/assets/adjust',
         data: {'currency': coin, 'amount': coinDelta},
       );
     } catch (e) {
