@@ -104,8 +104,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const [selectedSide, setSelectedSide] = useState<'BUY' | 'SELL'>('BUY');
     const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET' | 'STOP'>('LIMIT');
     
-    // ⚡ 모바일 화면 전용 상단 탭 분리 제어 상태 ('trade' = 호가/주문/체결, 'chart' = 시세 차트)
-    const [mobileTab, setMobileTab] = useState<'trade' | 'chart'>('trade');
+    // ⚡ 모바일 화면 전용 상단 탭 분리 제어 상태 ('order' = 주문, 'orderbook' = 호가, 'chart' = 차트, 'trades' = 시세, 'info' = 정보)
+    const [mobileTab, setMobileTab] = useState<'order' | 'orderbook' | 'chart' | 'trades' | 'info'>('order');
 
     // 입력 폼 상태
     const [orderPrice, setOrderPrice] = useState<string>('');
@@ -560,24 +560,47 @@ export const TradingTerminal: React.FC = React.memo(() => {
             {activeTab === 'trade' && (
                 <>
                     {/* ⚡ 모바일 전용 상단 탭 네비게이션 바 (데스크톱 xl 이상에서는 숨김) */}
-                    <div className="flex xl:hidden bg-slate-950/60 border border-white/5 rounded-xl p-1 font-extrabold text-xs">
+                    <div className="flex xl:hidden bg-slate-950/60 border border-white/5 rounded-xl p-1 font-extrabold text-[10px] gap-1">
                         <button
-                            onClick={() => setMobileTab('trade')}
-                            className={`flex-1 py-3 rounded-lg text-center transition-all duration-150 ${mobileTab === 'trade' ? 'bg-[#8a2be2] text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                            type="button"
+                            onClick={() => setMobileTab('order')}
+                            className={`flex-1 py-2 rounded-lg text-center transition-all duration-150 ${mobileTab === 'order' ? 'bg-[#8a2be2] text-white shadow-lg font-black' : 'text-slate-400'}`}
                         >
-                            호가 및 모의 주문
+                            주문
                         </button>
                         <button
-                            onClick={() => setMobileTab('chart')}
-                            className={`flex-1 py-3 rounded-lg text-center transition-all duration-150 ${mobileTab === 'chart' ? 'bg-[#8a2be2] text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                            type="button"
+                            onClick={() => setMobileTab('orderbook')}
+                            className={`flex-1 py-2 rounded-lg text-center transition-all duration-150 ${mobileTab === 'orderbook' ? 'bg-[#8a2be2] text-white shadow-lg font-black' : 'text-slate-400'}`}
                         >
-                            실시간 시세 차트
+                            호가
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMobileTab('chart')}
+                            className={`flex-1 py-2 rounded-lg text-center transition-all duration-150 ${mobileTab === 'chart' ? 'bg-[#8a2be2] text-white shadow-lg font-black' : 'text-slate-400'}`}
+                        >
+                            차트
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMobileTab('trades')}
+                            className={`flex-1 py-2 rounded-lg text-center transition-all duration-150 ${mobileTab === 'trades' ? 'bg-[#8a2be2] text-white shadow-lg font-black' : 'text-slate-400'}`}
+                        >
+                            시세
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMobileTab('info')}
+                            className={`flex-1 py-2 rounded-lg text-center transition-all duration-150 ${mobileTab === 'info' ? 'bg-[#8a2be2] text-white shadow-lg font-black' : 'text-slate-400'}`}
+                        >
+                            정보
                         </button>
                     </div>
 
                     <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start animate-fade-in">
                         {/* [1열] Real-time Orderbook Ladder */}
-                        <div className={`${mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col overflow-hidden h-[calc(100vh-220px)] min-h-[650px] order-1 xl:order-none`}>
+                        <div className={`${mobileTab === 'order' || mobileTab === 'orderbook' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col overflow-hidden h-[calc(100vh-220px)] min-h-[650px] order-1 xl:order-none`}>
                             <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/2">
                                 <span className="text-sm font-extrabold text-white flex items-center gap-2">
                                     <Layers size={14} className="text-[#8a2be2]" />
@@ -683,7 +706,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                         </div>
 
                         {/* [2~3열] Middle Panel: Chart + Order Input */}
-                        <div className={`${mobileTab === 'chart' || mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex xl:col-span-2 flex-col gap-6 h-[calc(100vh-220px)] min-h-[650px]`}>
+                        <div className={`${mobileTab === 'chart' || mobileTab === 'order' ? 'flex' : 'hidden'} xl:flex xl:col-span-2 flex-col gap-6 h-[calc(100vh-220px)] min-h-[650px]`}>
                             {/* Chart Window */}
                             <div className={`${mobileTab === 'chart' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-4 flex-col gap-3 flex-1 overflow-hidden relative`}>
                                 <div className="flex items-center justify-between border-b border-white/5 pb-2">
@@ -722,7 +745,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                             </div>
 
                             {/* Order Terminal Input */}
-                            <div className={`${mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex-col gap-4 order-2 xl:order-none`}>
+                            <div className={`${mobileTab === 'order' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex-col gap-4 order-2 xl:order-none`}>
                                 <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex justify-between items-center">
                                     <span className="flex items-center gap-2">
                                         <Layers size={14} className="text-[#8a2be2]" />
@@ -851,9 +874,9 @@ export const TradingTerminal: React.FC = React.memo(() => {
                         </div>
 
                         {/* [4열] smart Portfolio & Real-time Trades List */}
-                        <div className={`${mobileTab === 'trade' ? 'flex' : 'hidden'} xl:flex flex-col gap-6 h-[calc(100vh-220px)] min-h-[650px] xl:col-span-1`}>
+                        <div className={`${mobileTab === 'trades' || mobileTab === 'info' ? 'flex' : 'hidden'} xl:flex flex-col gap-6 h-[calc(100vh-220px)] min-h-[650px] xl:col-span-1`}>
                             {/* Portfolio Asset Balance Card (요약) */}
-                            <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex flex-col gap-4">
+                            <div className={`${mobileTab === 'info' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex-col gap-4`}>
                                 <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex justify-between items-center">
                                     <span className="flex items-center gap-2">
                                         <Wallet size={14} className="text-[#8a2be2]" />
@@ -913,7 +936,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                             </div>
 
                             {/* Real-time Trades List */}
-                            <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl flex flex-col flex-1 overflow-hidden h-[400px] xl:h-auto">
+                            <div className={`${mobileTab === 'trades' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col flex-1 overflow-hidden h-[400px] xl:h-auto`}>
                                 <div className="p-4 border-b border-white/5 bg-white/2 text-sm font-extrabold text-white">
                                     실시간 체결 내역
                                 </div>
