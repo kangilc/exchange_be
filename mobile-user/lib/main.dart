@@ -29,11 +29,69 @@ class JavaFExchangeApp extends StatelessWidget {
   }
 }
 
-class TradingTerminalPage extends ConsumerWidget {
+class TradingTerminalPage extends ConsumerStatefulWidget {
   const TradingTerminalPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TradingTerminalPage> createState() => _TradingTerminalPageState();
+}
+
+class _TradingTerminalPageState extends ConsumerState<TradingTerminalPage> {
+  final TextEditingController _priceController = TextEditingController();
+  final TextEditingController _qtyController = TextEditingController();
+  bool _isBuy = true;
+  bool _isLimit = true;
+  String _lastSymbol = '';
+
+  @override
+  void dispose() {
+    _priceController.dispose();
+    _qtyController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String suffix,
+    bool enabled = true,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      decoration: BoxDecoration(
+        color: enabled ? const Color(0xFF0F172A) : const Color(0xFF1E293B).withOpacity(0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              enabled: enabled,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                labelText: label,
+                labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          Text(
+            suffix,
+            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(exchangeProvider);
     final notifier = ref.read(exchangeProvider.notifier);
 
@@ -41,6 +99,22 @@ class TradingTerminalPage extends ConsumerWidget {
     final bool isBtc = activeSymbol == 'BTC-USD';
     final String fiat = isBtc ? 'USD' : 'KRW';
     final String coin = isBtc ? 'BTC' : 'ADA';
+
+    // 활성 심볼 변경 감지 시 입력값 초기화
+    if (_lastSymbol != activeSymbol) {
+      _lastSymbol = activeSymbol;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          if (activeSymbol == 'BTC-USD') {
+            _priceController.text = '65000';
+            _qtyController.text = '1';
+          } else {
+            _priceController.text = '1200';
+            _qtyController.text = '500';
+          }
+        });
+      });
+    }
 
     final priceFormat = NumberFormat.decimalPattern();
     final qtyFormat = NumberFormat('#,##0.####');
@@ -53,6 +127,14 @@ class TradingTerminalPage extends ConsumerWidget {
     for (var qty in state.asks.values) {
       maxQty = max(maxQty, qty);
     }
+
+    // 가용 잔고 및 총액 계산
+    final double balance = _isBuy ? (state.balances[fiat] ?? 0.0) : (state.balances[coin] ?? 0.0);
+    final double inputPrice = _isLimit 
+        ? (double.tryParse(_priceController.text) ?? 0.0) 
+        : (state.lastPrice > 0 ? state.lastPrice : 0.0);
+    final double inputQty = double.tryParse(_qtyController.text) ?? 0.0;
+    final double totalCost = inputPrice * inputQty;
 
     return Scaffold(
       appBar: AppBar(
@@ -312,6 +394,177 @@ class TradingTerminalPage extends ConsumerWidget {
                     flex: 5,
                     child: Column(
                       children: [
+                        // ⚡ 주문 입력 패널
+                        Container(
+                          padding: const EdgeInsets.all(8.0),
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(color: Colors.white10),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // 매수 / 매도 탭
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => setState(() => _isBuy = true),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 6),
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: _isBuy ? const Color(0xFF10B981).withOpacity(0.15) : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: _isBuy ? const Color(0xFF10B981) : Colors.transparent,
+                                          ),
+                                        ),
+                                        child: const Text('매수', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => setState(() => _isBuy = false),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 6),
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: !_isBuy ? const Color(0xFFEF4444).withOpacity(0.15) : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: !_isBuy ? const Color(0xFFEF4444) : Colors.transparent,
+                                          ),
+                                        ),
+                                        child: const Text('매도', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFEF4444))),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              // 지정가 / 시장가 선택
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => setState(() => _isLimit = true),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 4),
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: _isLimit ? Colors.white12 : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text('지정가', style: TextStyle(fontSize: 10, color: Colors.white)),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => setState(() => _isLimit = false),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 4),
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: !_isLimit ? Colors.white12 : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text('시장가', style: TextStyle(fontSize: 10, color: Colors.white)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              // 가격 입력
+                              _buildTextField(
+                                controller: _priceController,
+                                label: '주문 가격',
+                                suffix: fiat,
+                                enabled: _isLimit,
+                              ),
+                              // 수량 입력
+                              _buildTextField(
+                                controller: _qtyController,
+                                label: '주문 수량',
+                                suffix: coin,
+                              ),
+                              const SizedBox(height: 6),
+                              // 가용 잔고 정보
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('가능 자산', style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+                                  Text(
+                                    '${priceFormat.format(balance)} ${_isBuy ? fiat : coin}',
+                                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              // 총액 정보
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('예상 총액', style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+                                  Text(
+                                    '${priceFormat.format(totalCost)} $fiat',
+                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF00F2FE)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              // 주문 전송 버튼
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  elevation: 2,
+                                ),
+                                onPressed: () async {
+                                  final messenger = ScaffoldMessenger.of(context);
+                                  final double p = _isLimit 
+                                      ? (double.tryParse(_priceController.text) ?? 0.0)
+                                      : (state.lastPrice > 0 ? state.lastPrice : 0.0);
+                                  final double q = double.tryParse(_qtyController.text) ?? 0.0;
+
+                                  if (p <= 0 || q <= 0) {
+                                    messenger.showSnackBar(
+                                      const SnackBar(content: Text('가격과 수량을 바르게 입력해주세요.')),
+                                    );
+                                    return;
+                                  }
+
+                                  final success = await notifier.sendOrder(
+                                    side: _isBuy ? 'BUY' : 'SELL',
+                                    price: p,
+                                    qty: q,
+                                  );
+
+                                  if (success) {
+                                    messenger.showSnackBar(
+                                      SnackBar(content: Text('${_isBuy ? "매수" : "매도"} 주문 전송 성공!')),
+                                    );
+                                  } else {
+                                    messenger.showSnackBar(
+                                      const SnackBar(content: Text('주문 실패: 잔고가 부족하거나 서버와 연결되어 있지 않습니다.')),
+                                    );
+                                  }
+                                },
+                                child: Text(
+                                  _isBuy ? '매수하기 (BUY)' : '매도하기 (SELL)',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                         // 체결강도 정보
                         Container(
                           padding: const EdgeInsets.all(8),
@@ -457,42 +710,50 @@ class TradingTerminalPage extends ConsumerWidget {
         final double maxBarWidth = constraints.maxWidth;
         final double currentBarWidth = maxBarWidth * barWidthPercent;
 
-        return Stack(
-          alignment: isAsk ? Alignment.centerLeft : Alignment.centerRight,
-          children: [
-            // 백그라운드 볼륨 바
-            Container(
-              width: currentBarWidth,
-              height: 24,
-              color: bgColor,
-            ),
-            // 실데이터 텍스트
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    priceFormat.format(price),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'monospace',
-                      color: color,
-                    ),
-                  ),
-                  Text(
-                    qty.toString(),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                      color: Colors.white70,
-                    ),
-                  ),
-                ],
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              _priceController.text = price.toString();
+              _isLimit = true;
+            });
+          },
+          child: Stack(
+            alignment: isAsk ? Alignment.centerLeft : Alignment.centerRight,
+            children: [
+              // 백그라운드 볼륨 바
+              Container(
+                width: currentBarWidth,
+                height: 24,
+                color: bgColor,
               ),
-            ),
-          ],
+              // 실데이터 텍스트
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      priceFormat.format(price),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'monospace',
+                        color: color,
+                      ),
+                    ),
+                    Text(
+                      qty.toString(),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         );
       },
     );

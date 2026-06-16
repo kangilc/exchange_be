@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -57,6 +58,7 @@ class ExchangeState {
   final double midPrice;
   final double spread;
   final double volumePower;
+  final Map<String, double> balances;
 
   ExchangeState({
     // 안드로이드 에뮬레이터에서 호스트 PC의 로컬 서버에 접근하기 위한 디폴트 IP는 10.0.2.2 입니다.
@@ -71,6 +73,7 @@ class ExchangeState {
     this.midPrice = 0.0,
     this.spread = 0.0,
     this.volumePower = 100.0,
+    this.balances = const {'KRW': 0.0, 'USD': 0.0, 'BTC': 0.0, 'ADA': 0.0, 'JAF': 0.0},
   });
 
   ExchangeState copyWith({
@@ -85,6 +88,7 @@ class ExchangeState {
     double? midPrice,
     double? spread,
     double? volumePower,
+    Map<String, double>? balances,
   }) {
     return ExchangeState(
       apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
@@ -98,6 +102,7 @@ class ExchangeState {
       midPrice: midPrice ?? this.midPrice,
       spread: spread ?? this.spread,
       volumePower: volumePower ?? this.volumePower,
+      balances: balances ?? this.balances,
     );
   }
 }
@@ -122,8 +127,12 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
   final List<Map<String, dynamic>> _tradesPowerWindow = [];
 
   void initStore() async {
-    // 호스트 IP 연동 로직 (안드로이드 에뮬레이터는 10.0.2.2, 리눅스 데스크톱/웹/기타는 127.0.0.1 사용)
-    final String host = (!kIsWeb && Platform.isAndroid) ? '10.0.2.2' : '127.0.0.1';
+    // 1. --dart-define=API_HOST 로 빌드 시 주입한 호스트 우선 적용
+    const String envHost = String.fromEnvironment('API_HOST', defaultValue: '');
+    final String host = envHost.isNotEmpty
+        ? envHost
+        : ((!kIsWeb && Platform.isAndroid) ? '10.0.2.2' : '127.0.0.1');
+
     final String base = 'http://$host:8181';
     final String wsUrl = 'ws://$host:8088/ws';
 
@@ -131,6 +140,7 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
 
     // 스냅샷 호출 및 웹소켓 연결
     await fetchFullSnapshot(state.activeSymbol);
+    await fetchUserBalances();
     _connectWebSocket();
   }
 
@@ -153,12 +163,12 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
     );
 
     await fetchFullSnapshot(symbol);
+    await fetchUserBalances();
   }
 
-  /// 전체 호가 스냅샷 API 동기화
   Future<void> fetchFullSnapshot(String symbol) async {
     final int port = symbol == 'BTC-USD' ? 9100 : 9101;
-    final String host = (!kIsWeb && Platform.isAndroid) ? '10.0.2.2' : '127.0.0.1';
+    final String host = Uri.parse(state.apiBaseUrl).host;
     final String url = 'http://$host:$port/snapshot';
 
     try {
@@ -336,6 +346,91 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
       tradesLog: _tradesLogList,
       lastPrice: _tradesLogList.isNotEmpty ? _tradesLogList.first.price : state.lastPrice,
     );
+  }
+
+  /// 사용자 지갑 자산 실시간 조회 연동
+  Future<void> fetchUserBalances() async {
+    try {
+      final response = await _dio.get('${state.apiBaseUrl}/admin/wallets/user/1');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        final Map<String, double> newBalances = {};
+        for (var item in data) {
+          final String currency = item['currency'] ?? '';
+          final double balance = double.tryParse(item['balance'].toString()) ?? 0.0;
+          newBalances[currency] = balance;
+        }
+        state = state.copyWith(balances: newBalances);
+      }
+    } catch (e) {
+      debugPrint('[잔고 에러] 지갑 자산 조회 실패: $e');
+    }
+  }
+
+  /// 매칭 엔진으로 주문 전송 처리
+  Future<bool> sendOrder({
+    required String side,
+    required double price,
+    required double qty,
+  }) async {
+    if (_channel == null || !state.wsConnected) {
+      debugPrint('[주문 에러] 웹소켓 미연결');
+      return false;
+    }
+
+    final isBtc = state.activeSymbol == 'BTC-USD';
+    final String fiat = isBtc ? 'USD' : 'KRW';
+    final String coin = isBtc ? 'BTC' : 'ADA';
+
+    final double totalCost = price * qty;
+
+    // 1. 자산 검증
+    final double available = side == 'BUY' ? (state.balances[fiat] ?? 0.0) : (state.balances[coin] ?? 0.0);
+    final double requiredAmt = side == 'BUY' ? totalCost : qty;
+
+    if (available < requiredAmt) {
+      debugPrint('[주문 거부] 잔고 부족: 필요 $requiredAmt, 가용 $available');
+      return false;
+    }
+
+    // 2. 서버 자산 가감 처리
+    try {
+      final double fiatDelta = side == 'BUY' ? -totalCost : totalCost;
+      final double coinDelta = side == 'BUY' ? qty : -qty;
+
+      await _dio.post(
+        '${state.apiBaseUrl}/admin/users/1/assets/adjust',
+        data: {'currency': fiat, 'amount': fiatDelta},
+      );
+      await _dio.post(
+        '${state.apiBaseUrl}/admin/users/1/assets/adjust',
+        data: {'currency': coin, 'amount': coinDelta},
+      );
+    } catch (e) {
+      debugPrint('[자산 동기화 에러] $e');
+    }
+
+    // 3. 웹소켓 매칭엔진 주문 발송
+    try {
+      final int scaledPrice = (price * 100).round();
+      final Map<String, dynamic> payload = {
+        'action': 'NEW',
+        'symbol': state.activeSymbol,
+        'side': side,
+        'price': scaledPrice,
+        'qty': qty.round(),
+      };
+      _channel!.sink.add(jsonEncode(payload));
+      
+      // 1.5초 후 자산 리로드
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        fetchUserBalances();
+      });
+      return true;
+    } catch (e) {
+      debugPrint('[웹소켓 주문 전송 에러] $e');
+    }
+    return false;
   }
 
   @override
