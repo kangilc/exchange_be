@@ -49,9 +49,13 @@
 ### 3. Backend (admin-api)
 * [MODIFY] [AdminApiApplication.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/AdminApiApplication.java):
   초기 데이터 검사 쿼리를 `SELECT symbol, fee_rate FROM market_fees`에서 `SELECT symbol, fee_rate FROM markets`로 수정한다.
-* [MODIFY] [SettingsController.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/controller/SettingsController.java) & **JPA Service Layer**:
-  수수료율 설정 등록/수정 및 마켓 상태 수정 시, **자바 서비스 코드단에서 변경 사항을 `market_histories` Entity를 통해 히스토리 테이블에 명시적으로 등록(Save)하도록 로직을 구현**한다.
-* **마켓 및 수수료 관리 API**: 신규 마켓 추가, 상장 상태 제어, 수수료율 수정을 처리하고 수동으로 변경 이력을 쌓는 REST API를 개발한다.
+* [MODIFY] [SettingsController.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/controller/SettingsController.java):
+  수수료율 설정 등록/수정 쿼리를 `market_fees` 테이블 대신 `markets` 테이블 대상 쿼리로 수정한다.
+* **JPA Entity Listener를 통한 자동 이력 로깅**:
+  데이터베이스 트리거 대신 자바 애플리케이션 단에서 마켓 정보가 수정될 때마다 자동으로 이력을 보관할 수 있도록 **`MarketEntityListener`**를 추가 구현한다.
+  * `Market` 엔티티 클래스 상단에 `@EntityListeners(MarketEntityListener.class)`를 등록한다.
+  * `MarketEntityListener`의 `@PostPersist` 및 `@PostUpdate` 콜백 이벤트를 활용하여, `Market`이 영속화(저장/수정)되는 즉시 자동으로 `MarketHistory` 데이터를 생성하고 DB에 저장(Save)하도록 로직을 구현한다.
+* **마켓 및 수수료 관리 API**: 신규 마켓 추가, 상장 상태 제어, 수수료율 수정을 처리하는 REST API를 개발한다.
 * **Lazy Wallet Initialization**: 입금 요청 및 체결 완료 처리 시 지갑 미존재 시 자동 생성하는 공통 유틸리티를 적용한다.
 * **카프카 라우팅 단일화**: 마켓별 토픽 대신 단일 토픽(`order-commands`, `matching-events`)에 `symbol`을 파티션 키로 지정하여 스트리밍하도록 변경한다.
 
@@ -65,9 +69,9 @@
 ## Verification Plan
 
 ### Automated Tests
-* DB 신규 마켓 추가, 수수료 변경 및 Java 서비스 단에서의 이력 기록(history) 검증 API 단위 테스트
+* DB 신규 마켓 추가, 수수료 변경 및 Java JPA Entity Listener에 의한 자동 이력 기록(history) 검증 API 단위 테스트
 * 지갑 동시 자동 생성 로직 동기화 정합성 테스트
 
 ### Manual Verification
-* 어드민 콘솔에서 신규 마켓 `ETH-USDT` 상장 등록 및 수수료 변경 조작 후 `market_histories` 테이블에 로그가 올바르게 인서트 되는지 검증
+* 어드민 콘솔에서 신규 마켓 `ETH-USDT` 상장 등록 및 수수료 변경 조작 후 `market_histories` 테이블에 로그가 자동으로 인서트 되는지 검증
 * 유저 화면 노출 및 체결 정상 동작 여부 최종 검증
