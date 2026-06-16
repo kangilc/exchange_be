@@ -162,7 +162,7 @@ public final class DbPersisterRunner {
         double feeAmount = (price / 100.0 * qty) * feeRate;
 
         // 1. Insert Trade Event
-        String sqlTrade = "INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, fee_rate, fee_amount, executed_at) " +
+        String sqlTrade = "INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, fee_rate, fee_amount, created_at) " +
                           "VALUES (?, ?, ?, ?, ?, ?, ?, ?, TO_TIMESTAMP(? / 1000.0)) ON CONFLICT (trade_id) DO NOTHING";
         
         long buyOrderId = 0;
