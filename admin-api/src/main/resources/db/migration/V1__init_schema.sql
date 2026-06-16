@@ -1,8 +1,16 @@
--- 0. 마켓 수수료 테이블 (Market Fees Settings)
-CREATE TABLE IF NOT EXISTS market_fees (
+-- 0. 마켓 메타데이터 테이블 (Markets Settings)
+CREATE TABLE IF NOT EXISTS markets (
     symbol VARCHAR(20) PRIMARY KEY,
-    fee_rate NUMERIC(10, 6) NOT NULL DEFAULT 0.001000 -- 기본 0.1%
+    base_currency VARCHAR(10) NOT NULL,
+    quote_currency VARCHAR(10) NOT NULL,
+    fee_rate NUMERIC(10, 6) NOT NULL DEFAULT 0.001000, -- 수수료율 (기본 0.1%)
+    price_decimals INT DEFAULT 2,
+    min_qty NUMERIC(20, 8) DEFAULT 0.0001,
+    status VARCHAR(20) DEFAULT 'ACTIVE',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
 
 -- 1. 사용자 테이블 (Users)
 CREATE TABLE IF NOT EXISTS users (
