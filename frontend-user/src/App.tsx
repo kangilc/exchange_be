@@ -68,7 +68,7 @@ export const App: React.FC = () => {
             {/* Top Glowing Header (User Version) */}
             <header className="header-bar flex items-center justify-between px-8 py-4 sticky top-0 z-50 backdrop-blur-xl border-b border-white/5 bg-[#070b15]/95 shadow-2xl">
                 <div className="logo-section flex items-center gap-3">
-                    <div className="logo-glow w-4.5 h-4.5 rounded-full bg-gradient-to-r from-[#8a2be2] to-[#00f2fe] shadow-[0_0_15px_#8a2be2]" />
+                    <img src="/JavaF_logo_tiny_400.png" alt="JavaF Logo" className="h-6 object-contain" />
                     <span className="logo-title font-extrabold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">
                         JavaF <span className="text-xs logo-badge uppercase border border-[#00f2fe]/40 bg-[#00f2fe]/5 px-1.5 py-0.5 rounded text-[#00f2fe] font-bold tracking-wider ml-1">EXCHANGE CLIENT</span>
                     </span>
@@ -130,7 +130,7 @@ export const App: React.FC = () => {
                         </button>
 
                         <div className="flex flex-col items-center gap-3 mb-6 mt-2">
-                            <div className="logo-glow w-10 h-10 rounded-full bg-gradient-to-r from-[#8a2be2] to-[#00f2fe] shadow-[0_0_20px_#8a2be2] flex items-center justify-center font-bold text-white text-base">JF</div>
+                            <img src="/JavaF_logo_tiny_400.png" alt="JavaF Logo" className="h-10 object-contain mb-1" />
                             <h2 className="font-extrabold text-xl tracking-tight text-white mt-1">JavaF 거래소 로그인</h2>
                             <p className="text-xs text-slate-400 font-medium text-center">모의투자 및 입출금 관리를 위해 계정으로 로그인해 주세요.</p>
                             <p className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">초기 이메일: user1@exchange.com / 비번: password123</p>
