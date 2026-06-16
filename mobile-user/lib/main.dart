@@ -1,5 +1,5 @@
 import 'dart:math';
-import 'package:flutter/material';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'providers/exchange_provider.dart';
@@ -84,7 +84,7 @@ class TradingTerminalPage extends ConsumerWidget {
             ),
             const SizedBox(width: 4),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, py: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
                 border: Border.all(color: const Color(0xFF00F2FE).withOpacity(0.4)),
                 color: const Color(0xFF00F2FE).withOpacity(0.05),
@@ -176,7 +176,7 @@ class TradingTerminalPage extends ConsumerWidget {
                     children: [
                       const Text(
                         '현재가',
-                        style: TextStyle(fontSize: 9, color: Colors.slate400),
+                        style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
                       ),
                       Text(
                         state.lastPrice > 0
@@ -184,7 +184,7 @@ class TradingTerminalPage extends ConsumerWidget {
                             : '계측 중...',
                         style: const TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.black,
+                          fontWeight: FontWeight.w900,
                           color: Color(0xFF00F2FE),
                         ),
                       ),
@@ -217,14 +217,14 @@ class TradingTerminalPage extends ConsumerWidget {
                             ),
                             color: Colors.white.withOpacity(0.02),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.between,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text('가격 ($fiat)',
                                     style: const TextStyle(
-                                        fontSize: 9, color: Colors.slate500)),
+                                        fontSize: 9, color: Color(0xFF64748B))),
                                 Text('수량 ($coin)',
                                     style: const TextStyle(
-                                        fontSize: 9, color: Colors.slate500)),
+                                        fontSize: 9, color: Color(0xFF64748B))),
                               ],
                             ),
                           ),
@@ -262,13 +262,13 @@ class TradingTerminalPage extends ConsumerWidget {
                               ),
                             ),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.between,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
                                   '스프레드',
                                   style: TextStyle(
                                     fontSize: 8,
-                                    color: Colors.slate500,
+                                    color: const Color(0xFF64748B),
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -323,11 +323,11 @@ class TradingTerminalPage extends ConsumerWidget {
                             ),
                           ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.between,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text('체결강도',
                                   style: TextStyle(
-                                      fontSize: 10, color: Colors.slate400)),
+                                      fontSize: 10, color: Color(0xFF94A3B8))),
                               Text(
                                 '${state.volumePower.toStringAsFixed(1)}%',
                                 style: const TextStyle(
@@ -347,7 +347,7 @@ class TradingTerminalPage extends ConsumerWidget {
                                   child: Text(
                                     '체결 데이터 대기 중...',
                                     style: TextStyle(
-                                        fontSize: 10, color: Colors.slate500),
+                                        fontSize: 10, color: Color(0xFF64748B)),
                                   ),
                                 )
                               : ListView.builder(
@@ -365,13 +365,13 @@ class TradingTerminalPage extends ConsumerWidget {
                                       ),
                                       child: Row(
                                         mainAxisAlignment:
-                                            MainAxisAlignment.between,
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
                                             timeStr,
                                             style: const TextStyle(
                                               fontSize: 9,
-                                              color: Colors.slate500,
+                                              color: Color(0xFF64748B),
                                               fontFamily: 'monospace',
                                             ),
                                           ),
@@ -389,7 +389,7 @@ class TradingTerminalPage extends ConsumerWidget {
                                             qtyFormat.format(log.qty),
                                             style: const TextStyle(
                                               fontSize: 9,
-                                              color: Colors.slate300,
+                                              color: Color(0xFFCBD5E1),
                                               fontFamily: 'monospace',
                                             ),
                                           ),
@@ -433,7 +433,7 @@ class TradingTerminalPage extends ConsumerWidget {
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.bold,
-            color: active ? Colors.white : Colors.slate300,
+            color: active ? Colors.white : const Color(0xFFCBD5E1),
           ),
         ),
       ),
@@ -471,7 +471,7 @@ class TradingTerminalPage extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.between,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     priceFormat.format(price),
