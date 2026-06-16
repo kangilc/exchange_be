@@ -36,10 +36,10 @@
       price_decimals INT NOT NULL,
       min_qty NUMERIC(20, 8) NOT NULL,
       status VARCHAR(20) NOT NULL,
-      created_at TIMESTAMP NOT NULL, -- markets의 created_at과 동일
-      updated_at TIMESTAMP NOT NULL, -- markets의 updated_at과 동일
-      created_by VARCHAR(100),       -- markets의 created_by와 동일
-      updated_by VARCHAR(100)        -- markets의 updated_by와 동일
+      created_at TIMESTAMP NOT NULL, -- markets of created_at
+      updated_at TIMESTAMP NOT NULL, -- markets of updated_at
+      created_by VARCHAR(100),       -- markets of created_by
+      updated_by VARCHAR(100)        -- markets of updated_by
   );
   ```
 * [MODIFY] [V1__init_schema.sql](file:///home/administrator/exchange_be/admin-api/src/main/resources/db/migration/V1__init_schema.sql):
@@ -47,7 +47,9 @@
 * **지갑 동적 생성 지원**: 지갑이 필요해지는 시점에 지갑 레코드를 자동 생성할 수 있도록 `INSERT ... ON CONFLICT DO NOTHING` 처리를 강화한다.
 
 ### 2. User & Admin Frontend (UI)
-* **API 기반 동적 렌더링**: 프론트엔드의 하드코딩된 마켓 리스트를 제거하고, 백엔드의 `/api/markets` API 호출 결과를 기반으로 거래 탭, 호가창(Order Book), 주문 콘솔, 차트를 동적으로 렌더링한다.
+* **마켓 목록 및 API 기반 동적 렌더링**:
+  프론트엔드에서 하드코딩된 마켓 리스트를 제거하고, 화면에 **마켓 목록(심볼, 현재가, 등락폭, 거래대금)**을 표시한다.
+  사용자가 마켓 목록의 특정 마켓을 클릭하면, 백엔드의 `/api/markets` API 호출 결과를 기반으로 거래 탭, 호가창(Order Book), 주문 콘솔, 차트를 동적으로 렌더링하도록 변경한다.
 
 ### 3. Backend (admin-api)
 * [MODIFY] [AdminApiApplication.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/AdminApiApplication.java):
@@ -63,7 +65,7 @@
 
 ### 4. Matching Engine (engine-core & db-persister)
 * [MODIFY] [DbPersisterRunner.java](file:///home/administrator/exchange_be/adapter-kafka/src/main/java/exchange/kafka/db/DbPersisterRunner.java):
-  수수료 캐시 로딩 쿼리를 `SELECT symbol, fee_rate FROM market_fees`set `SELECT symbol, fee_rate FROM markets`로 수정한다.
+  수수료 캐시 로딩 쿼리를 `SELECT symbol, fee_rate FROM market_fees`에서 `SELECT symbol, fee_rate FROM markets`로 수정한다.
 * **동적 엔진 풀(MatchingEnginePool) 도입**: 심볼당 1개의 도커 컨테이너를 정적으로 띄우는 배포 구조를 개선한다. 단일 엔진 프로세스 내에서 DB의 활성 마켓 정보를 주기적으로 조회하거나 Redis Pub/Sub 알림을 통해 개별 매칭 엔진 스레드를 실시간으로 추가/종료할 수 있도록 아키텍처를 개편한다.
 
 ---
