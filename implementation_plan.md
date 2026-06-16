@@ -25,8 +25,22 @@
       updated_by VARCHAR(100)
   );
   ```
+* **`market_histories` (마켓 변경 이력 관리 테이블) 신규 추가**:
+  마켓 메타데이터 정보(수수료율 변경, 상태값 정지/활성화 전환 등)가 수정될 때마다 그 변경 기록을 추적 및 감사할 수 있도록 이력 테이블을 신설한다.
+  ```sql
+  CREATE TABLE IF NOT EXISTS market_histories (
+      history_id BIGSERIAL PRIMARY KEY,
+      symbol VARCHAR(20) NOT NULL REFERENCES markets(symbol) ON DELETE CASCADE,
+      fee_rate NUMERIC(10, 6) NOT NULL,
+      price_decimals INT NOT NULL,
+      min_qty NUMERIC(20, 8) NOT NULL,
+      status VARCHAR(20) NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      created_by VARCHAR(100)
+  );
+  ```
 * [MODIFY] [V1__init_schema.sql](file:///home/administrator/exchange_be/admin-api/src/main/resources/db/migration/V1__init_schema.sql):
-  `market_fees` 테이블 생성 구문을 제거하고 `markets` 테이블 생성 구문으로 교체한다.
+  `market_fees` 테이블 생성 구문을 제거하고 `markets` 및 `market_histories` 테이블 생성 구문으로 교체한다.
 * **지갑 동적 생성 지원**: 지갑이 필요해지는 시점에 지갑 레코드를 자동 생성할 수 있도록 `INSERT ... ON CONFLICT DO NOTHING` 처리를 강화한다.
 
 ### 2. User & Admin Frontend (UI)
@@ -36,8 +50,8 @@
 * [MODIFY] [AdminApiApplication.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/AdminApiApplication.java):
   초기 데이터 검사 쿼리를 `SELECT symbol, fee_rate FROM market_fees`에서 `SELECT symbol, fee_rate FROM markets`로 수정한다.
 * [MODIFY] [SettingsController.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/controller/SettingsController.java):
-  수수료율 설정 등록/수정 쿼리를 `market_fees` 테이블 대신 `markets` 테이블 대상 쿼리로 수정한다.
-* **마켓 및 수수료 관리 API**: 신규 마켓 추가, 상장 상태 제어, 수수료율 수정을 처리하는 REST API를 개발한다.
+  수수료율 설정 등록/수정 쿼리를 `market_fees` 테이블 대신 `markets` 테이블 대상 쿼리로 수정하며, **수정 발생 시 `market_histories` 테이블에도 변경 내역을 Insert 기록**하도록 개선한다.
+* **마켓 및 수수료 관리 API**: 신규 마켓 추가, 상장 상태 제어, 수수료율 수정을 처리하고 변경 이력을 기록하는 REST API를 개발한다.
 * **Lazy Wallet Initialization**: 입금 요청 및 체결 완료 처리 시 지갑 미존재 시 자동 생성하는 공통 유틸리티를 적용한다.
 * **카프카 라우팅 단일화**: 마켓별 토픽 대신 단일 토픽(`order-commands`, `matching-events`)에 `symbol`을 파티션 키로 지정하여 스트리밍하도록 변경한다.
 
@@ -51,8 +65,9 @@
 ## Verification Plan
 
 ### Automated Tests
-* DB 신규 마켓 추가 및 수수료 변경 API 단위 테스트
+* DB 신규 마켓 추가, 수수료 변경 및 이력 기록(history) 검증 API 단위 테스트
 * 지갑 동시 자동 생성 로직 동기화 정합성 테스트
 
 ### Manual Verification
-* 어드민 콘솔에서 신규 마켓 `ETH-USDT` 상장 등록 후 무중단으로 유저 화면 노출 및 체결 정상 동작 여부 최종 검증
+* 어드민 콘솔에서 신규 마켓 `ETH-USDT` 상장 등록 및 수수료 변경 조작 후 `market_histories` 테이블에 로그가 올바르게 인서트 되는지 검증
+* 유저 화면 노출 및 체결 정상 동작 여부 최종 검증

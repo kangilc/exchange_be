@@ -14,6 +14,19 @@ CREATE TABLE IF NOT EXISTS markets (
 );
 
 
+-- 0-1. 마켓 변경 이력 테이블 (Markets Modification History)
+CREATE TABLE IF NOT EXISTS market_histories (
+    history_id BIGSERIAL PRIMARY KEY,
+    symbol VARCHAR(20) NOT NULL REFERENCES markets(symbol) ON DELETE CASCADE,
+    fee_rate NUMERIC(10, 6) NOT NULL,
+    price_decimals INT NOT NULL,
+    min_qty NUMERIC(20, 8) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100)
+);
+
+
 -- 1. 사용자 테이블 (Users)
 CREATE TABLE IF NOT EXISTS users (
     user_id BIGSERIAL PRIMARY KEY,
