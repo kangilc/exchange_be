@@ -598,7 +598,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start animate-fade-in">
+                    <div className={`grid ${mobileTab === 'order' ? 'grid-cols-2' : 'grid-cols-1'} xl:grid-cols-4 gap-4 xl:gap-6 items-start animate-fade-in`}>
                         {/* [1열] Real-time Orderbook Ladder */}
                         <div className={`${mobileTab === 'order' || mobileTab === 'orderbook' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col overflow-hidden h-[calc(100vh-220px)] min-h-[650px] order-1 xl:order-none`}>
                             <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/2">
