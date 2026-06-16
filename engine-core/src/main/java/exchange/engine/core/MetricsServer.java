@@ -9,12 +9,20 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * 프로메테우스 메트릭 수집 및 오더북(호가창) 스냅샷 조회를 제공하기 위한 내장 초경량 HTTP 서버 클래스입니다.
+ * 싱글톤 패턴으로 구현되었습니다.
+ */
 public final class MetricsServer {
     private static final MetricsServer INSTANCE = new MetricsServer();
 
+    // 처리된 총 주문 수
     private final AtomicLong totalOrders = new AtomicLong(0);
+    // 매칭 지연시간(Us)의 누적 합산값
     private final AtomicLong matchLatencySumUs = new AtomicLong(0);
+    // 총 매칭 체결 수
     private final AtomicLong matchCount = new AtomicLong(0);
+    // 실시간 초당 트랜잭션 처리량 (TPS)
     private final AtomicLong currentTps = new AtomicLong(0);
 
     public static MetricsServer getInstance() {
@@ -24,19 +32,35 @@ public final class MetricsServer {
     private MetricsServer() {
     }
 
+    /**
+     * 총 주문 수 카운터를 증가시킵니다.
+     */
     public void incrementOrders() {
         totalOrders.incrementAndGet();
     }
 
+    /**
+     * 매칭 체결이 발생했을 때의 지연시간을 기록하고 매칭 수를 갱신합니다.
+     * 
+     * @param latencyUs 마이크로초 단위 지연 시간
+     */
     public void recordMatch(long latencyUs) {
         matchLatencySumUs.addAndGet(latencyUs);
         matchCount.incrementAndGet();
     }
 
+    /**
+     * 현재의 TPS를 직접 업데이트합니다.
+     */
     public void updateTps(long tps) {
         currentTps.set(tps);
     }
 
+    /**
+     * 메트릭 서버를 지정된 포트로 구동하고, 백그라운드 TPS 추적기 스레드를 시작합니다.
+     * 
+     * @param engine 오더북 조회를 위한 매칭 엔진 참조 인스턴스
+     */
     public void start(MatchingEngine engine) {
         boolean enabled = Boolean.parseBoolean(ConfigLoader.get("METRICS_ENABLED", "false"));
         if (!enabled) {
@@ -49,11 +73,11 @@ public final class MetricsServer {
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
             server.createContext("/metrics", new MetricsHandler());
             server.createContext("/snapshot", new SnapshotHandler(engine));
-            server.setExecutor(null); // default executor
+            server.setExecutor(null); // 기본 단일 스레드 Executor 사용
             server.start();
             System.out.println("Lightweight HTTP Metrics & Snapshot Server started on port " + port);
 
-            // Start background TPS tracker thread
+            // 1초마다 총 주문 접수 수량 변화량을 감지하여 실시간 TPS를 계산하는 백그라운드 데몬 스레드 구동
             Thread tpsUpdater = new Thread(() -> {
                 long lastCount = 0;
                 while (true) {
@@ -76,6 +100,9 @@ public final class MetricsServer {
         }
     }
 
+    /**
+     * 프로메테우스(Prometheus) 형식의 포맷으로 누적 지표 데이터를 서빙하는 HttpHandler 구현체입니다.
+     */
     private class MetricsHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -111,6 +138,9 @@ public final class MetricsServer {
         }
     }
 
+    /**
+     * 오더북(호가창)의 실시간 매수/매도 잔량 정보를 JSON 포맷으로 서빙하는 HttpHandler 구현체입니다.
+     */
     private class SnapshotHandler implements HttpHandler {
         private final MatchingEngine engine;
 
@@ -120,7 +150,7 @@ public final class MetricsServer {
 
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            // Enable CORS for frontend clients
+            // 외부 프론트엔드 서비스의 통신 허용을 위한 CORS 설정 추가
             exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
             exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, OPTIONS");
             exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
@@ -138,7 +168,7 @@ public final class MetricsServer {
             sb.append("\"symbol\":\"").append(ConfigLoader.get("SYMBOL", "BTC-USD")).append("\",");
             sb.append("\"seq\":").append(seq).append(",");
 
-            // Serialize aggregated bids
+            // 1. 매수 잔량 그룹화 및 직렬화 (가격대별 잔량 합산)
             sb.append("\"bids\":[");
             boolean firstBid = true;
             synchronized (book.bids) {
@@ -158,7 +188,7 @@ public final class MetricsServer {
             }
             sb.append("],");
 
-            // Serialize aggregated asks
+            // 2. 매도 잔량 그룹화 및 직렬화 (가격대별 잔량 합산)
             sb.append("\"asks\":[");
             boolean firstAsk = true;
             synchronized (book.asks) {
