@@ -41,6 +41,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const fetchUserBalances = useExchangeStore(state => state.fetchUserBalances);
     const fetchUserTrades = useExchangeStore(state => state.fetchUserTrades);
     const fetchUserLedgers = useExchangeStore(state => state.fetchUserLedgers);
+    const markets = useExchangeStore(state => state.markets);
+    const fetchMarkets = useExchangeStore(state => state.fetchMarkets);
 
     // 1. 거래 터미널 로컬 코어 상태
     const basePrice = activeSymbol === 'BTC-USD' ? 65000 : 500;
@@ -49,8 +51,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const [selectedSide, setSelectedSide] = useState<'BUY' | 'SELL'>('BUY');
     const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET' | 'STOP'>('LIMIT');
 
-    // ⚡ 모바일 화면 전용 상단 탭 분리 제어 상태 ('order' = 주문, 'orderbook' = 호가, 'chart' = 차트, 'trades' = 시세, 'info' = 정보)
-    const [mobileTab, setMobileTab] = useState<'order' | 'orderbook' | 'chart' | 'trades' | 'info'>('order');
+    // ⚡ 모바일 화면 전용 상단 탭 분리 제어 상태 ('market' = 마켓목록, 'order' = 주문, 'orderbook' = 호가, 'chart' = 차트, 'trades' = 시세, 'info' = 정보)
+    const [mobileTab, setMobileTab] = useState<'market' | 'order' | 'orderbook' | 'chart' | 'trades' | 'info'>('market');
 
     // 입력 폼 상태
     const [orderPrice, setOrderPrice] = useState<string>('');
@@ -198,6 +200,10 @@ export const TradingTerminal: React.FC = React.memo(() => {
     }, [isLiveMode, isAuthenticated, fetchUserBalances, fetchUserTrades, fetchUserLedgers]);
 
     useEffect(() => {
+        fetchMarkets();
+    }, [fetchMarkets]);
+
+    useEffect(() => {
         loadUserData();
     }, [loadUserData, activeTab, activeSymbol]);
 
@@ -309,7 +315,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                     body: JSON.stringify({
                         currency: selectedSide === 'BUY' ? fiat : coin,
                         amount: selectedSide === 'BUY' ? -totalCost : -qtyVal
-                    })
+                     })
                 });
                 await fetch(`${apiBaseUrl}/admin/users/${userId}/assets/adjust`, {
                     method: 'POST',
@@ -504,6 +510,13 @@ export const TradingTerminal: React.FC = React.memo(() => {
                     <div className="flex xl:hidden bg-slate-950/60 border border-white/5 rounded-xl p-1 font-extrabold text-[10px] gap-1">
                         <button
                             type="button"
+                            onClick={() => setMobileTab('market')}
+                            className={`flex-1 py-2 rounded-lg text-center transition-all duration-150 ${mobileTab === 'market' ? 'bg-[#8a2be2] text-white shadow-lg font-black' : 'text-slate-400'}`}
+                        >
+                            마켓
+                        </button>
+                        <button
+                            type="button"
                             onClick={() => setMobileTab('order')}
                             className={`flex-1 py-2 rounded-lg text-center transition-all duration-150 ${mobileTab === 'order' ? 'bg-[#8a2be2] text-white shadow-lg font-black' : 'text-slate-400'}`}
                         >
@@ -564,18 +577,19 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                     <div className="flex items-center gap-4">
                                         <span className="text-sm font-extrabold text-white">{activeSymbol} 실시간 시세 차트</span>
                                         <div className="flex bg-white/2 border border-white/5 rounded-lg p-0.5 text-[10px] font-bold">
-                                            <button
-                                                onClick={() => setActiveSymbol('BTC-USD')}
-                                                className={`px-3 py-1 rounded transition-all ${activeSymbol === 'BTC-USD' ? 'bg-[#8a2be2] text-white' : 'text-slate-400 hover:text-white'}`}
-                                            >
-                                                BTC-USD
-                                            </button>
-                                            <button
-                                                onClick={() => setActiveSymbol('ADA-KRW')}
-                                                className={`px-3 py-1 rounded transition-all ${activeSymbol === 'ADA-KRW' ? 'bg-[#8a2be2] text-white' : 'text-slate-400 hover:text-white'}`}
-                                            >
-                                                ADA-KRW
-                                            </button>
+                                            {markets && markets.length > 0 ? (
+                                                markets.map((m: any) => (
+                                                    <button
+                                                        key={m.symbol}
+                                                        onClick={() => setActiveSymbol(m.symbol)}
+                                                        className={`px-3 py-1 rounded transition-all ${activeSymbol === m.symbol ? 'bg-[#8a2be2] text-white' : 'text-slate-400 hover:text-white'}`}
+                                                    >
+                                                        {m.symbol}
+                                                     </button>
+                                                ))
+                                            ) : (
+                                                <span className="px-3 py-1 text-slate-500">대기 중...</span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex bg-white/2 border border-white/5 rounded-lg p-0.5 text-[10px] font-bold">
@@ -673,6 +687,71 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                     >
                                         출금하기
                                     </button>
+                                </div>
+                            </div>
+
+                            {/* Real-time Markets Table (마켓 목록 표 - 심볼, 현재가, 대비, 거래대금) */}
+                            <div className={`${mobileTab === 'market' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col flex-1 overflow-hidden min-h-[350px]`}>
+                                <div className="p-4 border-b border-white/5 bg-white/2 text-sm font-extrabold text-white flex justify-between items-center">
+                                    <span>실시간 마켓 목록</span>
+                                    <span className="text-[10px] text-slate-500 font-medium">클릭 시 마켓 전환</span>
+                                </div>
+                                <div className="flex-1 overflow-y-auto w-full bg-black/10">
+                                    <table className="w-full text-left text-[10px] font-medium font-mono">
+                                        <thead className="bg-white/2 text-slate-400 font-bold uppercase tracking-wider text-[9px] sticky top-0 bg-[#0a1020] z-10">
+                                            <tr>
+                                                <th className="px-3 py-3">심볼</th>
+                                                <th className="px-3 py-3 text-right">현재가</th>
+                                                <th className="px-3 py-3 text-right">대비</th>
+                                                <th className="px-3 py-3 text-right">거래대금</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/5 font-bold">
+                                            {markets && markets.length > 0 ? (
+                                                markets.map((m: any) => {
+                                                    const isSelected = activeSymbol === m.symbol;
+                                                    // 대비와 거래대금(24H) Mock 데이터 제공 (추후 API 고도화 대비)
+                                                    const changePercent = m.symbol === 'BTC-USD' ? -0.25 : (m.symbol === 'ADA-KRW' ? 0.16 : 0.0);
+                                                    const formattedChange = changePercent > 0 ? `+${changePercent}%` : `${changePercent}%`;
+                                                    const changeColor = changePercent > 0 ? 'text-emerald-400' : (changePercent < 0 ? 'text-rose-400' : 'text-slate-400');
+                                                    
+                                                    // 현재가 조회 (현재 마켓일 경우 midPrice 사용, 아닐 경우 고정 basePrice 기준)
+                                                    let displayPrice = m.symbol === 'BTC-USD' ? 65000 : 500;
+                                                    if (isSelected && midPrice > 0) {
+                                                        displayPrice = midPrice;
+                                                    }
+                                                    
+                                                    const volumeAmount = m.symbol === 'BTC-USD' ? '32,410,500 USD' : '450,200,000 KRW';
+
+                                                    return (
+                                                        <tr 
+                                                            key={m.symbol} 
+                                                            onClick={() => setActiveSymbol(m.symbol)}
+                                                            className={`hover:bg-white/5 transition-colors cursor-pointer ${isSelected ? 'bg-white/5' : ''}`}
+                                                        >
+                                                            <td className="px-3 py-3">
+                                                                <span className="text-white block text-[11px]">{m.symbol}</span>
+                                                                <span className="text-slate-500 text-[9px]">{m.baseCurrency} / {m.quoteCurrency}</span>
+                                                            </td>
+                                                            <td className="px-3 py-3 text-right text-slate-200">
+                                                                {displayPrice.toLocaleString(undefined, { minimumFractionDigits: m.symbol === 'BTC-USD' ? 2 : 0 })}
+                                                            </td>
+                                                            <td className={`px-3 py-3 text-right ${changeColor}`}>
+                                                                {formattedChange}
+                                                            </td>
+                                                            <td className="px-3 py-3 text-right text-slate-400">
+                                                                {volumeAmount}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={4} className="text-center py-6 text-slate-500">마켓 목록을 로딩 중입니다...</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
 

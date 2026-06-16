@@ -132,6 +132,8 @@ interface ExchangeState {
     // ⚡ 고성능 모듈용 전역 액션
     fetchFullSnapshot: (symbol: string) => Promise<void>;
     sendOrder: (payload: any) => boolean;
+    markets: any[];
+    fetchMarkets: () => Promise<void>;
 }
 
 // 심볼 해시코드 상수
@@ -664,6 +666,19 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 return true;
             }
             return false;
+        },
+
+        markets: [],
+        fetchMarkets: async () => {
+            try {
+                const res = await fetch(`${get().apiBaseUrl}/admin/stats/markets`);
+                if (res.ok) {
+                    const data = await res.json();
+                    set({ markets: data || [] });
+                }
+            } catch (err) {
+                console.error("Failed to fetch markets", err);
+            }
         }
     };
 });

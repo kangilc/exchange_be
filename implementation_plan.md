@@ -55,6 +55,10 @@
 * **마켓 목록 및 API 기반 동적 렌더링**:
   프론트엔드에서 하드코딩된 마켓 리스트를 제거하고, 화면에 **마켓 목록(심볼, 현재가, 등락폭, 거래대금)**을 표시한다.
   사용자가 마켓 목록의 특정 마켓을 클릭하면, 백엔드의 `/api/markets` API 호출 결과를 기반으로 거래 탭, 호가창(Order Book), 주문 콘솔, 차트를 동적으로 렌더링하도록 변경한다.
+* **React User 마켓 목록 연동**:
+  - `TradingTerminal.tsx`의 PC 레이아웃 "실시간 보유 자산" 바로 아래 영역에 마켓 목록 표(심볼, 현재가, 등락폭, 거래대금)를 렌더링한다.
+  - 모바일 탭 종류에 `'market'`을 추가하고 디폴트 탭으로 지정하여 모바일 접속 시 마켓 목록 표가 최우선으로 보여지도록 처리한다.
+  - 각 마켓 행을 클릭하면 해당 마켓(`BTC-USD`, `ADA-KRW` 등)으로 즉시 스위칭되도록 구현한다.
 
 ### 3. Backend (admin-api)
 * [MODIFY] [AdminApiApplication.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/AdminApiApplication.java):
