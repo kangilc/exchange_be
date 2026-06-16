@@ -413,7 +413,14 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
       debugPrint('[로그인 에러] $e');
       String msg = '서버에 연결할 수 없습니다.';
       if (e is DioException && e.response != null) {
-        msg = e.response?.data?['message'] ?? '이메일 또는 비밀번호가 올바르지 않습니다.';
+        final respData = e.response?.data;
+        if (respData is Map) {
+          msg = respData['message'] ?? '이메일 또는 비밀번호가 올바르지 않습니다.';
+        } else if (respData is String && respData.isNotEmpty) {
+          msg = respData;
+        } else {
+          msg = '이메일 또는 비밀번호가 올바르지 않습니다.';
+        }
       }
       return {'success': false, 'message': msg};
     }
