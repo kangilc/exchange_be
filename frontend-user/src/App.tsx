@@ -68,7 +68,7 @@ export const App: React.FC = () => {
             {/* Top Glowing Header (User Version) */}
             <header className="header-bar flex items-center justify-between px-8 py-4 sticky top-0 z-50 backdrop-blur-xl border-b border-white/5 bg-[#070b15]/95 shadow-2xl">
                 <div className="logo-section flex items-center gap-3">
-                    <img src="/JavaF_logo_tiny_400.png" alt="JavaF Logo" className="h-6 object-contain" />
+                    <img src="/JavaF_ico.svg" alt="JavaF Logo" className="h-6 object-contain" />
                     <span className="logo-title font-extrabold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">
                         JavaF <span className="text-xs logo-badge uppercase border border-[#00f2fe]/40 bg-[#00f2fe]/5 px-1.5 py-0.5 rounded text-[#00f2fe] font-bold tracking-wider ml-1">EXCHANGE CLIENT</span>
                     </span>
