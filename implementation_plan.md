@@ -40,7 +40,7 @@
   );
   ```
 * [MODIFY] [V1__init_schema.sql](file:///home/administrator/exchange_be/admin-api/src/main/resources/db/migration/V1__init_schema.sql):
-  `market_fees` 테이블 생성 구문을 제거하고 `markets` 및 `market_histories` 테이블 생성 구문으로 교체한다. (데이터베이스 트리거는 사용하지 않음)
+  `market_fees` 테이블 생성 구문을 제거하고 `markets` 및 `market_histories` 테이블 생성 구문으로 교체한다. (데이터베이스 트리거 및 리스너는 사용하지 않음)
 * **지갑 동적 생성 지원**: 지갑이 필요해지는 시점에 지갑 레코드를 자동 생성할 수 있도록 `INSERT ... ON CONFLICT DO NOTHING` 처리를 강화한다.
 
 ### 2. User & Admin Frontend (UI)
@@ -51,10 +51,9 @@
   초기 데이터 검사 쿼리를 `SELECT symbol, fee_rate FROM market_fees`에서 `SELECT symbol, fee_rate FROM markets`로 수정한다.
 * [MODIFY] [SettingsController.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/controller/SettingsController.java):
   수수료율 설정 등록/수정 쿼리를 `market_fees` 테이블 대신 `markets` 테이블 대상 쿼리로 수정한다.
-* **JPA Entity Listener를 통한 자동 이력 로깅**:
-  데이터베이스 트리거 대신 자바 애플리케이션 단에서 마켓 정보가 수정될 때마다 자동으로 이력을 보관할 수 있도록 **`MarketEntityListener`**를 추가 구현한다.
-  * `Market` 엔티티 클래스 상단에 `@EntityListeners(MarketEntityListener.class)`를 등록한다.
-  * `MarketEntityListener`의 `@PostPersist` 및 `@PostUpdate` 콜백 이벤트를 활용하여, `Market`이 영속화(저장/수정)되는 즉시 자동으로 `MarketHistory` 데이터를 생성하고 DB에 저장(Save)하도록 로직을 구현한다.
+* **서비스 레이어 명시적 이력 로깅 (Service-level Explicit Logging)**:
+  암묵적인 동작 방식을 피해 디버깅 편의성을 극대화하기 위해, **마켓 수정이 발생하는 백엔드 비즈니스 서비스 코드단에서 명시적으로 `MarketHistory` 객체를 생성하여 저장(Save)하는 로직을 직접 구현**한다.
+  * 마켓 생성/수정 메소드가 끝날 때 `marketHistoryRepository.save(new MarketHistory(...))`를 명시적으로 호출하여 데이터 정합성과 가독성을 보장한다.
 * **마켓 및 수수료 관리 API**: 신규 마켓 추가, 상장 상태 제어, 수수료율 수정을 처리하는 REST API를 개발한다.
 * **Lazy Wallet Initialization**: 입금 요청 및 체결 완료 처리 시 지갑 미존재 시 자동 생성하는 공통 유틸리티를 적용한다.
 * **카프카 라우팅 단일화**: 마켓별 토픽 대신 단일 토픽(`order-commands`, `matching-events`)에 `symbol`을 파티션 키로 지정하여 스트리밍하도록 변경한다.
@@ -69,9 +68,9 @@
 ## Verification Plan
 
 ### Automated Tests
-* DB 신규 마켓 추가, 수수료 변경 및 Java JPA Entity Listener에 의한 자동 이력 기록(history) 검증 API 단위 테스트
+* DB 신규 마켓 추가, 수수료 변경 및 Java 비즈니스 서비스 단에서의 명시적 이력 기록(history) 검증 API 단위 테스트
 * 지갑 동시 자동 생성 로직 동기화 정합성 테스트
 
 ### Manual Verification
-* 어드민 콘솔에서 신규 마켓 `ETH-USDT` 상장 등록 및 수수료 변경 조작 후 `market_histories` 테이블에 로그가 자동으로 인서트 되는지 검증
+* 어드민 콘솔에서 신규 마켓 `ETH-USDT` 상장 등록 및 수수료 변경 조작 후 `market_histories` 테이블에 로그가 정상적으로 명시적 인서트 되는지 검증
 * 유저 화면 노출 및 체결 정상 동작 여부 최종 검증
