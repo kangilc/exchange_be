@@ -40,7 +40,14 @@ source ~/.bashrc
 * **패키지 설치**: `/home/administrator/sdk/flutter/bin/flutter pub get`
 * **코드 정적 검사**: `/home/administrator/sdk/flutter/bin/flutter analyze`
 * **위젯 단위 테스트**: `/home/administrator/sdk/flutter/bin/flutter test`
+* **앱 실행(개발/디버그 모드)**: `/home/administrator/sdk/flutter/bin/flutter run`
+
 * **PC 화면 구동 (리눅스 데스크톱 창)**: 
+  최초 1회 리눅스 빌드 활성화를 위해 플랫폼 폴더를 생성합니다.
+  ```bash
+  /home/administrator/sdk/flutter/bin/flutter create --platforms=linux .
+  ```
+  이후 아래 명령어로 실행할 수 있습니다.
   ```bash
   /home/administrator/sdk/flutter/bin/flutter run -d linux
   ```
