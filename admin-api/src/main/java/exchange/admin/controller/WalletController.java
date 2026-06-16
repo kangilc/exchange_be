@@ -17,10 +17,12 @@ import java.util.List;
 public class WalletController {
 
     private final WalletRepository walletRepository;
+    private final exchange.admin.repository.UserRepository userRepository;
 
     // 생성자 주입
-    public WalletController(WalletRepository walletRepository) {
+    public WalletController(WalletRepository walletRepository, exchange.admin.repository.UserRepository userRepository) {
         this.walletRepository = walletRepository;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -42,6 +44,14 @@ public class WalletController {
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<Wallet>> getWalletsByUserId(@PathVariable Long userId) {
         return ResponseEntity.ok(walletRepository.findByUserId(userId));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getMyWallets() {
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .map(user -> ResponseEntity.ok(walletRepository.findByUserId(user.getUserId())))
+                .orElse(ResponseEntity.status(401).build());
     }
 
     /**

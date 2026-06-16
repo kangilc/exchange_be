@@ -453,7 +453,12 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
   /// 사용자 지갑 자산 실시간 조회 연동
   Future<void> fetchUserBalances() async {
     try {
-      final response = await _dio.get('${state.apiBaseUrl}/admin/wallets/user/${state.authUserId}');
+      final response = await _dio.get(
+        '${state.apiBaseUrl}/admin/wallets/me',
+        options: Options(
+          headers: state.accessToken.isNotEmpty ? {'Authorization': 'Bearer ${state.accessToken}'} : {},
+        ),
+      );
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         final Map<String, double> newBalances = {};

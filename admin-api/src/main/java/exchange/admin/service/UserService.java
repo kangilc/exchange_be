@@ -42,6 +42,10 @@ public class UserService {
         return userRepository.findById(id);
     }
 
+    public Optional<User> getUserByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+
     @Transactional
     public User registerUser(String email, String password, String grade) {
         User user = new User();

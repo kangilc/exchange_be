@@ -465,9 +465,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         // 개인 지갑 잔고 조회 연동
         fetchUserBalances: async () => {
-            const userId = get().authUserId || 1;
             try {
-                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/wallets/user/${userId}`);
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/wallets/me`);
                 if (res.ok) {
                     const data = await res.json();
                     const balMap: Record<string, number> = {};
@@ -484,9 +483,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         // 개인 체결 거래 이력 연동
         fetchUserTrades: async () => {
-            const userId = get().authUserId || 1;
             try {
-                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/${userId}/trades?page=0&size=50`);
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/me/trades?page=0&size=50`);
                 if (res.ok) {
                     const data = await res.json();
                     return data.content || [];
@@ -499,9 +497,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         // 개인 원장 변동(입출금) 이력 연동
         fetchUserLedgers: async () => {
-            const userId = get().authUserId || 1;
             try {
-                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/${userId}/ledgers?page=0&size=50`);
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/me/ledgers?page=0&size=50`);
                 if (res.ok) {
                     const data = await res.json();
                     return data.content || [];

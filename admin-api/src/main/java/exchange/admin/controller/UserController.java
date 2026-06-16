@@ -159,5 +159,25 @@ public class UserController {
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(ledgerJournalRepository.findDetailedLedgersByUserId(id, org.springframework.data.domain.PageRequest.of(page, size)));
     }
+
+    @GetMapping("/me/trades")
+    public ResponseEntity<?> getMyTrades(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        return userService.getUserByEmail(email)
+                .map(user -> ResponseEntity.ok(tradeRepository.findUserTrades(user.getUserId(), org.springframework.data.domain.PageRequest.of(page, size))))
+                .orElse(ResponseEntity.status(401).build());
+    }
+
+    @GetMapping("/me/ledgers")
+    public ResponseEntity<?> getMyLedgers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        return userService.getUserByEmail(email)
+                .map(user -> ResponseEntity.ok(ledgerJournalRepository.findDetailedLedgersByUserId(user.getUserId(), org.springframework.data.domain.PageRequest.of(page, size))))
+                .orElse(ResponseEntity.status(401).build());
+    }
 }
 
