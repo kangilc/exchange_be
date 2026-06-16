@@ -45,7 +45,7 @@ source ~/.bashrc
 * **PC 화면 구동 (리눅스 데스크톱 창)**: 
   최초 1회 리눅스 빌드 활성화를 위해 플랫폼 폴더를 생성합니다.
   ```bash
-  /home/administrator/sdk/flutter/bin/flutter create --platforms=linux .
+  /home/administrator/sdk/flutter/bin/flutter create --platforms=linux --project-name=mobile_user .
   ```
   이후 아래 명령어로 실행할 수 있습니다.
   ```bash
