@@ -27,6 +27,10 @@ graph TD
     %% Clients
     UI[JavaF Premium HTML5 UI] <-->|32-byte Binary Stream / PING-PONG| WS[Netty WS Gateway: 8088]
     AdminUI[Admin Dashboard UI: admin.html] <-->|REST API / JSON| AdminAPI[Spring Boot Admin API: 8181]
+    WebUser[React User Portal: frontend-user] <-->|32-byte Binary Stream / JWT| WS
+    WebUser <-->|REST API| AdminAPI
+    MobileUser[Flutter Mobile App: mobile-user] <-->|32-byte Binary Stream| WS
+    MobileUser <-->|REST API| AdminAPI
     
     %% Monitoring
     Prometheus[Prometheus Server: 9090] -->|Scrape Metrics /metrics| EngineBTC[Engine BTC-USD: 9100]
@@ -90,6 +94,7 @@ graph TD
 *   **매칭 거래 분석 및 자산 변경 이력 조회 (`/admin/stats/trades` / `/admin/stats/assets`):** 기간별 거래소 내의 원화 및 USD, 각종 코인 자산의 증감 흐름과 누적 체결 수치를 다각도로 조회합니다.
 *   **회원 원장 관리 (CRUD):** 회원 가입 등록(`POST /admin/users`), 정보 수정(`PUT /admin/users/{id}`), VIP 등급/거래정지(SUSPENDED) 관리 기능이 완벽 제공됩니다.
 *   **감사 연동 자산 추가/차감 (`/admin/users/{id}/assets/adjust`):** 관리자가 특정 회원의 자산 지갑을 즉각 지급(Deposit) 또는 회수(Withdrawal)할 수 있는 안전한 REST API를 제공하며, 모든 변동분은 `ledger_journal` 감사용 테이블에 완전 보장됩니다.
+*   **본인 식별 정보 및 자산 조회 전용 API (me):** (🌟 신규) 일반 사용자가 자신의 거래 내역, 원장 이력, 지갑 정보를 안전하게 조회할 수 있는 `/admin/users/me/trades`, `/admin/users/me/ledgers`, `/admin/wallets/me` API를 제공합니다. JWT 인증 세션 정보(이메일)를 기반으로 본인 데이터를 알아서 매칭하여 반환하므로 식별자(ID) 노출에 따른 해킹 위협(IDOR 취약점)을 완벽히 격리 방지합니다.
 *   **Spring Security & JWT 기반 무상태 인증/인가 체계 및 RTR(Refresh Token Rotation) 도입 (🌟 신규):**
     *   **강력한 API 보호:** 모든 `/admin/**` 엔드포인트를 Spring Security 6 필터 체인으로 보호하고, `ADMIN` 등급을 보유한 인증된 관리자만 접근 가능하도록 엄격히 통제함.
     *   **Stateless JWT 인증 (userId 클레임 포함):** 무상태 세션 관리 모델을 탑재하여 서버 메모리나 세션 저장소 부하 없이 헤더의 `Authorization: Bearer <Access_Token>`을 고속 해독해 자격 증명을 수립함. 특히, Access Token 내부에 `userId`를 커스텀 클레임(Claim)으로 직접 인코딩하여 클라이언트(웹 및 Flutter 모바일)에서 별도의 REST API(예: 403 제한이 걸린 `/admin/users`) 호출 없이도 로컬에서 본인의 사용자 ID를 즉시 식별할 수 있도록 최적화함.
