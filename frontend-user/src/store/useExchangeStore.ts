@@ -136,6 +136,7 @@ interface ExchangeState {
     sendOrder: (payload: any) => boolean;
     markets: any[];
     fetchMarkets: () => Promise<void>;
+    tickerPrices: Record<string, number>;
 }
 
 // 심볼 해시코드 상수
@@ -197,7 +198,11 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             // 3. 체결 내역 업데이트 및 상태 반영 (어드민과 100% 동일화)
             set((state) => {
                 let nextLogs = state.tradesLog;
+                const nextTickerPrices = { ...state.tickerPrices };
                 if (hasNewTrades) {
+                    recentTradesBuffer.forEach(t => {
+                        nextTickerPrices[t.symbol] = t.price;
+                    });
                     nextLogs = [...recentTradesBuffer, ...nextLogs].slice(0, 50);
                     recentTradesBuffer = [];
                 }
@@ -211,7 +216,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     midPrice: mid,
                     spread: diff,
                     volumePower: power,
-                    lastPrice: nextLastPrice
+                    lastPrice: nextLastPrice,
+                    tickerPrices: nextTickerPrices
                 };
 
                 if (hasNewTrades) {
@@ -384,6 +390,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         totalVolumeText: '-',
         tradesLog: [],
         loadedCandles: [],
+        tickerPrices: {},
 
         bids: [],
         asks: [],
@@ -677,6 +684,22 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 if (res.ok) {
                     const data = await res.json();
                     set({ markets: data || [] });
+
+                    if (data) {
+                        const prices: Record<string, number> = { ...get().tickerPrices };
+                        await Promise.all(data.map(async (m: any) => {
+                            try {
+                                const tickerRes = await fetch(`${get().apiBaseUrl}/admin/stats/ticker?symbol=${m.symbol}`);
+                                if (tickerRes.ok) {
+                                    const tickerData = await tickerRes.json();
+                                    if (tickerData && typeof tickerData.lastPrice === 'number') {
+                                        prices[m.symbol] = tickerData.lastPrice / 100.0;
+                                    }
+                                }
+                            } catch (e) {}
+                        }));
+                        set({ tickerPrices: prices });
+                    }
                 }
             } catch (err) {
                 console.error("Failed to fetch markets", err);

@@ -30,7 +30,8 @@ export const MarketWatchTab: React.FC<MarketWatchTabProps> = ({
         setActiveSymbol,
         setActiveResolution,
         markets,
-        fetchMarkets
+        fetchMarkets,
+        tickerPrices
     } = useExchangeStore();
 
     React.useEffect(() => {
@@ -171,11 +172,8 @@ export const MarketWatchTab: React.FC<MarketWatchTabProps> = ({
                                         const formattedChange = changePercent > 0 ? `+${changePercent}%` : `${changePercent}%`;
                                         const changeColor = changePercent > 0 ? 'text-emerald-400' : (changePercent < 0 ? 'text-rose-400' : 'text-slate-400');
                                         
-                                        // 현재가 조회 (현재 마켓일 경우 lastPrice 사용, 아닐 경우 고정 basePrice 기준)
-                                        let displayPrice = m.symbol === 'BTC-USD' ? 65000 : 500;
-                                        if (isSelected && lastPrice > 0) {
-                                            displayPrice = lastPrice;
-                                        }
+                                        // 현재가 조회 (tickerPrices에 실시간 가격이 저장되어 있으면 사용하고, 없으면 basePrice(65000 또는 500) 기준)
+                                        let displayPrice = tickerPrices[m.symbol] || (m.symbol === 'BTC-USD' ? 65000 : 500);
                                         
                                         const volumeAmount = m.symbol === 'BTC-USD' ? '32,410,500 USD' : '450,200,000 KRW';
 
