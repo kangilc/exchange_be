@@ -98,7 +98,10 @@
           "showLegend": true,
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": ["mean", "max"]
+          "calcs": [
+            "mean",
+            "max"
+          ]
         }
       }
     },
@@ -159,7 +162,11 @@
           "showLegend": true,
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": ["mean", "min", "max"]
+          "calcs": [
+            "mean",
+            "min",
+            "max"
+          ]
         }
       }
     },
@@ -396,49 +403,15 @@
           ]
         }
       }
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 24
-      },
-      "id": 7,
-      "title": "System Logs (Loki - ELK Style)",
-      "type": "logs",
-      "datasource": {
-        "type": "loki",
-        "uid": "Loki"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "Loki"
-          },
-          "editorMode": "code",
-          "expr": "{container=~\"$container\"}",
-          "queryType": "range",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "showLabels": false,
-        "wrapLogMessage": true,
-        "enableLogDetails": true,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "showCommonLabels": false,
-        "prettifyLogMessage": false
-      }
     }
   ],
   "refresh": "2s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["exchange", "telemetry"],
+  "tags": [
+    "exchange",
+    "telemetry"
+  ],
   "templating": {
     "list": [
       {

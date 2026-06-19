@@ -116,7 +116,7 @@ services:
     ports:
       - "3000:3000" # 그라파나 대시보드 접속 포트 (기본 로그인 계정 - admin / admin)
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin # 기본 관리자 비밀번호 강제 설정
+      - GF_SECURITY_ADMIN_PASSWORD=123qwe4r! # 기본 관리자 비밀번호 강제 설정
       - GF_USERS_ALLOW_SIGN_UP=false # 신규 사용자 회원가입 차단
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning # 데이터소스 및 대시보드 자동 연동 설정
@@ -128,7 +128,8 @@ services:
 
   # cadvisor: 각 도커 컨테이너의 실시간 CPU 및 RAM 점유율을 계측하는 구글 오픈소스 도구
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.50.0
+    # v를 제외하고 숫자 태그만 작성 (v0.56.2 -> 0.56.2)
+    image: ghcr.io/google/cadvisor:0.56.2
     container_name: cadvisor
     privileged: true
     devices:
@@ -137,6 +138,7 @@ services:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /sys:/sys:ro
+      # 호스트의 /var/lib/docker를 내부의 동일 경로로 단 한 번만 매핑.
       - /var/lib/docker/:/var/lib/docker:ro
       - /var/lib/docker:/rootfs/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
@@ -152,7 +154,7 @@ services:
   kafka-exporter:
     image: danielqsj/kafka-exporter:v1.7.0
     container_name: kafka-exporter
-    command: ["--kafka.server=kafka:9092"]
+    command: [ "--kafka.server=kafka:9092" ]
     ports:
       - "9308:9308"
     depends_on:
