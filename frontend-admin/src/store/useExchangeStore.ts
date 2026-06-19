@@ -163,8 +163,9 @@ interface ExchangeState {
     fetchBlockHeight: () => Promise<void>;
     approveWithdrawal: (id: number) => Promise<boolean>;
     rejectWithdrawal: (id: number) => Promise<boolean>;
-    rebalanceHotWallet: (id: number, amount: number) => Promise<boolean>;
     requestCryptoWithdrawal: (userId: number, currency: string, amount: number, toAddress: string) => Promise<boolean>;
+    markets: any[];
+    fetchMarkets: () => Promise<void>;
 }
 
 // 심볼 해시코드 상수
@@ -402,6 +403,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         userCryptoAddresses: [],
         pendingDeposits: [],
         blockHeight: 0,
+        markets: [],
 
         // 인증 상태 초기화 값 설정
         isAuthenticated: !!getLocalAccessToken(),
@@ -1043,6 +1045,18 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 console.error("Failed to request crypto withdrawal", err);
             }
             return false;
+        },
+
+        fetchMarkets: async () => {
+            try {
+                const res = await fetch(`${get().apiBaseUrl}/admin/stats/markets`);
+                if (res.ok) {
+                    const data = await res.json();
+                    set({ markets: data || [] });
+                }
+            } catch (err) {
+                console.error("Failed to fetch markets", err);
+            }
         }
     };
 });

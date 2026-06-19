@@ -28,8 +28,14 @@ export const MarketWatchTab: React.FC<MarketWatchTabProps> = ({
         lastPrice,
         totalTradesCount,
         setActiveSymbol,
-        setActiveResolution
+        setActiveResolution,
+        markets,
+        fetchMarkets
     } = useExchangeStore();
+
+    React.useEffect(() => {
+        fetchMarkets();
+    }, [fetchMarkets]);
 
     const [showLogConsole, setShowLogConsole] = React.useState(true);
 
@@ -94,8 +100,8 @@ export const MarketWatchTab: React.FC<MarketWatchTabProps> = ({
                 </div>
             </div>
 
-            {/* Split Layout: Chart + Summary */}
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+            {/* Split Layout: Chart + Summary + Market List */}
+            <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
                 {/* Chart Area */}
                 <div className="xl:col-span-3 flex flex-col gap-2">
                     <div className="flex items-center justify-between border-b border-white/5 pb-2">
@@ -106,7 +112,7 @@ export const MarketWatchTab: React.FC<MarketWatchTabProps> = ({
                 </div>
 
                 {/* Core Summary Card */}
-                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-5 h-full">
+                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-5 h-full xl:col-span-1">
                     <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2">마켓 핵심 요약</div>
                     
                     <div className="flex flex-col">
@@ -139,8 +145,71 @@ export const MarketWatchTab: React.FC<MarketWatchTabProps> = ({
                         </div>
                     </div>
                 </div>
-            </div>
 
+                {/* Real-time Market List */}
+                <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl flex flex-col h-full overflow-hidden min-h-[350px] xl:col-span-1">
+                    <div className="p-4 border-b border-white/5 bg-white/2 text-sm font-extrabold text-white flex justify-between items-center">
+                        <span>실시간 마켓 목록</span>
+                        <span className="text-[10px] text-slate-500 font-medium">클릭 시 마켓 전환</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto w-full bg-black/10">
+                        <table className="w-full text-left text-[10px] font-medium font-mono">
+                            <thead className="bg-white/2 text-slate-400 font-bold uppercase tracking-wider text-[9px] sticky top-0 bg-[#0a1020] z-10">
+                                <tr>
+                                    <th className="px-3 py-3">심볼</th>
+                                    <th className="px-3 py-3 text-right">현재가</th>
+                                    <th className="px-3 py-3 text-right">대비</th>
+                                    <th className="px-3 py-3 text-right">거래대금</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 font-bold">
+                                {markets && markets.length > 0 ? (
+                                    markets.map((m: any) => {
+                                        const isSelected = activeSymbol === m.symbol;
+                                        // 대비와 거래대금(24H) Mock 데이터 제공 (추후 API 고도화 대비)
+                                        const changePercent = m.symbol === 'BTC-USD' ? -0.25 : (m.symbol === 'ADA-KRW' ? 0.16 : 0.0);
+                                        const formattedChange = changePercent > 0 ? `+${changePercent}%` : `${changePercent}%`;
+                                        const changeColor = changePercent > 0 ? 'text-emerald-400' : (changePercent < 0 ? 'text-rose-400' : 'text-slate-400');
+                                        
+                                        // 현재가 조회 (현재 마켓일 경우 lastPrice 사용, 아닐 경우 고정 basePrice 기준)
+                                        let displayPrice = m.symbol === 'BTC-USD' ? 65000 : 500;
+                                        if (isSelected && lastPrice > 0) {
+                                            displayPrice = lastPrice;
+                                        }
+                                        
+                                        const volumeAmount = m.symbol === 'BTC-USD' ? '32,410,500 USD' : '450,200,000 KRW';
+
+                                        return (
+                                            <tr 
+                                                key={m.symbol} 
+                                                onClick={() => setActiveSymbol(m.symbol)}
+                                                className={`hover:bg-white/5 transition-colors cursor-pointer ${isSelected ? 'bg-white/5' : ''}`}
+                                            >
+                                                <td className="px-3 py-3">
+                                                    <span className="text-white block text-[11px]">{m.symbol}</span>
+                                                </td>
+                                                <td className="px-3 py-3 text-right text-slate-200">
+                                                    {displayPrice.toLocaleString(undefined, { minimumFractionDigits: m.symbol === 'BTC-USD' ? 2 : 0 })}
+                                                </td>
+                                                <td className={`px-3 py-3 text-right ${changeColor}`}>
+                                                    {formattedChange}
+                                                </td>
+                                                <td className="px-3 py-3 text-right text-slate-400">
+                                                    {volumeAmount}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                ) : (
+                                    <tr>
+                                        <td colSpan={4} className="text-center py-6 text-slate-500">마켓 목록을 로딩 중입니다...</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
             {/* WebSocket Log Monitor */}
             <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
                 <div className="flex items-center justify-between border-b border-white/5 pb-2">
