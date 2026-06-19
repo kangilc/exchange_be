@@ -7,6 +7,29 @@ import { OrderConsole } from './OrderConsole';
 import { CustodyCenter } from './CustodyCenter';
 import { InvestmentHistory } from './InvestmentHistory';
 
+const PriceCell: React.FC<{ price: number; symbol: string }> = ({ price, symbol }) => {
+    const prevPriceRef = React.useRef<number>(price);
+    const [flashClass, setFlashClass] = React.useState<string>('');
+
+    React.useEffect(() => {
+        if (price !== prevPriceRef.current) {
+            const isUp = price > prevPriceRef.current;
+            const newClass = isUp ? 'flash-bid-inc' : 'flash-ask-inc';
+            setFlashClass(newClass);
+            const timer = setTimeout(() => setFlashClass(''), 450);
+            prevPriceRef.current = price;
+            return () => clearTimeout(timer);
+        }
+    }, [price]);
+
+    return (
+        <span className={`transition-all duration-150 rounded px-1.5 py-0.5 ${flashClass}`}>
+            {price.toLocaleString(undefined, { minimumFractionDigits: symbol === 'BTC-USD' ? 2 : 0 })}
+        </span>
+    );
+};
+
+
 interface StopLimitOrder {
     id: string;
     symbol: string;
@@ -732,7 +755,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                                                 <span className="text-slate-500 text-[9px]">{m.baseCurrency} / {m.quoteCurrency}</span>
                                                             </td>
                                                             <td className="px-3 py-3 text-right text-slate-200">
-                                                                {displayPrice.toLocaleString(undefined, { minimumFractionDigits: m.symbol === 'BTC-USD' ? 2 : 0 })}
+                                                                <PriceCell price={displayPrice} symbol={m.symbol} />
                                                             </td>
                                                             <td className={`px-3 py-3 text-right ${changeColor}`}>
                                                                 {formattedChange}

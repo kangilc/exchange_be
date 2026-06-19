@@ -3,6 +3,29 @@ import { useExchangeStore, type TradeLog } from '../../store/useExchangeStore';
 import { TradingViewChart } from '../TradingViewChart';
 import { MonitorPlay, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
 
+const PriceCell: React.FC<{ price: number; symbol: string }> = ({ price, symbol }) => {
+    const prevPriceRef = React.useRef<number>(price);
+    const [flashClass, setFlashClass] = React.useState<string>('');
+
+    React.useEffect(() => {
+        if (price !== prevPriceRef.current) {
+            const isUp = price > prevPriceRef.current;
+            const newClass = isUp ? 'flash-bid-inc' : 'flash-ask-inc';
+            setFlashClass(newClass);
+            const timer = setTimeout(() => setFlashClass(''), 450);
+            prevPriceRef.current = price;
+            return () => clearTimeout(timer);
+        }
+    }, [price]);
+
+    return (
+        <span className={`transition-all duration-150 rounded px-1.5 py-0.5 ${flashClass}`}>
+            {price.toLocaleString(undefined, { minimumFractionDigits: symbol === 'BTC-USD' ? 2 : 0 })}
+        </span>
+    );
+};
+
+
 interface MarketWatchTabProps {
     isStreamingPaused: boolean;
     setIsStreamingPaused: React.Dispatch<React.SetStateAction<boolean>>;
@@ -187,7 +210,7 @@ export const MarketWatchTab: React.FC<MarketWatchTabProps> = ({
                                                     <span className="text-white block text-[11px]">{m.symbol}</span>
                                                 </td>
                                                 <td className="px-3 py-3 text-right text-slate-200">
-                                                    {displayPrice.toLocaleString(undefined, { minimumFractionDigits: m.symbol === 'BTC-USD' ? 2 : 0 })}
+                                                    <PriceCell price={displayPrice} symbol={m.symbol} />
                                                 </td>
                                                 <td className={`px-3 py-3 text-right ${changeColor}`}>
                                                     {formattedChange}
