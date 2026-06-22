@@ -22,6 +22,9 @@ public class StatsService {
     @Autowired
     private exchange.admin.repository.WalletRepository walletRepository;
 
+    @Autowired
+    private exchange.admin.repository.MarketRepository marketRepository;
+
     public List<TradeRepository.TradeStatsProjection> getTradeStats(String resolution) {
         String timeBucket = mapResolutionToBucket(resolution);
         return tradeRepository.getTradeStats(timeBucket);
@@ -70,11 +73,38 @@ public class StatsService {
         if (entry == null || entry.isExpired()) {
             long price = tradeRepository.findFirstBySymbolOrderByTradeIdDesc(symbol)
                     .map(exchange.admin.model.Trade::getPrice)
-                    .orElse(symbol.toUpperCase().contains("BTC") ? 6500000L : 50000L);
+                    .orElseGet(() -> marketRepository.findById(symbol)
+                            .map(exchange.admin.model.Market::getListingPrice)
+                            .orElse(0L));
             entry = new PriceCacheEntry(price);
             priceCache.put(symbol, entry);
         }
         return entry.price;
+    }
+
+    public Long getPrevClosePrice(String symbol) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        java.time.LocalDateTime cutoff = now.withHour(9).withMinute(0).withSecond(0).withNano(0);
+        if (now.isBefore(cutoff)) {
+            cutoff = cutoff.minusDays(1);
+        }
+
+        // 1. Cutoff 시점 이전의 마지막 거래
+        java.util.Optional<exchange.admin.model.Trade> latestTrade = tradeRepository.findLatestTradeBeforeCutoff(symbol, cutoff);
+        if (latestTrade.isPresent()) {
+            return latestTrade.get().getPrice();
+        }
+
+        // 2. 없으면 전체 거래 중 최초 거래
+        java.util.Optional<exchange.admin.model.Trade> firstTrade = tradeRepository.findFirstTrade(symbol);
+        if (firstTrade.isPresent()) {
+            return firstTrade.get().getPrice();
+        }
+
+        // 3. 그것도 없으면 DB markets 테이블의 listing_price 설정
+        return marketRepository.findById(symbol)
+                .map(exchange.admin.model.Market::getListingPrice)
+                .orElse(0L);
     }
 
     /**
@@ -412,6 +442,20 @@ public class StatsService {
         }
 
         return perf;
+    }
+
+    public List<java.util.Map<String, Object>> getTickers() {
+        List<exchange.admin.model.Market> activeMarkets = marketRepository.findByStatus("ACTIVE");
+        List<java.util.Map<String, Object>> tickers = new java.util.ArrayList<>();
+        for (exchange.admin.model.Market market : activeMarkets) {
+            String symbol = market.getSymbol();
+            java.util.Map<String, Object> ticker = new java.util.HashMap<>();
+            ticker.put("symbol", symbol);
+            ticker.put("lastPrice", getLastPrice(symbol));
+            ticker.put("prevClosePrice", getPrevClosePrice(symbol));
+            tickers.add(ticker);
+        }
+        return tickers;
     }
 
     private String mapResolutionToBucket(String resolution) {

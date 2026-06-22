@@ -15,14 +15,17 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ setActiveTab }) => {
         walletsSummary,
         fetchUsers,
         fetchWalletsSummary,
-        fetchSummaryStats
+        fetchSummaryStats,
+        tickerPrices,
+        fetchMarkets
     } = useExchangeStore();
 
     React.useEffect(() => {
         fetchUsers();
         fetchWalletsSummary();
         fetchSummaryStats();
-    }, [fetchUsers, fetchWalletsSummary, fetchSummaryStats]);
+        fetchMarkets();
+    }, [fetchUsers, fetchWalletsSummary, fetchSummaryStats, fetchMarkets]);
 
     const formatPrice = (val: number) => {
         const unit = activeSymbol === 'BTC-USD' ? '$' : '₩';
@@ -31,9 +34,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ setActiveTab }) => {
 
     // 전일 대비 모의 변동량 산정
     const getChange24h = () => {
-        const base = activeSymbol === 'BTC-USD' ? 65000 : 500;
+        const ticker = tickerPrices[activeSymbol];
+        const base = ticker ? ticker.prevClosePrice : (activeSymbol === 'BTC-USD' ? 65000 : 500);
         const diff = lastPrice - base;
-        const pct = (diff / base) * 100;
+        const pct = base > 0 ? (diff / base) * 100 : 0;
         const sign = diff >= 0 ? '+' : '';
         const unit = activeSymbol === 'BTC-USD' ? '$' : '₩';
         return {

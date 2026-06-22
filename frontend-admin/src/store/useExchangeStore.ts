@@ -166,7 +166,7 @@ interface ExchangeState {
     requestCryptoWithdrawal: (userId: number, currency: string, amount: number, toAddress: string) => Promise<boolean>;
     markets: any[];
     fetchMarkets: () => Promise<void>;
-    tickerPrices: Record<string, number>;
+    tickerPrices: Record<string, { lastPrice: number; prevClosePrice: number }>;
 }
 
 // 심볼 해시코드 상수
@@ -231,7 +231,11 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 const nextTickerPrices = { ...state.tickerPrices };
                 if (hasNewTrades) {
                     recentTradesBuffer.forEach(t => {
-                        nextTickerPrices[t.symbol] = t.price;
+                        const existing = nextTickerPrices[t.symbol] || { lastPrice: t.price, prevClosePrice: t.price };
+                        nextTickerPrices[t.symbol] = {
+                            ...existing,
+                            lastPrice: t.price
+                        };
                     });
                     nextLogs = [...recentTradesBuffer, ...nextLogs].slice(0, 50);
                     recentTradesBuffer = [];
@@ -1062,18 +1066,21 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     set({ markets: data || [] });
 
                     if (data) {
-                        const prices: Record<string, number> = { ...get().tickerPrices };
-                        await Promise.all(data.map(async (m: any) => {
-                            try {
-                                const tickerRes = await fetch(`${get().apiBaseUrl}/admin/stats/ticker?symbol=${m.symbol}`);
-                                if (tickerRes.ok) {
-                                    const tickerData = await tickerRes.json();
-                                    if (tickerData && typeof tickerData.lastPrice === 'number') {
-                                        prices[m.symbol] = tickerData.lastPrice / 100.0;
-                                    }
-                                }
-                            } catch (e) {}
-                        }));
+                        const prices: Record<string, { lastPrice: number; prevClosePrice: number }> = { ...get().tickerPrices };
+                        try {
+                            const tickersRes = await fetch(`${get().apiBaseUrl}/admin/stats/tickers`);
+                            if (tickersRes.ok) {
+                                const tickersData = await tickersRes.json();
+                                tickersData.forEach((t: any) => {
+                                    prices[t.symbol] = {
+                                        lastPrice: t.lastPrice / 100.0,
+                                        prevClosePrice: t.prevClosePrice / 100.0
+                                    };
+                                });
+                            }
+                        } catch (e) {
+                            console.error("Failed to fetch tickers", e);
+                        }
                         set({ tickerPrices: prices });
                     }
                 }

@@ -26,4 +26,33 @@ public class MarketController {
     public ResponseEntity<List<Market>> getActiveMarkets() {
         return ResponseEntity.ok(marketRepository.findByStatus("ACTIVE"));
     }
+
+    /**
+     * 특정 마켓 설정을 업데이트합니다.
+     */
+    @PutMapping("/{symbol}")
+    public ResponseEntity<Market> updateMarket(
+            @PathVariable("symbol") String symbol,
+            @RequestBody Market updateData) {
+        return marketRepository.findById(symbol)
+                .map(market -> {
+                    if (updateData.getListingPrice() != null) {
+                        market.setListingPrice(updateData.getListingPrice());
+                    }
+                    if (updateData.getFeeRate() != null) {
+                        market.setFeeRate(updateData.getFeeRate());
+                    }
+                    if (updateData.getPriceDecimals() != null) {
+                        market.setPriceDecimals(updateData.getPriceDecimals());
+                    }
+                    if (updateData.getMinQty() != null) {
+                        market.setMinQty(updateData.getMinQty());
+                    }
+                    if (updateData.getStatus() != null) {
+                        market.setStatus(updateData.getStatus());
+                    }
+                    return ResponseEntity.ok(marketRepository.save(market));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
 }

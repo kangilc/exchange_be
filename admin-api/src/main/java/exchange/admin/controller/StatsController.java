@@ -81,17 +81,26 @@ public class StatsController {
     }
 
     /**
-     * 특정 종목의 현재가(티커) 조회.
+     * 특정 종목의 현재가(티커) 및 전일 종가 조회.
      * 
      * @param symbol 종목 심볼 (예: BTC-USD)
-     * @return 종목 코드 및 현재가 정보를 담은 맵
+     * @return 종목 코드, 현재가, 전일종가 정보를 담은 맵
      */
     @GetMapping("/ticker")
     public ResponseEntity<java.util.Map<String, Object>> getTicker(@RequestParam("symbol") String symbol) {
         java.util.Map<String, Object> response = new java.util.HashMap<>();
         response.put("symbol", symbol);
         response.put("lastPrice", statsService.getLastPrice(symbol));
+        response.put("prevClosePrice", statsService.getPrevClosePrice(symbol));
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 전체 ACTIVE 마켓에 대한 티커 정보 벌크 조회.
+     */
+    @GetMapping("/tickers")
+    public ResponseEntity<List<java.util.Map<String, Object>>> getTickers() {
+        return ResponseEntity.ok(statsService.getTickers());
     }
 
     /**

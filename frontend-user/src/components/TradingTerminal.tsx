@@ -69,7 +69,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const tickerPrices = useExchangeStore(state => state.tickerPrices);
 
     // 1. 거래 터미널 로컬 코어 상태
-    const basePrice = activeSymbol === 'BTC-USD' ? 65000 : 500;
+    const activeTicker = tickerPrices[activeSymbol];
+    const basePrice = activeTicker ? activeTicker.prevClosePrice : (activeSymbol === 'BTC-USD' ? 65000 : 500);
     const [activeTab, setActiveTab] = useState<'trade' | 'custody' | 'investment'>('trade');
     const [isLiveMode, setIsLiveMode] = useState<boolean>(true);
     const [selectedSide, setSelectedSide] = useState<'BUY' | 'SELL'>('BUY');
@@ -676,13 +677,12 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                             {markets && markets.length > 0 ? (
                                                 markets.map((m: any) => {
                                                     const isSelected = activeSymbol === m.symbol;
-                                                    // 대비와 거래대금(24H) Mock 데이터 제공 (추후 API 고도화 대비)
-                                                    const changePercent = m.symbol === 'BTC-USD' ? -0.25 : (m.symbol === 'ADA-KRW' ? 0.16 : 0.0);
-                                                    const formattedChange = changePercent > 0 ? `+${changePercent}%` : `${changePercent}%`;
+                                                    const ticker = tickerPrices[m.symbol];
+                                                    let displayPrice = ticker ? ticker.lastPrice : (m.symbol === 'BTC-USD' ? 65000 : 500);
+                                                    let prevClose = ticker ? ticker.prevClosePrice : (m.symbol === 'BTC-USD' ? 65000 : 500);
+                                                    let changePercent = prevClose > 0 ? ((displayPrice - prevClose) / prevClose) * 100 : 0;
+                                                    const formattedChange = changePercent > 0 ? `+${changePercent.toFixed(2)}%` : `${changePercent.toFixed(2)}%`;
                                                     const changeColor = changePercent > 0 ? 'text-emerald-400' : (changePercent < 0 ? 'text-rose-400' : 'text-slate-400');
-                                                    
-                                                    // 현재가 조회 (tickerPrices에 실시간 가격이 저장되어 있으면 사용하고, 없으면 basePrice(65000 또는 500) 기준)
-                                                    let displayPrice = tickerPrices[m.symbol] || (m.symbol === 'BTC-USD' ? 65000 : 500);
                                                     
                                                     const volumeAmount = m.symbol === 'BTC-USD' ? '32,410,500 USD' : '450,200,000 KRW';
 

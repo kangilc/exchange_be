@@ -29,6 +29,9 @@ public class Market extends BaseEntity {
     @Column(name = "status", length = 20)
     private String status = "ACTIVE";
 
+    @Column(name = "listing_price")
+    private Long listingPrice = 0L;
+
     public Market() {}
 
     public String getSymbol() { return symbol; }
@@ -51,4 +54,7 @@ public class Market extends BaseEntity {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public Long getListingPrice() { return listingPrice; }
+    public void setListingPrice(Long listingPrice) { this.listingPrice = listingPrice; }
 }

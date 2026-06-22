@@ -28,9 +28,9 @@ export const TradingViewChart: React.FC = React.memo(() => {
     const volumeSeriesRef = useRef<any>(null);
     const ma7SeriesRef = useRef<any>(null);
     const ma25SeriesRef = useRef<any>(null);
-    
+
     const { activeSymbol, activeResolution, apiBaseUrl, lastPrice } = useExchangeStore();
-    
+
     // 차트의 실시간 캔들 관리 버퍼
     const loadedBufferRef = useRef<any[]>([]);
     const currentCandleRef = useRef<any>(null);
@@ -169,7 +169,7 @@ export const TradingViewChart: React.FC = React.memo(() => {
                     for (const item of data) {
                         const isUp = item.close >= item.open;
                         const adjustedTime = (item.time - offsetSeconds) as UTCTimestamp;
-                        
+
                         candles.push({
                             time: adjustedTime,
                             open: item.open,
@@ -230,7 +230,7 @@ export const TradingViewChart: React.FC = React.memo(() => {
 
                     // 로컬 버퍼 셋
                     loadedBufferRef.current = [...candles];
-                    
+
                     candlestickSeriesRef.current.setData(candles);
                     volumeSeriesRef.current.setData(volumeData);
 

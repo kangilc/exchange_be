@@ -69,5 +69,11 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
     java.util.List<Trade> findTop500BySymbolOrderByCreatedAtDesc(String symbol);
 
     java.util.List<Trade> findTop50000BySymbolOrderByCreatedAtDesc(String symbol);
+
+    @Query(value = "SELECT * FROM trades WHERE symbol = :symbol AND created_at < :cutoff ORDER BY created_at DESC LIMIT 1", nativeQuery = true)
+    java.util.Optional<Trade> findLatestTradeBeforeCutoff(@Param("symbol") String symbol, @Param("cutoff") java.time.LocalDateTime cutoff);
+
+    @Query(value = "SELECT * FROM trades WHERE symbol = :symbol ORDER BY created_at ASC LIMIT 1", nativeQuery = true)
+    java.util.Optional<Trade> findFirstTrade(@Param("symbol") String symbol);
 }
 
