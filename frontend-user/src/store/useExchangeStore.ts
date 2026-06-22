@@ -1,3 +1,21 @@
+/**
+ * [개발/성능 주의 사항]
+ * 1. 구조 및 라인 길이:
+ *    - 본 파일은 약 710라인으로 상태 관리, 웹소켓 연결, RTR 토큰 갱신 로직이 통합되어 있습니다.
+ *    - 규모가 커질 경우 유지보수를 위해 인증 로직(fetchWithAuth) 및 파싱 유틸리티를 별도 파일로 분리하는 것을 권장합니다.
+ * 
+ * 2. 실시간 오더북 정렬 연산 부하:
+ *    - `startUpdateLoop` 내부에서 30ms 주기로 `bidsMap`과 `asksMap` 전체를 배열로 변환한 후 `sort()`를 수행합니다.
+ *    - 가격 수준(Price Level) 데이터의 개수가 과도하게 많아지면 CPU 부하 및 가비지 컬렉션(GC) 병목이 생길 수 있으므로,
+ *      필요 시 깊이(depth) 제한을 두거나 삽입 시 정렬 상태를 유지하도록 개선해야 합니다.
+ * 
+ * 3. Zustand 구독 시 Selector 필수 사용:
+ *    - 본 스토어에는 초고속 실시간 데이터(bids, asks, latency 등)와 정적 데이터(isAuthenticated, authEmail 등)가 함께 존재합니다.
+ *    - 컴포넌트에서 구조 분해 할당 등으로 스토어 전체를 구독하면(예: `const { authEmail } = useExchangeStore()`),
+ *      30ms마다 일어나는 실시간 업데이트 때문에 불필요한 전체 리렌더링이 발생합니다.
+ *    - 반드시 개별 셀렉터를 지정하여 구독하십시오. (예: `const authEmail = useExchangeStore(state => state.authEmail)`)
+ */
+
 import { create } from 'zustand';
 
 // 문자열 해시코드 계산 도우미 (Java의 String.hashCode() 구현체)
@@ -41,7 +59,17 @@ const setLocalTokens = (access: string | null, refresh: string | null) => {
     else localStorage.removeItem('user_refresh_token');
 };
 
-// 동적으로 API 토큰을 가산하고 만료 시 자동 토큰 회전(RTR)을 수행하는 안전한 fetch 래퍼 함수임
+/**
+ * 🔐 자동 RTR(Refresh Token Rotation) 기능이 내장된 인증 전용 API 요청 Wrapper
+ * 1. 로컬 스토리지에 저장된 Access Token을 조회하여 API 헤더의 'Authorization'에 주입합니다.
+ * 2. API가 만료 상태 코드(401 Unauthorized 또는 403 Forbidden)를 반환할 때 동작을 가로챕니다.
+ * 3. 저장된 Refresh Token이 존재한다면, `/admin/auth/refresh` API에 토큰 갱신을 요청합니다.
+ * 4. 토큰 갱신에 성공하는 경우:
+ *    - 새로운 Access/Refresh Token 쌍을 로컬 스토리지에 안전하게 교체 저장합니다.
+ *    - 새로 발급받은 Access Token을 원래 요청의 헤더에 재주입하고, API 요청을 백그라운드에서 투명하게 재시도합니다.
+ * 5. 토큰 갱신에 실패하는 경우:
+ *    - 세션 및 로컬 스토리지를 즉시 초기화하여 안전하게 로그아웃하고 새로고침을 통해 무한 세션 만료 깜빡임을 방지합니다.
+ */
 export const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
     let access = getLocalAccessToken();
     if (!options.headers) {
@@ -86,55 +114,95 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
     return res;
 };
 
-// 유저 거래소 중앙 상태 인터페이스
+/**
+ * 📊 유저 거래소 중앙 상태 및 액션 인터페이스 (Zustand State)
+ */
 interface ExchangeState {
+    /** API 호스트 기본 URL (기본값: http://localhost:8181, config.json에 의해 동적 설정 가능) */
     apiBaseUrl: string;
+    /** 실시간 시세/오더북 웹소켓 스트림 URL (기본값: ws://localhost:8088/ws) */
     wsUrl: string;
+    /** 현재 화면에 선택 및 활성화된 마켓 심볼 (예: 'BTC-USD', 'ADA-KRW') */
     activeSymbol: string;
+    /** 차트에서 사용되는 캔들 봉 주기 해상도 (예: '1m', '5m', '1d' 등) */
     activeResolution: string;
+    /** 실시간 웹소켓 서버 접속 여부 플래그 */
     wsConnected: boolean;
+    /** 마지막으로 체결된 거래 가격 (Active Symbol 기준) */
     lastPrice: number;
+    /** 누적 거래 횟수 */
     totalTradesCount: number;
+    /** 누적 거래 대금/거래량 문자열 표시 포맷 */
     totalVolumeText: string;
+    /** 실시간 체결 이력 로그 배열 (최대 50개 유지) */
     tradesLog: TradeLog[];
+    /** 차트용으로 백엔드에서 조회해 적재한 캔들 봉 데이터 목록 */
     loadedCandles: CandleData[];
 
-    // ⚡ 고성능 배치 렌더링용 추가 상태
+    // ⚡ 고성능 배치 렌더링용 실시간 오더북 및 계측 지표
+    /** 10단 매수 호가 리스트 [가격(정수), 수량(정수)] */
     bids: [number, number][];
+    /** 10단 매도 호가 리스트 [가격(정수), 수량(정수)] (화면 표시를 위해 오름차순 역정렬 유지) */
     asks: [number, number][];
+    /** 매수최고가와 매도최저가의 중간 가격 (Mid Price) */
     midPrice: number;
+    /** 최우선 매수호가와 최우선 매도호가의 차이 (Spread) */
     spread: number;
+    /** 📊 체결 강도 (Volume Power): 최근 10초간의 BUY 수량 합산 / SELL 수량 합산 % 비율 */
     volumePower: number;
+    /** 📶 네트워크 왕복 지연 시간 (Latency RTT - ms 단위) */
     latency: number;
+    /** ⚡ 초당 수신 및 처리 중인 호가/체결 데이터 메시지 수 (Throughput - TPS) */
     throughput: number;
 
     // 인증 관련 상태 및 액션
+    /** 세션이 유효하고 로그인된 상태인지 여부 */
     isAuthenticated: boolean;
+    /** 현재 로그인한 유저 이메일 */
     authEmail: string | null;
+    /** 현재 로그인한 유저 고유 ID (JWT 디코딩 결과) */
     authUserId: number | null;
+    /** 로그인 모달 다이얼로그 표시 여부 */
     isLoginModalOpen: boolean;
+    /** 로그인 모달의 열림/닫힘 상태를 제어하는 함수 */
     setLoginModalOpen: (open: boolean) => void;
+    /** 이메일/비밀번호 기반 로그인 요청 액션 */
     login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
+    /** 로그아웃 처리 액션 (로컬 토큰 파기 및 세션 해제) */
     logout: () => void;
 
     // 개인화 데이터 API 액션
+    /** 현재 사용자 지갑의 통화별 잔고 조회 */
     fetchUserBalances: () => Promise<Record<string, number>>;
+    /** 현재 사용자 본인의 체결 거래 목록 최신 50개 조회 */
     fetchUserTrades: () => Promise<any[]>;
+    /** 현재 사용자 지갑의 입출금/거래 원장(Ledger) 변경 이력 최신 50개 조회 */
     fetchUserLedgers: () => Promise<any[]>;
 
     // 액션 메서드 선언
+    /** 거래소 화면 로딩 시 config.json 연동, 호스트 자동 보정, 풀 스냅샷 연동, 웹소켓 초기화를 일괄 수행하는 진입점 */
     initStore: () => Promise<void>;
+    /** 사용자가 마켓 심볼을 전환할 때 호출되어 호가 맵 초기화 및 새 스냅샷을 적재하는 액션 */
     setActiveSymbol: (symbol: string) => void;
+    /** 차트 봉 주기(Resolution) 변경 액션 */
     setActiveResolution: (res: string) => void;
+    /** 웹소켓 연결 상태 수동 변경 액션 */
     setWsConnected: (connected: boolean) => void;
+    /** 체결 로그 및 통계를 외부 API 등을 통해 수동으로 갱신하는 폴백 메서드 */
     updateTradeStats: (price: number, qty: number, side: 'BUY' | 'SELL', symbol: string) => void;
+    /** 불러온 캔들 목록을 전역 차트 상태에 주입하는 액션 */
     addLoadedCandles: (candles: CandleData[]) => void;
+    /** 실시간 신규 체결 가격을 차트에 반영하도록 트리거를 전달하는 폴백 메서드 */
     addRealtimeTick: (price: number) => void;
 
     // ⚡ 고성능 모듈용 전역 액션
+    /** 웹소켓 스트림 구독 전 매칭 엔진 전용 스냅샷 포트(9100/9101)로부터 완벽한 정합성의 호가창 풀 스냅샷 동기화 */
     fetchFullSnapshot: (symbol: string) => Promise<void>;
+    /** 웹소켓 커넥션을 통해 백엔드에 즉각적으로 주문(Limit/Market 등) 바이너리/JSON 패킷을 송신 */
     sendOrder: (payload: any) => boolean;
+    /** 전체 개설 마켓 목록 정보 */
     markets: any[];
+    /** 사용 가능한 전체 마켓(심볼) 목록 및 각 심볼별 당일 시가/종가/현재가 정보를 조회하는 액션 */
     fetchMarkets: () => Promise<void>;
     tickerPrices: Record<string, { lastPrice: number; prevClosePrice: number }>;
 }
@@ -158,6 +226,13 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
     let reconnectTimer: any = null; // ⚡ 재접속 타이머 누수 방지 변수 추가
     let orderbookChanged = false; // ⚡ 오더북 실질 데이터 변경 플래그
 
+    /**
+     * ⚡ 고성능 30ms 스로틀 배치 업데이트 루프
+     * - 웹소켓 수신 시 실시간으로 React 상태(Zustand `set()`)를 매번 변경하면 극심한 렌더링 병목 및 화면 멈춤이 발생합니다.
+     * - 이를 방지하기 위해 웹소켓으로 들어오는 모든 업데이트는 인메모리 버퍼(`bidsMap`, `asksMap`, `recentTradesBuffer`)에 즉시 기록하고,
+     *   30ms 주기(초당 약 33회)로만 호가 정렬, 체결 강도 계산 및 최종 상태 업데이트를 일괄 처리합니다.
+     * - 데이터에 실질적인 변동이 없는 경우(`!hasNewTrades && !orderbookChanged`) 불필요한 가비지 컬렉션(GC) 및 렌더 가동을 원천 생략합니다.
+     */
     const startUpdateLoop = () => {
         if (updateTimer) clearInterval(updateTimer);
         updateTimer = setInterval(() => {
@@ -329,6 +404,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             }
 
             const view = new DataView(buffer);
+            // ⚡ 32바이트 바이너리 패킷 사양 상세 레이아웃 (Big-Endian):
+            // - Offset [00 ~ 03] (4 bytes, Int32): Symbol ID (예: "BTC-USD"의 해시코드)
+            // - Offset [04 ~ 11] (8 bytes, Int64/BigInt64): Timestamp (매칭 서버 시각 - 프론트 미사용)
+            // - Offset [12 ~ 19] (8 bytes, BigInt64): 가격 (Price, 원본 x100 정수형태)
+            // - Offset [20 ~ 27] (8 bytes, BigInt64): 수량 변화량 (Delta Qty)
+            // - Offset [28 ~ 31] (4 bytes, Int32): 주문 방향 (Side: 0 = Bid/BUY, 1 = Ask/SELL)
             const symbolId = view.getInt32(0, false);
             const price = view.getBigInt64(12, false);
             const deltaQty = view.getBigInt64(20, false);
