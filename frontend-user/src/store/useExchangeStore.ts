@@ -1,3 +1,21 @@
+/**
+ * [개발/성능 주의 사항]
+ * 1. 구조 및 라인 길이:
+ *    - 본 파일은 약 710라인으로 상태 관리, 웹소켓 연결, RTR 토큰 갱신 로직이 통합되어 있습니다.
+ *    - 규모가 커질 경우 유지보수를 위해 인증 로직(fetchWithAuth) 및 파싱 유틸리티를 별도 파일로 분리하는 것을 권장합니다.
+ * 
+ * 2. 실시간 오더북 정렬 연산 부하:
+ *    - `startUpdateLoop` 내부에서 30ms 주기로 `bidsMap`과 `asksMap` 전체를 배열로 변환한 후 `sort()`를 수행합니다.
+ *    - 가격 수준(Price Level) 데이터의 개수가 과도하게 많아지면 CPU 부하 및 가비지 컬렉션(GC) 병목이 생길 수 있으므로,
+ *      필요 시 깊이(depth) 제한을 두거나 삽입 시 정렬 상태를 유지하도록 개선해야 합니다.
+ * 
+ * 3. Zustand 구독 시 Selector 필수 사용:
+ *    - 본 스토어에는 초고속 실시간 데이터(bids, asks, latency 등)와 정적 데이터(isAuthenticated, authEmail 등)가 함께 존재합니다.
+ *    - 컴포넌트에서 구조 분해 할당 등으로 스토어 전체를 구독하면(예: `const { authEmail } = useExchangeStore()`),
+ *      30ms마다 일어나는 실시간 업데이트 때문에 불필요한 전체 리렌더링이 발생합니다.
+ *    - 반드시 개별 셀렉터를 지정하여 구독하십시오. (예: `const authEmail = useExchangeStore(state => state.authEmail)`)
+ */
+
 import { create } from 'zustand';
 
 // 문자열 해시코드 계산 도우미 (Java의 String.hashCode() 구현체)
