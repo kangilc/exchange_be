@@ -43,9 +43,13 @@ export const TradingViewChart: React.FC = React.memo(() => {
         // 컨테이너 초기화
         containerRef.current.innerHTML = '';
 
+        const initialWidth = containerRef.current.clientWidth || 500;
+        const initialHeight = initialWidth * 0.75;
+        containerRef.current.style.height = `${initialHeight}px`;
+
         const chart = createChart(containerRef.current, {
-            width: containerRef.current.clientWidth,
-            height: 380,
+            width: initialWidth,
+            height: initialHeight,
             layout: {
                 background: { type: ColorType.Solid, color: 'rgba(7, 11, 21, 0.4)' },
                 textColor: '#d8b4fe',
@@ -118,7 +122,10 @@ export const TradingViewChart: React.FC = React.memo(() => {
         // 반응형 레이아웃 리사이저 핸들러
         const handleResize = () => {
             if (chartRef.current && containerRef.current) {
-                chartRef.current.resize(containerRef.current.clientWidth, 380);
+                const width = containerRef.current.clientWidth;
+                const height = width * 0.75;
+                containerRef.current.style.height = `${height}px`;
+                chartRef.current.resize(width, height);
                 chartRef.current.timeScale().fitContent();
             }
         };
@@ -336,7 +343,7 @@ export const TradingViewChart: React.FC = React.memo(() => {
 
     return (
         <div className="w-full relative bg-[#070b15] rounded-xl overflow-hidden border border-[#8a2be2]/20">
-            <div ref={containerRef} className="w-full h-[380px]" />
+            <div ref={containerRef} className="w-full" style={{ minHeight: '260px' }} />
         </div>
     );
 });

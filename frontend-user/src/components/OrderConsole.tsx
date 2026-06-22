@@ -39,7 +39,7 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
     mobileTab
 }) => {
     return (
-        <div className={`${mobileTab === 'order' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex-col gap-4 order-2 xl:order-none`}>
+        <div className={`${mobileTab === 'order' ? 'flex' : 'hidden'} lg:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex-col gap-4 order-2 lg:order-none`}>
             <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex justify-between items-center">
                 <span className="flex items-center gap-2">
                     <Layers size={14} className="text-[#8a2be2]" />

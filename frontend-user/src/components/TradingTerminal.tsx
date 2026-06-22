@@ -530,8 +530,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
             {/* [탭 1: 거래 터미널 화면] */}
             {activeTab === 'trade' && (
                 <>
-                    {/* ⚡ 모바일 전용 상단 탭 네비게이션 바 (데스크톱 xl 이상에서는 숨김) */}
-                    <div className="flex xl:hidden bg-slate-950/60 border border-white/5 rounded-xl p-1 font-extrabold text-[10px] gap-1">
+                    {/* ⚡ 모바일 전용 상단 탭 네비게이션 바 (데스크톱 lg 이상에서는 숨김) */}
+                    <div className="flex lg:hidden bg-slate-950/60 border border-white/5 rounded-xl p-1 font-extrabold text-[10px] gap-1">
                         <button
                             type="button"
                             onClick={() => setMobileTab('market')}
@@ -576,7 +576,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                         </button>
                     </div>
 
-                    <div className={`grid ${mobileTab === 'order' ? 'grid-cols-2' : 'grid-cols-1'} xl:grid-cols-4 gap-4 xl:gap-6 items-start animate-fade-in`}>
+                    <div className={`grid ${mobileTab === 'order' ? 'grid-cols-2' : 'grid-cols-1'} lg:grid-cols-4 gap-4 lg:gap-6 items-start animate-fade-in`}>
                         {/* [1열] Real-time Orderbook Ladder */}
                         <OrderBook
                             asksWithFlash={asksWithFlash}
@@ -594,9 +594,9 @@ export const TradingTerminal: React.FC = React.memo(() => {
                         />
 
                         {/* [2~3열] Middle Panel: Chart + Order Input */}
-                        <div className={`${mobileTab === 'chart' || mobileTab === 'order' ? 'flex' : 'hidden'} xl:flex xl:col-span-2 flex-col gap-6 h-[calc(100vh-220px)] min-h-[650px] order-2 xl:order-none`}>
+                        <div className={`${mobileTab === 'chart' || mobileTab === 'order' ? 'flex' : 'hidden'} lg:flex lg:col-span-2 flex-col gap-6 order-2 lg:order-none`}>
                             {/* Chart Window */}
-                            <div className={`${mobileTab === 'chart' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-4 flex-col gap-3 flex-1 overflow-hidden relative`}>
+                            <div className={`${mobileTab === 'chart' ? 'flex' : 'hidden'} lg:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-4 flex-col gap-3 flex-1 overflow-hidden relative`}>
                                 <div className="flex items-center justify-between border-b border-white/5 pb-2">
                                     <div className="flex items-center gap-4">
                                         <span className="text-sm font-extrabold text-white">{activeSymbol} 실시간 시세 차트</span>
@@ -655,9 +655,70 @@ export const TradingTerminal: React.FC = React.memo(() => {
                         </div>
 
                         {/* [4열] smart Portfolio & Real-time Trades List */}
-                        <div className={`${mobileTab === 'trades' || mobileTab === 'info' ? 'flex' : 'hidden'} xl:flex flex-col gap-6 h-[calc(100vh-220px)] min-h-[650px] xl:col-span-1`}>
+                        <div className={`${mobileTab === 'trades' || mobileTab === 'info' || mobileTab === 'market' ? 'flex' : 'hidden'} lg:flex flex-col gap-6 lg:h-[830px] lg:col-span-1`}>
+                            {/* Real-time Markets Table (마켓 목록 표 - 심볼, 현재가, 대비, 거래대금) */}
+                            <div className={`${mobileTab === 'market' ? 'flex' : 'hidden'} lg:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col flex-1 overflow-hidden min-h-[350px]`}>
+                                <div className="p-4 border-b border-white/5 bg-white/2 text-sm font-extrabold text-white flex justify-between items-center">
+                                    <span>실시간 마켓 목록</span>
+                                    <span className="text-[10px] text-slate-500 font-medium">클릭 시 마켓 전환</span>
+                                </div>
+                                <div className="flex-1 overflow-y-auto w-full bg-black/10">
+                                    <table className="w-full text-left text-[10px] font-medium font-mono">
+                                        <thead className="bg-white/2 text-slate-400 font-bold uppercase tracking-wider text-[9px] sticky top-0 bg-[#0a1020] z-10">
+                                            <tr>
+                                                <th className="px-3 py-3">심볼</th>
+                                                <th className="px-3 py-3 text-right">현재가</th>
+                                                <th className="px-3 py-3 text-right">대비</th>
+                                                <th className="px-3 py-3 text-right">거래대금</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/5 font-bold">
+                                            {markets && markets.length > 0 ? (
+                                                markets.map((m: any) => {
+                                                    const isSelected = activeSymbol === m.symbol;
+                                                    // 대비와 거래대금(24H) Mock 데이터 제공 (추후 API 고도화 대비)
+                                                    const changePercent = m.symbol === 'BTC-USD' ? -0.25 : (m.symbol === 'ADA-KRW' ? 0.16 : 0.0);
+                                                    const formattedChange = changePercent > 0 ? `+${changePercent}%` : `${changePercent}%`;
+                                                    const changeColor = changePercent > 0 ? 'text-emerald-400' : (changePercent < 0 ? 'text-rose-400' : 'text-slate-400');
+                                                    
+                                                    // 현재가 조회 (tickerPrices에 실시간 가격이 저장되어 있으면 사용하고, 없으면 basePrice(65000 또는 500) 기준)
+                                                    let displayPrice = tickerPrices[m.symbol] || (m.symbol === 'BTC-USD' ? 65000 : 500);
+                                                    
+                                                    const volumeAmount = m.symbol === 'BTC-USD' ? '32,410,500 USD' : '450,200,000 KRW';
+
+                                                    return (
+                                                        <tr 
+                                                            key={m.symbol} 
+                                                            onClick={() => setActiveSymbol(m.symbol)}
+                                                            className={`hover:bg-white/5 transition-colors cursor-pointer ${isSelected ? 'bg-white/5' : ''}`}
+                                                        >
+                                                            <td className="px-3 py-3">
+                                                                <span className="text-white block text-[11px] font-bold">{m.symbol}</span>
+                                                            </td>
+                                                            <td className="px-3 py-3 text-right text-slate-200">
+                                                                <PriceCell price={displayPrice} symbol={m.symbol} />
+                                                            </td>
+                                                            <td className={`px-3 py-3 text-right ${changeColor}`}>
+                                                                {formattedChange}
+                                                            </td>
+                                                            <td className="px-3 py-3 text-right text-slate-400">
+                                                                {volumeAmount}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={4} className="text-center py-6 text-slate-500">마켓 목록을 로딩 중입니다...</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
                             {/* Portfolio Asset Balance Card (요약) */}
-                            <div className={`${mobileTab === 'info' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex-col gap-4`}>
+                            <div className={`${mobileTab === 'info' ? 'flex' : 'hidden'} lg:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex-col gap-4`}>
                                 <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex justify-between items-center">
                                     <span className="flex items-center gap-2">
                                         <Wallet size={14} className="text-[#8a2be2]" />
@@ -714,70 +775,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                 </div>
                             </div>
 
-                            {/* Real-time Markets Table (마켓 목록 표 - 심볼, 현재가, 대비, 거래대금) */}
-                            <div className={`${mobileTab === 'market' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col flex-1 overflow-hidden min-h-[350px]`}>
-                                <div className="p-4 border-b border-white/5 bg-white/2 text-sm font-extrabold text-white flex justify-between items-center">
-                                    <span>실시간 마켓 목록</span>
-                                    <span className="text-[10px] text-slate-500 font-medium">클릭 시 마켓 전환</span>
-                                </div>
-                                <div className="flex-1 overflow-y-auto w-full bg-black/10">
-                                    <table className="w-full text-left text-[10px] font-medium font-mono">
-                                        <thead className="bg-white/2 text-slate-400 font-bold uppercase tracking-wider text-[9px] sticky top-0 bg-[#0a1020] z-10">
-                                            <tr>
-                                                <th className="px-3 py-3">심볼</th>
-                                                <th className="px-3 py-3 text-right">현재가</th>
-                                                <th className="px-3 py-3 text-right">대비</th>
-                                                <th className="px-3 py-3 text-right">거래대금</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-white/5 font-bold">
-                                            {markets && markets.length > 0 ? (
-                                                markets.map((m: any) => {
-                                                    const isSelected = activeSymbol === m.symbol;
-                                                    // 대비와 거래대금(24H) Mock 데이터 제공 (추후 API 고도화 대비)
-                                                    const changePercent = m.symbol === 'BTC-USD' ? -0.25 : (m.symbol === 'ADA-KRW' ? 0.16 : 0.0);
-                                                    const formattedChange = changePercent > 0 ? `+${changePercent}%` : `${changePercent}%`;
-                                                    const changeColor = changePercent > 0 ? 'text-emerald-400' : (changePercent < 0 ? 'text-rose-400' : 'text-slate-400');
-                                                    
-                                                    // 현재가 조회 (tickerPrices에 실시간 가격이 저장되어 있으면 사용하고, 없으면 basePrice(65000 또는 500) 기준)
-                                                    let displayPrice = tickerPrices[m.symbol] || (m.symbol === 'BTC-USD' ? 65000 : 500);
-                                                    
-                                                    const volumeAmount = m.symbol === 'BTC-USD' ? '32,410,500 USD' : '450,200,000 KRW';
-
-                                                    return (
-                                                        <tr 
-                                                            key={m.symbol} 
-                                                            onClick={() => setActiveSymbol(m.symbol)}
-                                                            className={`hover:bg-white/5 transition-colors cursor-pointer ${isSelected ? 'bg-white/5' : ''}`}
-                                                        >
-                                                            <td className="px-3 py-3">
-                                                                <span className="text-white block text-[11px]">{m.symbol}</span>
-                                                                <span className="text-slate-500 text-[9px]">{m.baseCurrency} / {m.quoteCurrency}</span>
-                                                            </td>
-                                                            <td className="px-3 py-3 text-right text-slate-200">
-                                                                <PriceCell price={displayPrice} symbol={m.symbol} />
-                                                            </td>
-                                                            <td className={`px-3 py-3 text-right ${changeColor}`}>
-                                                                {formattedChange}
-                                                            </td>
-                                                            <td className="px-3 py-3 text-right text-slate-400">
-                                                                {volumeAmount}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })
-                                            ) : (
-                                                <tr>
-                                                    <td colSpan={4} className="text-center py-6 text-slate-500">마켓 목록을 로딩 중입니다...</td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
                             {/* Real-time Trades List */}
-                            <div className={`${mobileTab === 'trades' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col flex-1 overflow-hidden h-[400px] xl:h-auto`}>
+                            <div className={`${mobileTab === 'trades' ? 'flex' : 'hidden'} lg:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col flex-1 overflow-hidden h-[400px] lg:h-auto`}>
                                 <div className="p-4 border-b border-white/5 bg-white/2 text-sm font-extrabold text-white">
                                     실시간 체결 내역
                                 </div>

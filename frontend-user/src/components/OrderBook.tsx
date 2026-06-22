@@ -87,7 +87,7 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
     mobileTab
 }) => {
     return (
-        <div className={`${mobileTab === 'order' || mobileTab === 'orderbook' ? 'flex' : 'hidden'} xl:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col overflow-hidden h-[calc(100vh-220px)] min-h-[650px] order-1 xl:order-none`}>
+        <div className={`${mobileTab === 'order' || mobileTab === 'orderbook' ? 'flex' : 'hidden'} lg:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col overflow-hidden lg:h-[830px] order-1 lg:order-none`}>
             <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/2">
                 <span className="text-sm font-extrabold text-white flex items-center gap-2">
                     <Layers size={14} className="text-[#8a2be2]" />
@@ -102,7 +102,7 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
                 <span className="text-right">누적 ({coin})</span>
             </div>
 
-            <div className="flex-1 flex flex-col font-mono text-[10px] min-h-0">
+            <div className="flex-1 flex flex-col font-mono text-[10px] min-h-0 overflow-hidden">
                 <div className="flex-1 flex flex-col justify-end divide-y divide-white/2 min-h-0">
                     {(() => {
                         let cum = 0;
