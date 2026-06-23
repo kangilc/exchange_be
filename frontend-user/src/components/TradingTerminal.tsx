@@ -260,36 +260,24 @@ export const TradingTerminal: React.FC = React.memo(() => {
             const next = { ...prev };
             if (selectedSide === 'BUY') {
                 next[fiat] -= totalCost;
-                next[coin] += qtyVal;
+                if (!isLiveMode) {
+                    next[coin] += qtyVal; // Live 모드 시 체결 전까지는 코인을 지급하지 않음
+                }
             } else {
                 next[coin] -= qtyVal;
-                next[fiat] += totalCost;
+                if (!isLiveMode) {
+                    next[fiat] += totalCost; // Live 모드 시 체결 전까지는 USD를 지급하지 않음
+                }
             }
             return next;
         });
 
         // Live 백엔드 자산 동기화 (Live 모드 시)
         if (isLiveMode) {
-            try {
-                const userId = authUserId || 1;
-                await fetch(`${apiBaseUrl}/admin/users/${userId}/assets/adjust`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        currency: selectedSide === 'BUY' ? fiat : coin,
-                        amount: selectedSide === 'BUY' ? -totalCost : -qtyVal
-                     })
-                });
-                await fetch(`${apiBaseUrl}/admin/users/${userId}/assets/adjust`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        currency: selectedSide === 'BUY' ? coin : fiat,
-                        amount: selectedSide === 'BUY' ? qtyVal : totalCost
-                    })
-                });
-                setTimeout(loadUserData, 1500); // 1.5초 후 최종 정산 잔고 확인
-            } catch (err) { }
+            // 백엔드 db-persister가 ACCEPT(주문접수시 HOLD) 및 TRADE(체결시 정산) 이벤트를 통해
+            // 데이터베이스의 사용가능/주문대기 잔고를 자동으로 안전하게 처리하므로,
+            // 프론트엔드단에서 직접 API를 통한 자산 임의 조정은 이중 차감 및 데이터 꼬임의 원인이 되어 생략합니다.
+            setTimeout(loadUserData, 1500); // 1.5초 후 최종 정산 잔고 확인
         }
 
         // WebSocket을 통해 매칭 엔진에 실시간 주문 발사
@@ -299,7 +287,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
             symbol: activeSymbol,
             side: selectedSide,
             price: scaledPrice,
-            qty: Math.round(qtyVal)
+            qty: Math.round(qtyVal),
+            userId: authUserId || 1
         };
 
         const success = sendOrder(payload);

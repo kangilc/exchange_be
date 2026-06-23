@@ -23,6 +23,10 @@ services:
       timeout: 5s
       retries: 5
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   # ganache: 개발 및 테스트용 로컬 가상 EVM 블록체인 네트워크 노드
   ganache:
@@ -32,6 +36,10 @@ services:
       - "8545:8545" # 외부 배포 도구 및 메타마스크 연동을 위해 호스트에 포트 오픈
     command: [ "--host", "0.0.0.0", "--deterministic", "--networkId", "1337", "--chain.chainId", "1337" ]
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   # =========================================================================
   # 2. 메시징 인프라 (Zookeeper & Kafka)
@@ -45,6 +53,10 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181 # ZooKeeper 클라이언트가 연결할 포트 설정
     ports:
       - "2181:2181" # 내부 포트 2181을 호스트 포트 2181로 바인딩
+    deploy:
+      resources:
+        limits:
+          memory: 128M
 
   # Apache Kafka: 매칭 엔진이 발행하는 체결/주문/취소 이벤트를 수집하고 배포하는 고성능 메시지 브로커입니다.
   kafka:
@@ -58,7 +70,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1 # 카프카 브로커의 고유 ID
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181 # ZooKeeper 접속 정보
-      KAFKA_HEAP_OPTS: "-Xms384m -Xmx384m" # JVM 힙 메모리 최적화 (기존 1GB -> 384MB)
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx256m" # JVM 힙 메모리 최소화
       # 내부 및 외부 클라이언트용 리스너 구성 (PLAINTEXT 및 PLAINTEXT_HOST 프로토콜 분리)
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
@@ -68,7 +80,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 768M
+          memory: 512M
 
   # =========================================================================
   # 3. 통합 관측 시스템 (Loki, Promtail, Prometheus, Grafana, cAdvisor, Kafka Exporter)
@@ -180,6 +192,7 @@ services:
     environment:
       - METRICS_ENABLED=true # 프로메테우스 수집용 메트릭 활성화 여부
       - METRICS_PORT=9100 # 메트릭 노출용 자체 HTTP 서버 포트 설정
+      - JAVA_OPTS=-XX:+UseSerialGC -Xms128m -Xmx256m
     ports:
       - "9999:9999" # 주문(New/Cancel)을 수신받는 TCP 커맨드 입력 포트
       - "9998:9998" # 체결/호가 이벤트를 전송(Broadcast)하는 TCP 이벤트 출력 포트
@@ -187,8 +200,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1" # 매칭 엔진의 극단적인 지연(Latency) 방지를 위해 CPU 최대 1코어로 제한
-          memory: 2g # 인메모리 주문 데이터 저장을 고려하여 최대 메모리 2GB 제한
+          cpus: "0.5"
+          memory: 384M
 
   # kafka-adapter-btc: 엔진의 실시간 TCP 이벤트를 구독하여 카프카 토픽으로 안전하게 퍼블리싱하는 어댑터
   kafka-adapter-btc:
@@ -203,7 +216,12 @@ services:
       - KAFKA_BROKER=kafka:9092 # 카프카 브로커 주소
       - ENGINE_HOST=engine-btc # 통신 대상 비트코인 엔진 호스트명
       - ENGINE_PORT=9998 # 비트코인 엔진의 TCP 이벤트 출력 포트
+      - JAVA_OPTS=-Xms64m -Xmx128m -XX:+UseSerialGC
     restart: on-failure # 에러 발생 시 자동으로 어댑터 재시작
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   # engine-ada: 초고속 인메모리 FIFO 매칭 엔진 (ADA-KRW 마켓 전용 코어)
   engine-ada:
@@ -217,6 +235,7 @@ services:
       - ENGINE_PORT=9996 # ADA 엔진용 이벤트 출력 포트
       - METRICS_ENABLED=true # 메트릭 노출 활성화
       - METRICS_PORT=9101 # ADA 엔진 전용 메트릭 포트
+      - JAVA_OPTS=-XX:+UseSerialGC -Xms128m -Xmx256m
     ports:
       - "9997:9997"
       - "9996:9996"
@@ -224,8 +243,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1" # 에이다 마켓은 CPU 최대 1코어로 자원 제한
-          memory: 2g # 메모리 한도 2GB 지정
+          cpus: "0.5"
+          memory: 384M
 
   # kafka-adapter-ada: 에이다 엔진의 실시간 TCP 이벤트를 카프카 토픽으로 중계하는 어댑터
   kafka-adapter-ada:
@@ -240,7 +259,12 @@ services:
       - KAFKA_BROKER=kafka:9092
       - ENGINE_HOST=engine-ada
       - ENGINE_PORT=9996 # ADA 엔진의 이벤트 출력 포트 지정
+      - JAVA_OPTS=-Xms64m -Xmx128m -XX:+UseSerialGC
     restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   # ws-gateway: 클라이언트(프론트엔드 UI)와의 연결을 처리하는 Netty 기반 비동기 웹소켓 게이트웨이
   ws-gateway:
@@ -258,7 +282,12 @@ services:
     environment:
       - METRICS_ENABLED=true
       - METRICS_PORT=9102
+      - JAVA_OPTS=-Xms64m -Xmx128m -XX:+UseSerialGC
     restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   # db-persister: 매칭 엔진의 쓰기 병목을 제거하기 위해 카프카 이벤트를 비동기로 컨슘하여 DB에 원자적으로 정산(Settle) 처리하는 데몬
   db-persister:
@@ -276,7 +305,12 @@ services:
       - DB_URL=jdbc:postgresql://postgres:5432/exchange
       - DB_USER=postgres
       - DB_PASSWORD=postgres
+      - JAVA_OPTS=-Xms64m -Xmx128m -XX:+UseSerialGC
     restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   # =========================================================================
   # 5. 거래소 백엔드 관리 API & 프론트엔드
@@ -302,7 +336,12 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - SPRING_PROFILES_ACTIVE=dev
+      - JAVA_OPTS=-Xms128m -Xmx256m -XX:+UseSerialGC
     restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 384M
 
   # audit-volume: 규제 및 감사를 위한 실시간 보고서가 저장되는 파일 시스템 볼륨 격리 컨테이너
   audit-volume:
@@ -329,7 +368,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 256M
 
   # frontend-admin: React 18 + TS + Vite 기반의 어드민 콘솔 전용 컨테이너 (포트 5174)
   frontend-admin:
@@ -348,3 +387,7 @@ services:
       admin-api:
         condition: service_started # admin-api 컨테이너가 시작되면 frontend-admin을 실행합니다.
     restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 256M
