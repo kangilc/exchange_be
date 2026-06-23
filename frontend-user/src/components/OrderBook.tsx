@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Layers } from 'lucide-react';
+import { useExchangeStore } from '../store/useExchangeStore';
 
 // ⚡ 실시간 잔량 증감에 따른 네온 깜빡임 이펙트(Neon Flash)를 감지하는 호가별 Row 컴포넌트
 const OrderBookRow: React.FC<{
@@ -29,10 +30,6 @@ const OrderBookRow: React.FC<{
     }, [lastChanged, side]);
 
     const realPrice = price / 100.0;
-    const diffPercent = basePrice > 0 ? ((realPrice - basePrice) / basePrice) * 100 : 0;
-    const sign = diffPercent > 0 ? '+' : '';
-    const percentText = `${sign}${diffPercent.toFixed(2)}%`;
-    const changeColor = diffPercent > 0 ? 'text-rose-400' : (diffPercent < 0 ? 'text-emerald-400' : 'text-slate-400');
 
     return (
         <div 
@@ -40,52 +37,99 @@ const OrderBookRow: React.FC<{
             className="grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150 cursor-pointer"
         >
             <div 
-                className={`absolute top-0 bottom-0 transition-all duration-300 pointer-events-none ${side === 'ask' ? 'left-0 bg-rose-500/10' : 'right-0 bg-emerald-500/10'}`} 
-                style={{ width: `${barWidth}%` }} 
+                className="absolute right-0 top-0 bottom-0 pointer-events-none opacity-20 transition-all duration-300"
+                style={{
+                    width: `${barWidth}%`,
+                    backgroundColor: side === 'ask' ? '#ec4899' : '#06b6d4'
+                }}
             />
-            <div className="flex items-center gap-1.5 relative z-10">
-                <span className={`font-bold ${side === 'ask' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                    {realPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </span>
-                <span className={`text-[9px] font-bold ${changeColor} opacity-90`}>
-                    {percentText}
-                </span>
+            {/* ⚡ 네온 플래시(Neon Flash) 효과 오버레이 */}
+            {flashClass && (
+                <div className={`absolute inset-0 pointer-events-none transition-all ${flashClass}`} />
+            )}
+            <div className={`text-[10px] font-bold z-10 ${side === 'ask' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                {realPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
-            <span className={`text-slate-300 relative z-10 text-right font-semibold rounded px-1.5 py-0.5 transition-all duration-150 ${flashClass}`}>{qty.toLocaleString()}</span>
-            <span className="text-slate-500 relative z-10 text-right font-medium">{cumVal.toLocaleString()}</span>
+            <div className="text-right text-slate-100 z-10 font-bold">{qty.toLocaleString()}</div>
+            <div className="text-right text-slate-400 z-10">{cumVal.toLocaleString()}</div>
         </div>
     );
 });
 
 interface OrderBookProps {
-    asksWithFlash: { price: number; qty: number; lastChanged: number }[];
-    bidsWithFlash: { price: number; qty: number; lastChanged: number }[];
-    volumePower: number;
-    midPrice: number;
-    spread: number;
     basePrice: number;
     fiat: string;
     coin: string;
-    orderType: string;
-    setOrderPrice: (p: string) => void;
-    setOrderType: (t: any) => void;
+    orderPrice: string;
+    setOrderPrice: (price: string) => void;
+    orderType: 'LIMIT' | 'MARKET' | 'STOP';
+    setOrderType: (type: 'LIMIT' | 'MARKET' | 'STOP') => void;
     mobileTab: string;
 }
 
 export const OrderBook: React.FC<OrderBookProps> = React.memo(({
-    asksWithFlash,
-    bidsWithFlash,
-    volumePower,
-    midPrice,
-    spread,
     basePrice,
     fiat,
     coin,
-    orderType,
+    orderPrice,
     setOrderPrice,
+    orderType,
     setOrderType,
     mobileTab
 }) => {
+    const asksList = useExchangeStore(state => state.asks);
+    const bidsList = useExchangeStore(state => state.bids);
+    const volumePower = useExchangeStore(state => state.volumePower);
+    const midPrice = useExchangeStore(state => state.midPrice);
+    const spread = useExchangeStore(state => state.spread);
+
+    const asksFlashMapRef = useRef<Map<number, { qty: number; lastChanged: number }>>(new Map());
+    const bidsFlashMapRef = useRef<Map<number, { qty: number; lastChanged: number }>>(new Map());
+
+    // 매도 호가 변경 감지
+    const asksWithFlash = useMemo(() => {
+        const now = Date.now();
+        const prevMap = asksFlashMapRef.current;
+        const nextMap = new Map<number, { qty: number; lastChanged: number }>();
+
+        const result = asksList.map(([price, qty]) => {
+            const prev = prevMap.get(price);
+            let lastChanged = prev ? prev.lastChanged : 0;
+
+            if (prev && prev.qty !== qty) {
+                lastChanged = now;
+            }
+
+            nextMap.set(price, { qty, lastChanged });
+            return { price, qty, lastChanged };
+        });
+
+        asksFlashMapRef.current = nextMap;
+        return result;
+    }, [asksList]);
+
+    // 매수 호가 변경 감지
+    const bidsWithFlash = useMemo(() => {
+        const now = Date.now();
+        const prevMap = bidsFlashMapRef.current;
+        const nextMap = new Map<number, { qty: number; lastChanged: number }>();
+
+        const result = bidsList.map(([price, qty]) => {
+            const prev = prevMap.get(price);
+            let lastChanged = prev ? prev.lastChanged : 0;
+
+            if (prev && prev.qty !== qty) {
+                lastChanged = now;
+            }
+
+            nextMap.set(price, { qty, lastChanged });
+            return { price, qty, lastChanged };
+        });
+
+        bidsFlashMapRef.current = nextMap;
+        return result;
+    }, [bidsList]);
+
     return (
         <div className={`${mobileTab === 'order' || mobileTab === 'orderbook' ? 'flex' : 'hidden'} lg:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col overflow-hidden lg:h-[830px] order-1 lg:order-none`}>
             <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/2">

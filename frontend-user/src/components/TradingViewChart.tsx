@@ -43,8 +43,9 @@ export const TradingViewChart: React.FC = React.memo(() => {
         // 컨테이너 초기화
         containerRef.current.innerHTML = '';
 
-        const initialWidth = containerRef.current.clientWidth || 500;
-        const initialHeight = initialWidth * 0.75;
+        const parent = containerRef.current.parentElement;
+        const initialWidth = (parent ? parent.clientWidth : containerRef.current.clientWidth) || 500;
+        const initialHeight = initialWidth * 0.4;
         containerRef.current.style.height = `${initialHeight}px`;
 
         const chart = createChart(containerRef.current, {
@@ -121,9 +122,10 @@ export const TradingViewChart: React.FC = React.memo(() => {
 
         // 반응형 레이아웃 리사이저 핸들러
         const handleResize = () => {
-            if (chartRef.current && containerRef.current) {
-                const width = containerRef.current.clientWidth;
-                const height = width * 0.75;
+            if (chartRef.current && containerRef.current && containerRef.current.parentElement) {
+                const parentElement = containerRef.current.parentElement;
+                const width = parentElement.clientWidth;
+                const height = width * 0.4;
                 containerRef.current.style.height = `${height}px`;
                 chartRef.current.resize(width, height);
                 chartRef.current.timeScale().fitContent();
@@ -133,8 +135,8 @@ export const TradingViewChart: React.FC = React.memo(() => {
         const resizeObserver = new ResizeObserver(() => {
             handleResize();
         });
-        if (containerRef.current) {
-            resizeObserver.observe(containerRef.current);
+        if (containerRef.current && containerRef.current.parentElement) {
+            resizeObserver.observe(containerRef.current.parentElement);
         }
 
         // 최초 캔들 피팅

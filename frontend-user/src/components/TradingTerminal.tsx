@@ -6,6 +6,7 @@ import { OrderBook } from './OrderBook';
 import { OrderConsole } from './OrderConsole';
 import { CustodyCenter } from './CustodyCenter';
 import { InvestmentHistory } from './InvestmentHistory';
+import { RecentTradesList } from './RecentTradesList';
 
 const PriceCell: React.FC<{ price: number; symbol: string }> = ({ price, symbol }) => {
     const prevPriceRef = React.useRef<number>(price);
@@ -46,12 +47,6 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const activeSymbol = useExchangeStore(state => state.activeSymbol);
     const activeResolution = useExchangeStore(state => state.activeResolution);
     const apiBaseUrl = useExchangeStore(state => state.apiBaseUrl);
-    const tradesLog = useExchangeStore(state => state.tradesLog);
-    const bidsList = useExchangeStore(state => state.bids);
-    const asksList = useExchangeStore(state => state.asks);
-    const midPrice = useExchangeStore(state => state.midPrice);
-    const spread = useExchangeStore(state => state.spread);
-    const volumePower = useExchangeStore(state => state.volumePower);
     const latency = useExchangeStore(state => state.latency);
     const throughput = useExchangeStore(state => state.throughput);
     const wsConnected = useExchangeStore(state => state.wsConnected);
@@ -114,76 +109,6 @@ export const TradingTerminal: React.FC = React.memo(() => {
 
     // 실제 유저의 거래 내역 보관 상태
     const [userTrades, setUserTrades] = useState<any[]>([]);
-
-    // 가격별 이전 수량과 마지막 변경 시점(타임스탬프)을 보관하여 리마운트 후에도 깜빡임 상태를 복원
-    const asksFlashMapRef = useRef<Map<number, { qty: number; lastChanged: number }>>(new Map());
-    const bidsFlashMapRef = useRef<Map<number, { qty: number; lastChanged: number }>>(new Map());
-
-    // 매도 호가 변경 감지
-    const asksWithFlash = useMemo(() => {
-        const now = Date.now();
-        const prevMap = asksFlashMapRef.current;
-        const nextMap = new Map<number, { qty: number; lastChanged: number }>();
-
-        const result = asksList.map(([price, qty]) => {
-            const prev = prevMap.get(price);
-            let lastChanged = prev ? prev.lastChanged : 0;
-
-            if (prev && prev.qty !== qty) {
-                lastChanged = now;
-            }
-
-            nextMap.set(price, { qty, lastChanged });
-            return { price, qty, lastChanged };
-        });
-
-        asksFlashMapRef.current = nextMap;
-        return result;
-    }, [asksList]);
-
-    // 매수 호가 변경 감지
-    const bidsWithFlash = useMemo(() => {
-        const now = Date.now();
-        const prevMap = bidsFlashMapRef.current;
-        const nextMap = new Map<number, { qty: number; lastChanged: number }>();
-
-        const result = bidsList.map(([price, qty]) => {
-            const prev = prevMap.get(price);
-            let lastChanged = prev ? prev.lastChanged : 0;
-
-            if (prev && prev.qty !== qty) {
-                lastChanged = now;
-            }
-
-            nextMap.set(price, { qty, lastChanged });
-            return { price, qty, lastChanged };
-        });
-
-        bidsFlashMapRef.current = nextMap;
-        return result;
-    }, [bidsList]);
-
-    // 실시간 체결 리스트 메모화 가공 (날짜 파싱 예외 방어 적용)
-    const recentTrades = useMemo(() => {
-        return tradesLog
-            .filter(t => t && t.symbol === activeSymbol)
-            .map(t => {
-                let timeStr = '--:--:--';
-                if (t.executedAt) {
-                    const d = new Date(t.executedAt);
-                    if (!isNaN(d.getTime())) {
-                        timeStr = d.toTimeString().split(' ')[0];
-                    }
-                }
-                return {
-                    tradeId: t.tradeId || Math.random().toString(),
-                    time: timeStr,
-                    price: t.price || 0,
-                    qty: t.qty || 0,
-                    side: t.side || 'BUY'
-                };
-            });
-    }, [tradesLog, activeSymbol]);
 
     // 심볼별 기본 디폴트 금액 세팅
     useEffect(() => {
@@ -272,7 +197,10 @@ export const TradingTerminal: React.FC = React.memo(() => {
 
         let finalPrice = priceVal;
         if (orderType === 'MARKET') {
-            finalPrice = midPrice > 0 ? midPrice : (tradesLog.find(t => t.symbol === activeSymbol)?.price || 0);
+            const storeState = useExchangeStore.getState();
+            const midPriceVal = storeState.midPrice;
+            const tradesLogVal = storeState.tradesLog;
+            finalPrice = midPriceVal > 0 ? midPriceVal : (tradesLogVal.find(t => t.symbol === activeSymbol)?.price || 0);
         } else if (isNaN(priceVal) || priceVal <= 0) {
             alert('올바른 가격을 입력해주세요.');
             return;
@@ -370,7 +298,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
         } else {
             appendLog('warning', '주문 전송 실패: 웹소켓 연결 상태를 확인해주세요.');
         }
-    }, [wsConnected, orderPrice, orderQty, activeSymbol, orderType, midPrice, tradesLog, selectedSide, balances, stopPrice, isLiveMode, apiBaseUrl, loadUserData, sendOrder, appendLog, authUserId, isAuthenticated, setLoginModalOpen]);
+    }, [wsConnected, orderPrice, orderQty, activeSymbol, orderType, selectedSide, balances, stopPrice, isLiveMode, apiBaseUrl, loadUserData, sendOrder, appendLog, authUserId, isAuthenticated, setLoginModalOpen]);
 
     // 레거시 모달창 처리 및 공통 입출금 핵심 비즈니스 로직
     const handleCustodySubmit = async (e: React.FormEvent) => {
@@ -580,16 +508,12 @@ export const TradingTerminal: React.FC = React.memo(() => {
                     <div className={`grid ${mobileTab === 'order' ? 'grid-cols-2' : 'grid-cols-1'} lg:grid-cols-4 gap-4 lg:gap-6 items-start animate-fade-in`}>
                         {/* [1열] Real-time Orderbook Ladder */}
                         <OrderBook
-                            asksWithFlash={asksWithFlash}
-                            bidsWithFlash={bidsWithFlash}
-                            volumePower={volumePower}
-                            midPrice={midPrice}
-                            spread={spread}
                             basePrice={basePrice}
                             fiat={fiat}
                             coin={coin}
-                            orderType={orderType}
+                            orderPrice={orderPrice}
                             setOrderPrice={setOrderPrice}
+                            orderType={orderType}
                             setOrderType={setOrderType}
                             mobileTab={mobileTab}
                         />
@@ -776,39 +700,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                             </div>
 
                             {/* Real-time Trades List */}
-                            <div className={`${mobileTab === 'trades' ? 'flex' : 'hidden'} lg:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col flex-1 overflow-hidden h-[400px] lg:h-auto`}>
-                                <div className="p-4 border-b border-white/5 bg-white/2 text-sm font-extrabold text-white">
-                                    실시간 체결 내역
-                                </div>
-                                <div className="flex-1 overflow-y-auto w-full bg-black/10">
-                                    <table className="w-full text-left text-[10px] font-medium font-mono">
-                                        <thead className="bg-white/2 text-slate-400 font-bold uppercase tracking-wider text-[9px] sticky top-0 bg-[#0a1020] z-10">
-                                            <tr>
-                                                <th className="px-3 py-2">시간</th>
-                                                <th className="px-3 py-2 text-right">체결가</th>
-                                                <th className="px-3 py-2 text-right">수량</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-white/5 font-bold">
-                                            {recentTrades.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={3} className="text-center py-6 text-slate-500">실시간 체결 대기 중...</td>
-                                                </tr>
-                                            ) : (
-                                                recentTrades.map((t, idx) => (
-                                                    <tr key={idx} className="hover:bg-white/2 transition-colors">
-                                                        <td className="px-3 py-2 text-slate-400">{t.time}</td>
-                                                        <td className={`px-3 py-2 text-right ${t.side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                            {t.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                        </td>
-                                                        <td className="px-3 py-2 text-right text-slate-300">{t.qty.toLocaleString()}</td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                            <RecentTradesList mobileTab={mobileTab} />
                         </div>
                     </div>
                 </>
