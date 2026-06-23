@@ -1,21 +1,40 @@
 import React from 'react';
 
 interface CustodyCenterProps {
+    /** 사용자 자산 잔고 데이터 맵 */
     balances: { [key: string]: number };
+    /** 현재 선택된 통화 코드 (KRW, USD, BTC, ADA) */
     custodyCurrency: string;
+    /** 통화 코드 변경 핸들러 */
     setCustodyCurrency: (c: string) => void;
+    /** 입금(DEPOSIT) 또는 출금(WITHDRAW) 상태 구분 */
     custodyAction: 'DEPOSIT' | 'WITHDRAW';
+    /** 입출금 액션 상태 변경 핸들러 */
     setCustodyAction: (a: 'DEPOSIT' | 'WITHDRAW') => void;
+    /** 출금 요청 시 입력받는 주소(계좌) 문자열 */
     withdrawAddressInput: string;
+    /** 출금 주소 입력값 변경 핸들러 */
     setWithdrawAddressInput: (a: string) => void;
+    /** 2FA OTP 입력값 */
     otpInput: string;
+    /** OTP 입력값 변경 핸들러 */
     setOtpInput: (o: string) => void;
+    /** 신청할 수량 및 금액 입력값 */
     custodyAmountInput: string;
+    /** 신청 수량 입력값 변경 핸들러 */
     setCustodyAmountInput: (a: string) => void;
+    /** 입출금 집행 요청 서브밋 핸들러 */
     handleCustodySubmit: (e: React.FormEvent) => void;
+    /** 입출금 변동 이력 목록 */
     custodyHistory: any[];
 }
 
+/**
+ * ⚡ 입출금 센터 (CustodyCenter) 컴포넌트
+ * 
+ * - 가상 계좌 주소 제공을 통한 입금 시뮬레이션 및 2FA OTP 보안 검증을 거치는 출금 시스템을 제공함.
+ * - 입출금 완료 시 실시간으로 사용자 지갑 원장 이력(custodyHistory)에 적재하여 감사를 지원함.
+ */
 export const CustodyCenter: React.FC<CustodyCenterProps> = React.memo(({
     balances,
     custodyCurrency,
@@ -33,9 +52,9 @@ export const CustodyCenter: React.FC<CustodyCenterProps> = React.memo(({
 }) => {
     return (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start animate-fade-in text-xs font-semibold">
-            {/* 좌측 2개열: 자산 카드 리스트 & 입출금 폼 */}
+            {/* 좌측 2개열: 자산 카드 리스트 & 입출금 신청서 폼 */}
             <div className="xl:col-span-2 flex flex-col gap-6">
-                {/* 자산 현황 카드 목록 */}
+                {/* 1. 통화별 자산 카드 목록 (선택 시 해당 통화 자동 포커싱) */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     {['KRW', 'USD', 'BTC', 'ADA'].map((cur) => (
                         <div
@@ -51,7 +70,7 @@ export const CustodyCenter: React.FC<CustodyCenterProps> = React.memo(({
                     ))}
                 </div>
 
-                {/* 입출금 신청 입력 카드 */}
+                {/* 2. 입출금 신청 정보 카드 */}
                 <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-6 flex flex-col gap-5">
                     <div className="border-b border-white/5 pb-3 flex justify-between items-center">
                         <span className="text-sm font-extrabold text-white uppercase">{custodyCurrency} 입출금 신청서</span>
@@ -75,7 +94,7 @@ export const CustodyCenter: React.FC<CustodyCenterProps> = React.memo(({
 
                     <form onSubmit={handleCustodySubmit} className="flex flex-col gap-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* 입금용 정보 피드백 */}
+                            {/* 입금 모드: 입금용 가상계좌 주소 정보 제공 */}
                             {custodyAction === 'DEPOSIT' ? (
                                 <div className="bg-white/2 border border-white/5 rounded-xl p-4 flex flex-col gap-3 justify-center md:col-span-2">
                                     <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">아래 가상 주소(계좌)로 이체(입금) 시 1초 내 자동 정산됩니다.</span>
@@ -88,7 +107,7 @@ export const CustodyCenter: React.FC<CustodyCenterProps> = React.memo(({
                                 </div>
                             ) : (
                                 <>
-                                    {/* 출금 대상 주소 */}
+                                    {/* 출금 모드: 출금 주소 및 구글 OTP 2FA 보안 강제 인증 */}
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-slate-400 uppercase text-[10px]">출금 대상 주소 (계좌번호)</label>
                                         <input
@@ -99,7 +118,6 @@ export const CustodyCenter: React.FC<CustodyCenterProps> = React.memo(({
                                             className="w-full p-3 bg-black/30 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
                                         />
                                     </div>
-                                    {/* 구글 OTP 인증 */}
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-slate-400 uppercase text-[10px] text-rose-400">구글 2FA OTP 보안인증 (6자리)</label>
                                         <input
@@ -114,7 +132,7 @@ export const CustodyCenter: React.FC<CustodyCenterProps> = React.memo(({
                                 </>
                             )}
 
-                            {/* 신청 금액 */}
+                            {/* 신청 금액 (입출금 공통 수량 슬롯) */}
                             <div className="flex flex-col gap-1.5 md:col-span-2">
                                 <div className="flex justify-between items-center text-[10px]">
                                     <label className="text-slate-400 uppercase">신청 수량 / 금액</label>
@@ -137,6 +155,7 @@ export const CustodyCenter: React.FC<CustodyCenterProps> = React.memo(({
                             </div>
                         </div>
 
+                        {/* 입출금 승인 제출 버튼 */}
                         <button
                             type="submit"
                             className={`w-full py-3.5 rounded-xl font-extrabold text-white text-sm shadow-xl transition-all hover:scale-[1.01] mt-2 ${custodyAction === 'DEPOSIT' ? 'bg-gradient-to-r from-emerald-600 to-emerald-400' : 'bg-gradient-to-r from-rose-600 to-rose-400'}`}
@@ -147,7 +166,7 @@ export const CustodyCenter: React.FC<CustodyCenterProps> = React.memo(({
                 </div>
             </div>
 
-            {/* 우측 1개열: 최근 입출금 변동 이력 타임라인 */}
+            {/* 우측 1개열: 최근 입출금 내역 (원장 이력) */}
             <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex flex-col gap-4 h-[calc(100vh-270px)] min-h-[500px]">
                 <span className="text-sm font-extrabold text-white border-b border-white/5 pb-2">최근 입출금 내역 (원장 이력)</span>
                 <div className="flex-1 overflow-y-auto flex flex-col gap-3 min-h-0">

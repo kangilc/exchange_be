@@ -2,24 +2,46 @@ import React from 'react';
 import { Layers } from 'lucide-react';
 
 interface OrderConsoleProps {
+    /** 입력 폼에 바인딩된 지정가 주문 가격 */
     orderPrice: string;
+    /** 주문 가격 상태 변경 핸들러 */
     setOrderPrice: (p: string) => void;
+    /** 입력 폼에 바인딩된 주문 수량 */
     orderQty: string;
+    /** 주문 수량 상태 변경 핸들러 */
     setOrderQty: (q: string) => void;
+    /** 예약(스탑) 주문 조건 가격 */
     stopPrice: string;
+    /** 예약 가격 상태 변경 핸들러 */
     setStopPrice: (p: string) => void;
+    /** 선택한 주문 타입 (지정가, 시장가, 예약) */
     orderType: 'LIMIT' | 'MARKET' | 'STOP';
+    /** 주문 타입 스위칭 핸들러 */
     setOrderType: (t: 'LIMIT' | 'MARKET' | 'STOP') => void;
+    /** 매수(BUY) 또는 매도(SELL) 포지션 상태 */
     selectedSide: 'BUY' | 'SELL';
+    /** 매수/매도 사이드 전환 핸들러 */
     setSelectedSide: (s: 'BUY' | 'SELL') => void;
+    /** 사용자 자산 잔고 맵 */
     balances: { [key: string]: number };
+    /** 세션 로그인 인증 완료 여부 */
     isAuthenticated: boolean;
+    /** 주문 전송 서브밋 핸들러 */
     handleOrderSubmit: (e: React.FormEvent) => void;
+    /** 화폐 단위 심볼 */
     fiat: string;
+    /** 타겟 코인 심볼 */
     coin: string;
+    /** 모바일 반응형 뷰 스위칭 탭 */
     mobileTab: string;
 }
 
+/**
+ * ⚡ 모의 주문 입력 콘솔 (OrderConsole) 컴포넌트
+ * 
+ * - 지정가(Limit), 시장가(Market), 예약(Stop-Limit) 주문 입력을 렌더링하고 유효성 제어를 담당함.
+ * - React.memo를 사용하여 거래 입력에 필요한 정보가 변경되지 않을 때 불필요한 리렌더링을 차단함.
+ */
 export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
     orderPrice,
     setOrderPrice,
@@ -39,6 +61,7 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
     mobileTab
 }) => {
     return (
+        /* 모바일 탭 상태 분기에 따라 노출 여부 스위칭 */
         <div className={`${mobileTab === 'order' ? 'flex' : 'hidden'} lg:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex-col gap-4 order-2 lg:order-none`}>
             <div className="text-sm font-extrabold text-white border-b border-white/5 pb-2 flex justify-between items-center">
                 <span className="flex items-center gap-2">
@@ -47,6 +70,7 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
                 </span>
             </div>
             
+            {/* 매수 (BUY) / 매도 (SELL) 전격 전환 버튼 */}
             <div className="flex bg-white/2 border border-white/5 rounded-xl p-0.5 font-bold text-xs">
                 <button
                     type="button"
@@ -66,6 +90,7 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
 
             <form onSubmit={handleOrderSubmit} className="flex flex-col gap-4 text-xs font-semibold">
                 <div className="flex flex-col gap-3">
+                    {/* 주문 구분 선택 영역 */}
                     <div className="flex flex-col gap-1">
                         <label className="text-slate-400 uppercase text-[10px]">주문 구분</label>
                         <div className="flex bg-white/2 border border-white/5 rounded-lg p-0.5 font-bold">
@@ -93,7 +118,7 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
                         </div>
                     </div>
 
-                    {/* 감시 가격 슬롯 */}
+                    {/* 감시 가격 (STOP 주문 활성화 시에만 입력 허용) */}
                     <div className="flex flex-col gap-1">
                         <label className={`text-[10px] uppercase transition-all ${orderType === 'STOP' ? 'text-amber-500 font-bold' : 'text-slate-500'}`}>
                             감시 가격 (Trigger Price)
@@ -111,7 +136,7 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
                         </div>
                     </div>
 
-                    {/* 주문 가격 슬롯 */}
+                    {/* 주문 가격 (시장가 주문 시에는 자동으로 인풋 불필요/비활성화 처리) */}
                     <div className="flex flex-col gap-1">
                         <label className={`text-[10px] uppercase transition-all ${orderType !== 'MARKET' ? 'text-slate-400' : 'text-slate-500'}`}>
                             주문 가격
@@ -131,6 +156,7 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
                 </div>
 
                 <div className="flex flex-col gap-3">
+                    {/* 주문 수량 및 가용 잔고 요약 */}
                     <div className="flex flex-col gap-1">
                         <div className="flex justify-between items-center">
                             <label className="text-slate-400 uppercase text-[10px]">주문 수량</label>
@@ -149,6 +175,7 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
                         </div>
                     </div>
 
+                    {/* 최종 주문 평가 금액 자동 계산 오버레이 */}
                     <div className="flex justify-between items-center bg-white/2 border border-white/5 rounded-xl p-3.5 mt-1">
                         <span className="text-[10px] text-slate-400 font-bold uppercase">주문 총액</span>
                         <span className="text-lg font-black font-mono text-[#00f2fe]">
@@ -158,6 +185,7 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
                         </span>
                     </div>
 
+                    {/* 주문 실행 및 최종 매칭엔진 전송 액션 단추 */}
                     <button
                         type="submit"
                         className={`w-full py-3.5 rounded-xl font-extrabold text-white text-sm shadow-xl transition-all hover:scale-[1.01] ${selectedSide === 'BUY' ? 'bg-gradient-to-r from-emerald-600 to-emerald-400' : 'bg-gradient-to-r from-rose-600 to-rose-400'}`}

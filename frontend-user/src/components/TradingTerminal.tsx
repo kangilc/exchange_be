@@ -8,6 +8,10 @@ import { CustodyCenter } from './CustodyCenter';
 import { InvestmentHistory } from './InvestmentHistory';
 import { RecentTradesList } from './RecentTradesList';
 
+/**
+ * ⚡ 마켓 현재가 깜빡임 컴포넌트 (PriceCell)
+ * - 특정 코인 심볼의 시세 변동 시 색상 깜빡임 효과를 실시간 렌더링함.
+ */
 const PriceCell: React.FC<{ price: number; symbol: string }> = ({ price, symbol }) => {
     const prevPriceRef = React.useRef<number>(price);
     const [flashClass, setFlashClass] = React.useState<string>('');
@@ -30,7 +34,6 @@ const PriceCell: React.FC<{ price: number; symbol: string }> = ({ price, symbol 
     );
 };
 
-
 interface StopLimitOrder {
     id: string;
     symbol: string;
@@ -42,8 +45,16 @@ interface StopLimitOrder {
     status: string;
 }
 
+/**
+ * ⚡ 거래 터미널 메인 컴포넌트 (TradingTerminal)
+ * 
+ * [최적화 & 최적 렌더링 설계]
+ * - 30ms 주기로 폭증하는 orderbook 델타 수신 시, 본 부모 컴포넌트가 강제로 리렌더링되는 부하를 원천 배제함.
+ * - OrderBook 및 RecentTradesList에 상태 구독을 완전히 넘겨주고, 본 컴포넌트는 정적 그리드 레이아웃만 유지함.
+ * - 주문 전송 등 단발성 조회 연산이 필요한 경우 useExchangeStore.getState()를 통해 렌더링 없는 즉시 조회를 적용함.
+ */
 export const TradingTerminal: React.FC = React.memo(() => {
-    // ⚡ 어드민(60fps 정상작동)과 동일하게 모든 실시간 스트림 상태를 단일 컴포넌트가 직접 구독
+    // Zustand 스토어 상태 개별 구독 (Selector)
     const activeSymbol = useExchangeStore(state => state.activeSymbol);
     const activeResolution = useExchangeStore(state => state.activeResolution);
     const apiBaseUrl = useExchangeStore(state => state.apiBaseUrl);
@@ -71,7 +82,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const [selectedSide, setSelectedSide] = useState<'BUY' | 'SELL'>('BUY');
     const [orderType, setOrderType] = useState<'LIMIT' | 'MARKET' | 'STOP'>('LIMIT');
 
-    // ⚡ 모바일 화면 전용 상단 탭 분리 제어 상태 ('market' = 마켓목록, 'order' = 주문, 'orderbook' = 호가, 'chart' = 차트, 'trades' = 시세, 'info' = 정보)
+    // ⚡ 모바일 화면 전용 상단 탭 분리 제어 상태
     const [mobileTab, setMobileTab] = useState<'market' | 'order' | 'orderbook' | 'chart' | 'trades' | 'info'>('market');
 
     // 입력 폼 상태
@@ -176,7 +187,6 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const handleOrderSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
         if (!isAuthenticated) {
-            // alert('주문을 전송하려면 로그인이 필요합니다.');
             setLoginModalOpen(true);
             return;
         }
@@ -384,7 +394,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const fiat = isBtc ? 'USD' : 'KRW';
     const coin = isBtc ? 'BTC' : 'ADA';
 
-    // 총 평가금액 환산 (BTC = 65,000$, ADA = 500원 기준 간편 원화가치 합산)
+    // 총 평가금액 환산
     const totalAssetEvalValue = useMemo(() => {
         const krwVal = balances.KRW;
         const usdVal = balances.USD * 1350; // 1350원 고정 환율 가정
@@ -422,7 +432,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                 </div>
             </div>
 
-            {/* 🌌 메인 탭 전환 컨트롤러 (데스크톱 및 모바일 통합) */}
+            {/* 🌌 메인 탭 전환 컨트롤러 */}
             <div className="flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-1 font-extrabold text-xs max-w-md">
                 <button
                     onClick={() => setActiveTab('trade')}
@@ -579,9 +589,9 @@ export const TradingTerminal: React.FC = React.memo(() => {
                             />
                         </div>
 
-                        {/* [4열] smart Portfolio & Real-time Trades List */}
+                        {/* [4열] smart Portfolio & Real-time Markets Table */}
                         <div className={`${mobileTab === 'trades' || mobileTab === 'info' || mobileTab === 'market' ? 'flex' : 'hidden'} lg:flex flex-col gap-6 lg:h-[830px] lg:col-span-1`}>
-                            {/* Real-time Markets Table (마켓 목록 표 - 심볼, 현재가, 대비, 거래대금) */}
+                            {/* Real-time Markets Table */}
                             <div className={`${mobileTab === 'market' ? 'flex' : 'hidden'} lg:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl flex-col flex-1 overflow-hidden min-h-[350px]`}>
                                 <div className="p-4 border-b border-white/5 bg-white/2 text-sm font-extrabold text-white flex justify-between items-center">
                                     <span>실시간 마켓 목록</span>
@@ -794,34 +804,33 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                     </select>
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-slate-400 uppercase text-[10px]">금액 / 수량</label>
+                                    <label className="text-slate-400 uppercase text-[10px]">신청 금액</label>
                                     <input
                                         type="number"
-                                        step="any"
+                                        required
                                         value={modalAmount}
                                         onChange={(e) => setModalAmount(e.target.value)}
-                                        placeholder="입출금할 수량을 입력해주세요."
-                                        required
-                                        className="w-full p-3 bg-black/30 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-[#8a2be2]"
+                                        placeholder="이체 신청 금액을 입력해 주세요."
+                                        className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white font-mono font-bold outline-none"
                                     />
                                 </div>
                             </div>
-                            <div className="px-6 py-4 border-t border-white/5 flex justify-end gap-3 bg-white/2">
+                            <div className="px-6 py-4 border-t border-white/5 bg-white/2 flex justify-end gap-3 font-bold">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setShowDepositModal(false);
                                         setShowWithdrawModal(false);
                                     }}
-                                    className="px-4 py-2 rounded-lg border border-white/10 text-slate-300 font-bold hover:bg-white/5"
+                                    className="px-4 py-2 rounded-lg bg-white/5 text-slate-400 hover:bg-white/10"
                                 >
                                     취소
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#8a2be2] to-[#6366f1] text-white font-bold shadow-lg hover:brightness-110"
+                                    className={`px-5 py-2 rounded-lg text-white ${showDepositModal ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500'}`}
                                 >
-                                    {showDepositModal ? '입금 승인' : '출금 승인'}
+                                    {showDepositModal ? '입금 확인' : '출금 승인'}
                                 </button>
                             </div>
                         </form>
