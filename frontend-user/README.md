@@ -36,9 +36,9 @@ frontend-user/
 
 ---
 
-## 🔄 2. 고성능 실시간 시세 및 배치 스로틀링 파이프라인
+## 🔄 2. 실시간 시세 및 배치 스로틀링
 
-웹소켓을 통해 초당 수천 개씩 유입되는 시세 변경 패킷을 매번 Zustand 상태로 설정하고 React 컴포넌트를 리렌더링하면 극심한 화면 끊김과 브라우저 행(Hang) 현상이 일어납니다. 이를 최적화하기 위해 **인메모리 버퍼링 및 30ms 주기의 스로틀 업데이트 기법**을 적용했습니다.
+웹소켓을 통해 초당 수천 개씩 유입되는 시세 변경 패킷을 매번 Zustand 상태로 설정하고 React 컴포넌트를 리렌더링하면 극심한 화면 끊김과 브라우저 행(Hang) 현상이 발생. 이를 최적화하기 위해 **인메모리 버퍼링 및 30ms 주기의 스로틀 업데이트 기법** 적용.
 
 ### ⚡ 웹소켓 바이너리 처리 및 30ms 배치 스로틀링 흐름
 
@@ -69,7 +69,7 @@ sequenceDiagram
 ```
 
 ### 📦 32바이트 바이너리 패킷 레이아웃 구조
-웹소켓 성능 극대화를 위해 JSON 포맷 대신 고밀도 바이너리 ArrayBuffer 스키마를 수신합니다:
+웹소켓 성능 극대화를 위해 JSON 포맷 대신 고밀도 바이너리 ArrayBuffer 스키마 수신:
 
 | 오프셋 (Offset) | 크기 (Size) | 타입 (Type) | 의미 (Description) |
 |:---|:---|:---|:---|
@@ -81,11 +81,11 @@ sequenceDiagram
 
 ---
 
-## 🔐 3. 세션 자가 치유형 RTR (Refresh Token Rotation) 인증 구조
+## 🔐 3. Refresh Token Rotation(RTR) 기반 세션 유지 및 복구 인증 구조
 
-보안 강화를 위해 Access Token이 만료(401/403)되었을 때 사용자의 세션을 유지하며 백그라운드에서 만료 토큰을 새 토큰 쌍으로 자동 회전시키는 RTR 래퍼를 내장하고 있습니다.
+보안 강화를 위해 Access Token이 만료(401/403)되었을 때 사용자의 세션을 유지하며 백그라운드에서 만료 토큰을 새 토큰 쌍으로 자동 갱신하는 RTR 래퍼 내장.
 
-### 🔐 RTR (자동 토큰 회전) 및 인증 흐름
+### 🔐 Refresh Token Rotation(RTR) 흐름
 
 ```mermaid
 sequenceDiagram
@@ -123,9 +123,9 @@ sequenceDiagram
 
 ## 🎯 4. 컴포넌트 간 데이터 의존성 및 Zustand 구독 최적화
 
-불필요한 리렌더링 전파를 방지하기 위해, 상태 성격(정적 상태 vs 초고속 실시간 상태)에 맞춰 컴포넌트 단위로 구독 셀렉터(`Selector`)가 세분화되어 구성되어 있습니다.
+불필요한 리렌더링 전파를 방지하기 위해, 상태 성격(정적 상태 vs 실시간 상태)에 맞춰 컴포넌트 단위로 구독 셀렉터(`Selector`)가 세분화되어 구성
 
-### 📊 컴포넌트간 의존성 및 상태 흐름 최적화 지도
+### 📊 컴포넌트간 의존성 및 상태 흐름 최적화
 
 ```mermaid
 graph TD
@@ -140,11 +140,10 @@ graph TD
         TT -.->|Subscribes to Static States only via Selectors| S_Static
     end
 
-    subgraph Highly Optimized Realtime Components
+    subgraph Realtime Components
         OB[OrderBook]
         RT[RecentTradesList]
         CH[TradingViewChart]
-        
         OB -->|Subscribes to bids/asks level 10| S_Realtime
         RT -->|Subscribes to tradesLog| S_Realtime
         CH -->|Receives realtimeTick| S_Realtime
@@ -154,8 +153,7 @@ graph TD
         OC[OrderConsole]
         CC[CustodyCenter]
         IH[InvestmentHistory]
-
-        OC -->|Fire-and-forget: useExchangeStore.getState().sendOrder| S
+        OC -->|"Fire-and-forget: useExchangeStore.getState().sendOrder"| S
         CC -->|Calls action fetchUserLedgers| S
         IH -->|Calls action fetchUserTrades/Balances| S
     end
@@ -163,6 +161,7 @@ graph TD
     classDef store fill:#112233,stroke:#3399ff,stroke-width:2px,color:#fff;
     classDef container fill:#223344,stroke:#888,stroke-width:1px,color:#fff;
     classDef component fill:#2d3748,stroke:#4a5568,stroke-width:1px,color:#fff;
+
     class S,S_Static,S_Realtime store;
     class TT container;
     class OB,RT,CH,OC,CC,IH component;
@@ -191,6 +190,6 @@ docker compose up -d --build frontend-user
 ```
 
 ### 💡 프론트엔드 핵심 성능 튜닝 내역
-1. **Zustand Selector 완전 적용**: `const { authEmail } = useExchangeStore()`와 같이 구조분해 할당으로 전체 스토어를 무한 루프 구독하던 구조를 `const authEmail = useExchangeStore(state => state.authEmail)` 셀렉터 구문으로 교체하여, 실시간 데이터가 30ms 단위로 요동칠 때 정적 컴포넌트들이 불필요하게 렌더링되던 비효율을 완벽히 잡았습니다.
-2. **ResizeObserver 무한 루프 우회**: 차트 크기가 변할 때 브라우저가 레이아웃을 다시 연산하면서 `ResizeObserver loop completed with undelivered notifications` 에러를 뿜는 현상을 예방하기 위해, 차트 렌더 컨테이너의 부모 엘리먼트(`parentElement`) 크기를 동적 감시 및 제어하도록 안전 장치를 더했습니다.
-3. **Zustand `.getState()` 사용**: 주문 전송 폼(`OrderConsole.tsx`)에서 주문 전송 등 단순 호출용 일회성 액션을 사용할 때는 컴포넌트 자체를 구독하지 않고 `useExchangeStore.getState().sendOrder(...)` 인터페이스를 직접 활용해 리렌더링 유발 점수를 0으로 통제하고 있습니다.
+1. **Zustand Selector 완전 적용**: `const { authEmail } = useExchangeStore()`와 같이 구조분해 할당으로 전체 스토어를 무한 루프 구독하던 구조를 `const authEmail = useExchangeStore(state => state.authEmail)` 셀렉터 구문으로 교체, 실시간 데이터가 30ms 단위로 요동칠 때 정적 컴포넌트들이 불필요하게 렌더링되던 비효율을 완벽히 잡음.
+2. **ResizeObserver 무한 루프 우회**: 차트 크기가 변할 때 브라우저가 레이아웃을 다시 연산하면서 `ResizeObserver loop completed with undelivered notifications` 에러를 뿜는 현상을 예방하기 위해, 차트 렌더 컨테이너의 부모 엘리먼트(`parentElement`) 크기를 동적 감시 및 제어하도록 안전 장치를 더함.
+3. **Zustand `.getState()` 사용**: 주문 전송 폼(`OrderConsole.tsx`)에서 주문 전송 등 단순 호출용 일회성 액션을 사용할 때는 컴포넌트 자체를 구독하지 않고 `useExchangeStore.getState().sendOrder(...)` 인터페이스를 직접 활용해 리렌더링 유발 점수를 0으로 통제하고 있음.
