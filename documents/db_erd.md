@@ -30,6 +30,8 @@ erDiagram
         varchar refresh_token "JWT RTR Token"
         timestamp created_at
         timestamp updated_at
+        varchar created_by
+        varchar updated_by
     }
 
     wallets {
@@ -40,6 +42,8 @@ erDiagram
         numeric locked_balance "Locked in Orders"
         timestamp created_at
         timestamp updated_at
+        varchar created_by
+        varchar updated_by
     }
 
     orders {
@@ -53,6 +57,8 @@ erDiagram
         varchar status "NEW, FILLED, CANCELLED"
         timestamp created_at
         timestamp updated_at
+        varchar created_by
+        varchar updated_by
     }
 
     trades {
@@ -66,6 +72,8 @@ erDiagram
         numeric fee_amount "Calculated Fee"
         timestamp created_at
         timestamp updated_at
+        varchar created_by
+        varchar updated_by
     }
 
     ledger_journal {
@@ -77,6 +85,8 @@ erDiagram
         bigint reference_id "Related Order/Trade ID"
         timestamp created_at
         timestamp updated_at
+        varchar created_by
+        varchar updated_by
     }
 
     user_crypto_addresses {
@@ -86,6 +96,8 @@ erDiagram
         varchar crypto_address UK "EVM/Deposit Address"
         timestamp created_at
         timestamp updated_at
+        varchar created_by
+        varchar updated_by
     }
 
     crypto_withdrawals {
@@ -99,6 +111,8 @@ erDiagram
         varchar tx_hash "Transaction Hash"
         timestamp created_at
         timestamp updated_at
+        varchar created_by
+        varchar updated_by
     }
 
     markets {
@@ -111,6 +125,8 @@ erDiagram
         varchar status "ACTIVE / INACTIVE"
         timestamp created_at
         timestamp updated_at
+        varchar created_by
+        varchar updated_by
     }
 
     market_histories {
@@ -122,6 +138,8 @@ erDiagram
         varchar status
         timestamp created_at
         timestamp updated_at
+        varchar created_by
+        varchar updated_by
     }
 
     system_hot_wallets {
@@ -131,6 +149,8 @@ erDiagram
         numeric balance "Available Balance"
         timestamp created_at
         timestamp updated_at
+        varchar created_by
+        varchar updated_by
     }
 ```
 
