@@ -94,7 +94,27 @@ sequenceDiagram
 
 ---
 
-## 🛠️ 5. 개발 및 배포 가이드
+## 💾 5. 인메모리 캐싱 전략 (In-Memory Caching Strategy)
+
+데이터베이스 부하 분산 및 초고속 API 응답 보장을 위해 특정 빈번한 조회 엔드포인트에 실시간 인메모리 캐싱을 구현했습니다.
+
+### ⚡ 실시간 현재가 캐시 (Last Price Cache)
+* **대상 메서드**: `StatsService.getLastPrice(String symbol)`
+* **구현 방식**: `ConcurrentHashMap` 기반 경량 캐시 구현 (`PriceCacheEntry`)
+* **동작 상세**: 
+  * 종목별 최근 거래 가격 조회 시 매번 `trades` 테이블 전체를 스캔하지 않고 캐시를 조회합니다.
+  * **캐시 유효 기간(TTL)**: **1초 (`1,000ms`)**
+  * 캐시 만료 시에만 데이터베이스에서 최신 체결 내역을 `findFirstBySymbolOrderByTradeIdDesc` 쿼리로 조회 후 캐시를 갱신합니다.
+
+### ⚙️ 글로벌 마켓 수수료 캐시 (Market Fee Config Cache)
+* **대상 클래스**: `AdminSettings` (Fee Rate Cache Holder)
+* **동작 상세**:
+  * 구동 시점에 데이터베이스의 `markets` 테이블에 등록된 수수료 정책(`fee_rate`)을 읽어와 `AdminSettings` 내부 static Map에 캐싱해 둡니다.
+  * 주문 생성 및 수수료 계산 등 트랜잭션이 집중되는 매커니즘에서 매번 데이터베이스를 조회하는 오버헤드를 배제합니다.
+
+---
+
+## 🛠️ 6. 개발 및 배포 가이드
 
 ### 로컬 개발 환경 실행
 ```bash
