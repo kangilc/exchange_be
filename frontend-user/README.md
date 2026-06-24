@@ -47,7 +47,7 @@ sequenceDiagram
     autonumber
     participant WS as WebSocket Gateway (Gateway)
     participant Map as In-Memory Buffers (bidsMap, asksMap, recentTradesBuffer)
-    participant Loop as startUpdateLoop (30ms Timer)
+    participant Timer as startUpdateLoop (30ms Timer)
     participant Store as Zustand Store (useExchangeStore)
     participant Comp as Realtime Components (OrderBook, RecentTradesList)
 
@@ -56,14 +56,14 @@ sequenceDiagram
     Note over Map: DataView parses fields (SymbolId, Price, DeltaQty, Side)
     Map->>Map: Update bidsMap/asksMap / Push TradeLog
 
-    Note over Loop, Store: Every 30ms Throttler
-    Loop->>Map: Check for orderbookChanged or newTrades
+    Note over Timer, Store: Every 30ms Throttler
+    Timer->>Map: Check for orderbookChanged or newTrades
     alt No changes (orderbookChanged === false && hasNewTrades === false)
-        Loop-->>Loop: Early return (Skip state update & render)
+        Timer-->>Timer: Early return (Skip state update & render)
     else Changes detected
-        Loop->>Map: Slice maps, sort top 10 bids/asks (Map.entries -> sort)
-        Loop->>Map: Compute Volume Power (last 10s buy/sell qty ratio)
-        Loop->>Store: set({ bids, asks, midPrice, spread, volumePower, tradesLog })
+        Timer->>Map: Slice maps, sort top 10 bids/asks (Map.entries -> sort)
+        Timer->>Map: Compute Volume Power (last 10s buy/sell qty ratio)
+        Timer->>Store: set({ bids, asks, midPrice, spread, volumePower, tradesLog })
         Store->>Comp: Trigger targeted component re-render
     end
 ```
