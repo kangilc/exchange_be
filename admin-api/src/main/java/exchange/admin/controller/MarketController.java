@@ -19,9 +19,11 @@ import java.util.List;
 public class MarketController {
 
     private final MarketRepository marketRepository;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
-    public MarketController(MarketRepository marketRepository) {
+    public MarketController(MarketRepository marketRepository, org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
         this.marketRepository = marketRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     /**
@@ -55,6 +57,8 @@ public class MarketController {
                     // 2. 수수료율 설정 변경 사항 적용
                     if (updateData.getFeeRate() != null) {
                         market.setFeeRate(updateData.getFeeRate());
+                        // 인메모리 수수료율 캐시 동기화
+                        exchange.admin.config.AdminSettings.setFeeRate(symbol, updateData.getFeeRate().doubleValue());
                     }
                     // 3. 소수점 자릿수 제한 변경 사항 적용
                     if (updateData.getPriceDecimals() != null) {
@@ -68,8 +72,28 @@ public class MarketController {
                     if (updateData.getStatus() != null) {
                         market.setStatus(updateData.getStatus());
                     }
-                    // 최종 수정본을 DB에 저장 후 응답
-                    return ResponseEntity.ok(marketRepository.save(market));
+                    // 최종 수정본을 DB에 저장
+                    Market saved = marketRepository.save(market);
+
+                    // 6. market_histories 이력 테이블에 명시적 변경 로그 적재
+                    try {
+                        jdbcTemplate.update(
+                                "INSERT INTO market_histories (symbol, fee_rate, price_decimals, min_amt, status, created_at, updated_at, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                saved.getSymbol(),
+                                saved.getFeeRate(),
+                                saved.getPriceDecimals(),
+                                saved.getMinAmt(),
+                                saved.getStatus(),
+                                java.sql.Timestamp.valueOf(saved.getCreatedAt()),
+                                java.sql.Timestamp.valueOf(saved.getUpdatedAt()),
+                                saved.getCreatedBy(),
+                                saved.getUpdatedBy()
+                        );
+                    } catch (Exception e) {
+                        System.err.println("Failed to insert market history inside MarketController: " + e.getMessage());
+                    }
+
+                    return ResponseEntity.ok(saved);
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
