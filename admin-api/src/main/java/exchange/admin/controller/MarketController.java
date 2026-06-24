@@ -28,7 +28,13 @@ public class MarketController {
     }
 
     /**
-     * 특정 마켓 설정을 업데이트합니다.
+     * 특정 마켓의 세부 구성 설정을 업데이트합니다.
+     * 업데이트 가능한 항목:
+     * - listingPrice: 상장 기준가 (소수점 보존을 위해 x100 배율 적용된 정수형 값)
+     * - feeRate: 해당 마켓의 거래 수수료율 (예: 0.001 = 0.1%)
+     * - priceDecimals: 호가 및 체결 표시 시 소수점 자릿수 한도
+     * - minQty: 마켓에서 주문 가능한 최소 코인 수량 제한
+     * - status: 마켓의 활성 상태 제어 (ACTIVE, INACTIVE 등)
      */
     @PutMapping("/{symbol}")
     public ResponseEntity<Market> updateMarket(
