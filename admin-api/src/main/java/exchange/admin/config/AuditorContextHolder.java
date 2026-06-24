@@ -1,5 +1,10 @@
 package exchange.admin.config;
 
+/**
+ * JPA Auditing에서 현재 요청을 수행하는 주체(Auditor) 식별자를 ThreadLocal을 통해 관리하는 홀더 클래스입니다.
+ * 주로 백그라운드 배치 작업이나 데몬 등 인증 컨텍스트(SecurityContext)가 존재하지 않는 스레드 환경에서
+ * 시스템 식별자(예: SYSTEM:WalletDaemon)를 등록하여 생성자/수정자 지정을 지원합니다.
+ */
 public class AuditorContextHolder {
     private static final ThreadLocal<String> CONTEXT = new ThreadLocal<>();
 

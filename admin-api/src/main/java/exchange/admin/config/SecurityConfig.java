@@ -24,6 +24,11 @@ import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Collections;
 
+/**
+ * Spring Security 및 웹 보안 설정을 통합 구성하는 클래스입니다.
+ * 세션을 사용하지 않는 Stateless(REST API) 정책을 취하며, JWT 기반의 사용자 인증 메커니즘을 적용합니다.
+ * CORS 정책 허용, Swagger UI 등의 공개 엔드포인트 라우팅 허용 및 BCrypt/SHA-256 호환 패스워드 인코더 등을 빈으로 등록합니다.
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -31,16 +36,31 @@ public class SecurityConfig {
     private final JwtTokenProvider tokenProvider;
     private final UserRepository userRepository;
 
+    /**
+     * SecurityConfig 생성자. 의존 필터를 구성하기 위해 JWT 제공자와 유저 리포지토리를 주입받습니다.
+     */
     public SecurityConfig(JwtTokenProvider tokenProvider, UserRepository userRepository) {
         this.tokenProvider = tokenProvider;
         this.userRepository = userRepository;
     }
 
+    /**
+     * HTTP 요청 인증 헤더의 JWT 유효성을 매번 검사하는 커스텀 필터 빈을 생성합니다.
+     */
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
         return new JwtAuthenticationFilter(tokenProvider, userRepository);
     }
 
+    /**
+     * HTTP 보안 필터 체인을 구성합니다.
+     * 엔드포인트별 인가 규칙(공개 경로 vs 인증 회원 전용 vs ADMIN 전용)을 세부 정의하고
+     * CSRF 및 세션을 비활성화한 뒤 UsernamePasswordAuthenticationFilter 앞단에 JWT 필터를 설정합니다.
+     *
+     * @param http HttpSecurity 인스턴스
+     * @return 빌드된 SecurityFilterChain
+     * @throws Exception 보안 구성 예외
+     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -66,11 +86,17 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * 인증을 처리하는 AuthenticationManager 빈을 반환합니다.
+     */
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
     }
 
+    /**
+     * 모든 도메인(Origins) 및 주요 HTTP 메서드(GET, POST, PUT, DELETE 등)에 대한 CORS 정책을 설정합니다.
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -85,6 +111,11 @@ public class SecurityConfig {
         return source;
     }
 
+    /**
+     * 패스워드 검증기 빈을 설정합니다.
+     * 신규 비밀번호 생성 시에는 안전한 BCrypt 인코딩 방식을 기본 적용하고,
+     * 기존 DB 내 시드 데이터(Mock 해시값) 및 과거 레거시 SHA-256 해시 비밀번호와 모두 호환되도록 커스텀 검증 방식을 지원합니다.
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new PasswordEncoder() {

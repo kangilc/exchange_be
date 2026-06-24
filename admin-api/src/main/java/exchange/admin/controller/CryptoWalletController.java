@@ -349,6 +349,15 @@ public class CryptoWalletController {
         return ResponseEntity.ok(saved);
     }
 
+    /**
+     * [POST] /admin/crypto/test-jaf-deposit
+     * <p>
+     * 테스트용 JAF 토큰 입금을 강제로 수행하는 모의 입금 API입니다.
+     * </p>
+     * 
+     * @param payload 사용자 ID(userId)와 입금 수량(amount)을 담은 맵
+     * @return 200 OK와 함께 전송 결과(성공 여부, txHash, 수신주소, 금액) 또는 에러 반환
+     */
     @PostMapping("/test-jaf-deposit")
     public ResponseEntity<?> testJafDeposit(@RequestBody Map<String, Object> payload) {
         try {

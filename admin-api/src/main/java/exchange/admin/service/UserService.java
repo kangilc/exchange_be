@@ -19,6 +19,9 @@ import java.util.Optional;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+/**
+ * 회원 가입, 계정 정보 수정, 회원의 가상 지갑 자산 조정 및 분개장 원장 기록 등을 담당하는 서비스 클래스입니다.
+ */
 @Service
 public class UserService {
 
@@ -46,6 +49,14 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
+    /**
+     * 신규 회원을 등록하고 해당 회원의 기초 지갑 자산(KRW, BTC, ADA, USD)을 초기화합니다.
+     * 
+     * @param email 가입 이메일
+     * @param password 비밀번호 (인코딩하여 해싱 저장됨)
+     * @param grade 회원 등급 (ADMIN, STANDARD 등)
+     * @return 등록 완료된 회원 객체
+     */
     @Transactional
     public User registerUser(String email, String password, String grade) {
         User user = new User();
@@ -64,6 +75,15 @@ public class UserService {
         return savedUser;
     }
 
+    /**
+     * 회원의 특정 정보(이메일, 상태, 등급)를 수정합니다.
+     * 
+     * @param id 회원 ID
+     * @param email 변경할 이메일
+     * @param status 변경할 상태
+     * @param grade 변경할 등급
+     * @return 수정 결과 User 객체 Optional
+     */
     @Transactional
     public Optional<User> updateUser(Long id, String email, String status, String grade) {
         return userRepository.findById(id).map(user -> {
@@ -74,6 +94,15 @@ public class UserService {
         });
     }
 
+    /**
+     * 회원의 특정 통화 자산 잔고를 수동으로 조정(가산/감산)하고, 원장 분개장(LedgerJournal)에 변경 이력을 기록합니다.
+     * 
+     * @param userId 회원 ID
+     * @param currency 대상 통화 코드
+     * @param amount 조정할 금액 (음수 가능)
+     * @return 잔고 조정이 반영된 최종 Wallet 객체
+     * @throws IllegalArgumentException 차감액이 가용 잔고보다 클 경우 예외 발생
+     */
     @Transactional
     public Wallet adjustAsset(Long userId, String currency, BigDecimal amount) {
         Wallet wallet = walletRepository.findByUserIdAndCurrency(userId, currency)

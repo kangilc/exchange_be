@@ -12,25 +12,50 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * 마켓 정보 및 상장 정책(수수료율, 소수점 자리수, 활성 상태 등)의 비즈니스 로직을 담당하는 서비스 클래스입니다.
+ * 마켓 설정을 수정할 때 내역 이력(MarketHistory)을 함께 생성 및 영속화하며, AdminSettings 인메모리 수수료 캐시도 함께 동기화합니다.
+ */
 @Service
 public class MarketService {
 
     private final MarketRepository marketRepository;
     private final MarketHistoryRepository marketHistoryRepository;
 
+    /**
+     * MarketService 생성자 주입.
+     */
     public MarketService(MarketRepository marketRepository, MarketHistoryRepository marketHistoryRepository) {
         this.marketRepository = marketRepository;
         this.marketHistoryRepository = marketHistoryRepository;
     }
 
+    /**
+     * 활성화(ACTIVE) 상태인 마켓 목록 전체를 조회합니다.
+     * 
+     * @return 활성 마켓 목록
+     */
     public List<Market> getActiveMarkets() {
         return marketRepository.findByStatus("ACTIVE");
     }
 
+    /**
+     * 마켓 심볼을 바탕으로 마켓 단건 정보를 조회합니다.
+     * 
+     * @param symbol 마켓 심볼 (예: BTC-USD)
+     * @return 마켓 정보 Optional
+     */
     public Optional<Market> getMarket(String symbol) {
         return marketRepository.findById(symbol);
     }
 
+    /**
+     * 특정 마켓 설정을 업데이트하고 인메모리 수수료 캐시 동기화 및 이력(History) 기록을 수행합니다.
+     * 
+     * @param symbol 마켓 심볼
+     * @param updateData 업데이트할 속성을 포함한 객체
+     * @return 업데이트 완료된 마켓 객체
+     */
     @Transactional
     public Market updateMarket(String symbol, Market updateData) {
         return marketRepository.findById(symbol)
@@ -71,6 +96,12 @@ public class MarketService {
                 .orElse(null);
     }
 
+    /**
+     * 특정 마켓의 수수료율만 업데이트하고 캐시 동기화 및 이력 기록을 수행합니다.
+     * 
+     * @param symbol 마켓 심볼
+     * @param rate 설정할 수수료율 수치
+     */
     @Transactional
     public void updateMarketFee(String symbol, double rate) {
         marketRepository.findById(symbol).ifPresent(market -> {

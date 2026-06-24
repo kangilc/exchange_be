@@ -17,6 +17,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * 어드민 및 회원 인증 처리를 담당하는 컨트롤러입니다.
+ * 이메일/비밀번호 기반 로그인, Refresh Token을 활용한 토큰 갱신(RTR 적용), 로그아웃 기능을 제공합니다.
+ */
 @RestController
 @RequestMapping("/admin/auth")
 @CrossOrigin(origins = "*")
@@ -32,10 +36,11 @@ public class AuthController {
     private PasswordEncoder passwordEncoder;
 
     /**
-     * 로그인 API
+     * 이메일과 비밀번호를 검증하여 로그인 처리를 수행하고 JWT 토큰 쌍을 발급합니다.
+     * 중복 로그인 제한 설정이 활성화된 경우, 기존 세션 존재 여부를 응답에 포함합니다.
      * 
-     * @param request
-     * @return
+     * @param request 이메일과 패스워드가 담긴 DTO
+     * @return 로그인 성공 시 accessToken, refreshToken 및 회원 정보 반환
      */
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequestIDT request) {
@@ -77,6 +82,13 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Refresh Token을 확인하여 새로운 Access Token 및 Refresh Token 쌍을 재발급합니다.
+     * RTR (Refresh Token Rotation) 정책이 적용되어 발급받은 Refresh Token은 1회성으로 소비되고 무효화됩니다.
+     * 
+     * @param request refreshToken 값을 담은 맵
+     * @return 신규 발급된 JWT 토큰 쌍
+     */
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(@RequestBody Map<String, String> request) {
         String refreshToken = request.get("refreshToken");
@@ -123,6 +135,12 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * 회원의 로그아웃을 처리하며, 데이터베이스에 등록되어 있던 Refresh Token 값을 무효화(null) 처리합니다.
+     * 
+     * @param request 로그아웃 대상 이메일(email)이 기입된 맵
+     * @return 로그아웃 성공 메시지
+     */
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@RequestBody Map<String, String> request) {
         String email = request.get("email");

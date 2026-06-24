@@ -28,6 +28,9 @@ import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * 로컬 이더리움 테스트넷(Ganache)과 연동하여 ERC-20 표준 JAF 토큰의 배포, 잔고 조회, 온체인 이체 트랜잭션 발송 등을 담당하는 서비스 클래스입니다.
+ */
 @Slf4j
 @Service
 public class JAFTokenService {

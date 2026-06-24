@@ -2,6 +2,10 @@ package exchange.admin.model;
 
 import jakarta.persistence.*;
 
+/**
+ * 거래소 회원의 계정 정보를 담고 있는 JPA 엔티티 클래스입니다.
+ * 이메일, 패스워드 해시값, 회원 상태(ACTIVE, INACTIVE 등), 등급(ADMIN, STANDARD 등), 그리고 중복 로그인 검증 및 토큰 회전(RTR)을 위한 Refresh Token을 보관합니다.
+ */
 @Entity
 @Table(name = "users")
 public class User extends BaseEntity {

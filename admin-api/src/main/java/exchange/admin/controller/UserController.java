@@ -160,24 +160,40 @@ public class UserController {
         return ResponseEntity.ok(ledgerJournalRepository.findDetailedLedgersByUserId(id, org.springframework.data.domain.PageRequest.of(page, size)));
     }
 
+    /**
+     * 로그인된 회원 본인의 거래 체결 내역 조회.
+     * SecurityContextHolder의 인증정보를 기반으로 본인의 체결 데이터만 필터링하여 반환합니다.
+     * 
+     * @param page 조회할 페이지 번호
+     * @param size 페이지당 목록 수
+     * @return 체결 정보 페이징 객체 또는 401 Unauthorized
+     */
     @GetMapping("/me/trades")
     public ResponseEntity<?> getMyTrades(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
         return userService.getUserByEmail(email)
-                .map(user -> ResponseEntity.ok(tradeRepository.findUserTrades(user.getUserId(), org.springframework.data.domain.PageRequest.of(page, size))))
-                .orElse(ResponseEntity.status(401).build());
+                 .map(user -> ResponseEntity.ok(tradeRepository.findUserTrades(user.getUserId(), org.springframework.data.domain.PageRequest.of(page, size))))
+                 .orElse(ResponseEntity.status(401).build());
     }
 
+    /**
+     * 로그인된 회원 본인의 상세 원장 변동 내역 조회.
+     * SecurityContextHolder의 인증정보를 기반으로 본인의 원장 정보만 필터링하여 반환합니다.
+     * 
+     * @param page 조회할 페이지 번호
+     * @param size 페이지당 목록 수
+     * @return 원장 정보 페이징 객체 또는 401 Unauthorized
+     */
     @GetMapping("/me/ledgers")
     public ResponseEntity<?> getMyLedgers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
         return userService.getUserByEmail(email)
-                .map(user -> ResponseEntity.ok(ledgerJournalRepository.findDetailedLedgersByUserId(user.getUserId(), org.springframework.data.domain.PageRequest.of(page, size))))
-                .orElse(ResponseEntity.status(401).build());
+                 .map(user -> ResponseEntity.ok(ledgerJournalRepository.findDetailedLedgersByUserId(user.getUserId(), org.springframework.data.domain.PageRequest.of(page, size))))
+                 .orElse(ResponseEntity.status(401).build());
     }
 }
 

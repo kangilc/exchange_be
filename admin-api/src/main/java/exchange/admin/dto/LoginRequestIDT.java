@@ -7,6 +7,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * 로그인 요청 시 이메일과 비밀번호 정보를 검증하기 위한 데이터 전달 객체(DTO)입니다.
+ */
 @Getter
 @Setter
 @NoArgsConstructor

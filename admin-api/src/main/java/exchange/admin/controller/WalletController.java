@@ -46,6 +46,12 @@ public class WalletController {
         return ResponseEntity.ok(walletRepository.findByUserId(userId));
     }
 
+    /**
+     * 로그인된 회원 본인의 지갑 목록 조회.
+     * SecurityContextHolder의 인증정보(이메일)를 기반으로 회원 식별 후 지갑 목록을 반환합니다.
+     * 
+     * @return 지갑 리스트 또는 401 Unauthorized
+     */
     @GetMapping("/me")
     public ResponseEntity<?> getMyWallets() {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();

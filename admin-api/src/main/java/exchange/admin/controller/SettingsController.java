@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * 어드민 서비스 동적 제어 설정을 위한 REST 컨트롤러.
+ * 중복 로그인 방지 여부, 온체인 입금 모니터링 여부, 가상 블록체인 시뮬레이션 여부, 코인별 컨펌 수 및 수수료율 설정을 조회하고 수정합니다.
  */
 @RestController
 @RequestMapping("/admin/settings")
@@ -24,6 +25,11 @@ public class SettingsController {
         this.marketService = marketService;
     }
 
+    /**
+     * 현재 적용 중인 모든 어드민 전역 설정을 일괄 조회합니다.
+     * 
+     * @return 200 OK와 함께 현재 설정값 맵 반환
+     */
     @GetMapping
     public ResponseEntity<?> getSettings() {
         return ResponseEntity.ok(Map.of(
@@ -37,6 +43,13 @@ public class SettingsController {
         ));
     }
 
+    /**
+     * 어드민 전역 설정을 동적으로 변경합니다.
+     * 변경 가능한 값: 중복로그인차단여부, 입금모니터링여부, 시뮬레이션여부, 코인별컨펌수, 마켓수수료율 등
+     * 
+     * @param request 변경하고자 하는 필드와 값들의 맵
+     * @return 200 OK와 함께 최종 변경이 적용된 설정값 맵 반환
+     */
     @PostMapping
     public ResponseEntity<?> updateSettings(@RequestBody Map<String, Object> request) {
         if (request.containsKey("duplicateLoginBlockEnabled")) {

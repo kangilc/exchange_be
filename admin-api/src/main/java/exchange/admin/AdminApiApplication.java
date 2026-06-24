@@ -13,6 +13,11 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 
+/**
+ * 어드민 API 애플리케이션의 메인 진입점 클래스.
+ * Spring Boot 애플리케이션을 구동하며, 스케줄링 기능을 활성화하고,
+ * 로컬/개발 환경에서의 초기 데이터베이스 유효성 검사 및 시딩(Seed) 작업을 처리합니다.
+ */
 @Slf4j
 @SpringBootApplication
 @EnableScheduling
@@ -22,6 +27,15 @@ public class AdminApiApplication {
         SpringApplication.run(AdminApiApplication.class, args);
     }
 
+    /**
+     * 로컬(local) 또는 개발(dev) 프로파일 활성화 시, 데이터베이스 스키마 검증 및 기본 데이터를 시딩하는 빈입니다.
+     * 데이터베이스 준비 상태를 최대 15회 재시도하며 확인한 뒤, 시퀀스 동기화, 수수료 설정 캐싱 및 기본 어드민 계정 자동 등록을 수행합니다.
+     *
+     * @param dataSource 데이터베이스 연결 정보를 가진 DataSource
+     * @param userService 어드민 가입 처리를 위한 UserService
+     * @param userRepository 어드민 중복 확인을 위한 UserRepository
+     * @return 애플리케이션 구동 시 실행될 CommandLineRunner
+     */
     @Bean
     @Profile({"local", "dev"}) // dev, local 프로파일에서만 활성화
     public CommandLineRunner initDatabaseAndSeed(

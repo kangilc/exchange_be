@@ -13,6 +13,10 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
+/**
+ * 모든 영속성 엔티티가 상속받는 기본 엔티티 클래스입니다.
+ * JPA Auditing 기능을 활용하여 엔티티 생성일시, 수정일시, 생성자(Auditor), 수정자(Auditor)를 공통으로 관리합니다.
+ */
 @Getter
 @Setter
 @MappedSuperclass

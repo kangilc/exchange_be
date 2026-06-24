@@ -16,11 +16,21 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Optional;
 
+/**
+ * HTTP 요청당 한 번만 호출(OncePerRequestFilter 상속)되며, 요청 헤더의 JWT 토큰을 추출 및 검증하는 보안 필터입니다.
+ * 중복 로그인 차단이 활성화되어 있을 경우, 토큰 안의 refreshToken 클레임값과 DB 회원 데이터의 리프레시 토큰이 일치하는지 추가 검증합니다.
+ */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final UserRepository userRepository;
 
+    /**
+     * JwtAuthenticationFilter 생성자.
+     * 
+     * @param tokenProvider JWT 검증 및 클레임 분석을 위한 JwtTokenProvider
+     * @param userRepository 중복 로그인 확인을 위한 UserRepository
+     */
     public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, UserRepository userRepository) {
         this.tokenProvider = tokenProvider;
         this.userRepository = userRepository;

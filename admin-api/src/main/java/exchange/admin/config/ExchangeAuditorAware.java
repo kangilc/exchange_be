@@ -7,6 +7,13 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
+/**
+ * JPA Auditing 기능(BaseEntity의 @CreatedBy, @LastModifiedBy)과 연동하여
+ * 영속성 엔티티가 생성되거나 수정될 때 이를 수행한 주체의 식별자를 자동으로 채워주는 구현체입니다.
+ * 1. AuditorContextHolder에 저장된 백그라운드 시스템 명칭이 있을 경우 이를 우선 사용합니다.
+ * 2. 그 외에는 Spring Security SecurityContextHolder의 인증 정보(로그인 사용자 이메일 등)를 추출하여 사용하며,
+ * 3. 둘 다 존재하지 않는 경우 기본 식별자인 "SYSTEM"을 부여합니다.
+ */
 @Component
 public class ExchangeAuditorAware implements AuditorAware<String> {
 
