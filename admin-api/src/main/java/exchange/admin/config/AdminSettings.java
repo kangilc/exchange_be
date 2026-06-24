@@ -11,19 +11,49 @@ public class AdminSettings {
     private static volatile int ethConfirmations = 12;
     private static volatile int adaConfirmations = 5;
     private static volatile boolean walletSimulationEnabled = true;
-    private static final java.util.concurrent.ConcurrentHashMap<String, Double> marketFeeRates = 
-            new java.util.concurrent.ConcurrentHashMap<>();
+    @org.springframework.beans.factory.annotation.Autowired
+    private static org.springframework.cache.CacheManager cacheManager;
+
+    @org.springframework.stereotype.Component
+    public static class CacheManagerHolder {
+        public CacheManagerHolder(org.springframework.cache.CacheManager cacheManager) {
+            AdminSettings.cacheManager = cacheManager;
+        }
+    }
+
+    private static org.springframework.cache.Cache getCache() {
+        return cacheManager != null ? cacheManager.getCache("marketFeeRates") : null;
+    }
 
     public static double getFeeRate(String symbol) {
-        return marketFeeRates.getOrDefault(symbol, 0.001000);
+        org.springframework.cache.Cache cache = getCache();
+        if (cache != null) {
+            Double fee = cache.get(symbol, Double.class);
+            if (fee != null) return fee;
+        }
+        return 0.001000;
     }
 
     public static void setFeeRate(String symbol, double feeRate) {
-        marketFeeRates.put(symbol, feeRate);
+        org.springframework.cache.Cache cache = getCache();
+        if (cache != null) {
+            cache.put(symbol, feeRate);
+        }
     }
 
+    @SuppressWarnings("unchecked")
     public static java.util.Map<String, Double> getMarketFeeRates() {
-        return java.util.Collections.unmodifiableMap(marketFeeRates);
+        org.springframework.cache.Cache cache = getCache();
+        if (cache != null && cache.getNativeCache() != null) {
+            Object nativeCache = cache.getNativeCache();
+            try {
+                java.lang.reflect.Method asMapMethod = nativeCache.getClass().getMethod("asMap");
+                return (java.util.Map<String, Double>) asMapMethod.invoke(nativeCache);
+            } catch (Exception e) {
+                // Reflection fallback
+            }
+        }
+        return java.util.Collections.emptyMap();
     }
 
 

@@ -31,5 +31,9 @@ dependencies {
     // Flyway DB Migration
     implementation 'org.flywaydb:flyway-core:10.11.0'
     runtimeOnly 'org.flywaydb:flyway-database-postgresql:10.11.0'
+
+    // Caffeine Cache
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
 }
 

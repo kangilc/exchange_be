@@ -97,21 +97,24 @@ sequenceDiagram
 
 ## 💾 5. 인메모리 캐싱 전략 (In-Memory Caching Strategy)
 
-데이터베이스 부하 분산 및 초고속 API 응답 보장을 위해 특정 빈번한 조회 엔드포인트에 실시간 인메모리 캐싱을 구현했습니다.
+데이터베이스 부하 분산 및 초고속 API 응답 보장을 위해, **Spring Cache Abstraction**과 고성능 캐시 라이브러리인 **Caffeine Cache**를 통합한 중앙 캐싱 관리 체계를 도입했습니다. 모든 캐시 설정은 [CacheConfig.java](file:///d:/exchange_be/admin-api/src/main/java/exchange/admin/config/CacheConfig.java)에서 일관되게 선언 및 관리됩니다.
 
 ### ⚡ 실시간 현재가 캐시 (Last Price Cache)
 * **대상 메서드**: `StatsService.getLastPrice(String symbol)`
-* **구현 방식**: `ConcurrentHashMap` 기반 경량 캐시 구현 (`PriceCacheEntry`)
+* **구현 방식**: 스프링 AOP 기반 `@Cacheable(value = "lastPrice", key = "#symbol")` 어노테이션 적용
 * **동작 상세**: 
-  * 종목별 최근 거래 가격 조회 시 매번 `trades` 테이블 전체를 스캔하지 않고 캐시를 조회합니다.
-  * **캐시 유효 기간(TTL)**: **1초 (`1,000ms`)**
-  * 캐시 만료 시에만 데이터베이스에서 최신 체결 내역을 `findFirstBySymbolOrderByTradeIdDesc` 쿼리로 조회 후 캐시를 갱신합니다.
+  * 종목별 최근 거래 가격 조회 시 매번 `trades` 테이블 전체를 스캔하지 않고 캐싱된 값을 반환합니다.
+  * **캐시 유효 기간(TTL)**: **1초 (`1,000ms`)** (`expireAfterWrite` 적용)
+  * **최대 엔트리 크기**: **100** (`maximumSize` 적용)
+  * 캐시 만료 시에만 데이터베이스에서 최신 체결 내역을 `findFirstBySymbolOrderByTradeIdDesc` 쿼리로 조회 후 캐시를 자동으로 갱신합니다.
 
 ### ⚙️ 글로벌 마켓 수수료 캐시 (Market Fee Config Cache)
 * **대상 클래스**: `AdminSettings` (Fee Rate Cache Holder)
+* **구현 방식**: static 인터페이스 호환을 위한 `CacheManager` 연동 (Caffeine Cache)
 * **동작 상세**:
-  * 구동 시점에 데이터베이스의 `markets` 테이블에 등록된 수수료 정책(`fee_rate`)을 읽어와 `AdminSettings` 내부 static Map에 캐싱해 둡니다.
-  * 주문 생성 및 수수료 계산 등 트랜잭션이 집중되는 매커니즘에서 매번 데이터베이스를 조회하는 오버헤드를 배제합니다.
+  * 구동 시점에 데이터베이스의 `markets` 테이블에 등록된 수수료 정책(`fee_rate`)을 읽어와 `AdminSettings` 내부에서 스프링 `CacheManager`에 설정된 Caffeine Cache에 적재합니다.
+  * **최대 엔트리 크기**: **50** (`maximumSize` 적용)
+  * 주문 생성 및 수수료 계산 등 트랜잭션이 집중되는 메커니즘에서 매번 데이터베이스를 조회하는 오버헤드를 원천적으로 배제합니다.
   * **캐시 갱신 및 감사 이력 통합**: 마켓 및 수수료 변경 시 `MarketService`를 통해 데이터베이스를 업데이트하는 즉시 `AdminSettings` 캐시가 실시간 동기화되며, `market_histories` 테이블에 감사 이력이 동시에 안전하게 기록됩니다.
 
 ---
