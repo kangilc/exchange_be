@@ -26,10 +26,11 @@ admin-api/
 │   │   └── WalletController.java   # 법정화폐(Fiat) 및 가상자산 지갑 CRUD
 │   ├── dto/                        # 요청/응답 페이로드 변환용 데이터 전송 객체(DTO)
 │   ├── exception/                  # API 예외 통합 제어를 위한 GlobalExceptionHandler
-│   ├── model/                      # 데이터베이스 맵핑 JPA 엔티티 (User, Wallet, Ledger, Market 등)
-│   ├── repository/                 # 데이터 조회를 위한 Spring Data JPA Repository 인터페이스
+│   ├── model/                      # 데이터베이스 맵핑 JPA 엔티티 (User, Wallet, Ledger, Market, MarketHistory 등)
+│   ├── repository/                 # 데이터 조회를 위한 Spring Data JPA Repository 인터페이스 (MarketRepository, MarketHistoryRepository 등)
 │   ├── security/                   # JWT 검증 필터, 암호화 인코더 및 Security 설정
 │   └── service/                    # 핵심 비즈니스 로직 구현 서비스 계층
+│       ├── MarketService.java      # 마켓 구성 수정, 캐시 갱신 및 이력 저장 서비스
 │       ├── StatsService.java       # 실시간 지표 분석 및 연산
 │       └── WalletDaemonService.java# 블록체인 트랜잭션 동기화 모니터링 및 배치 작업 데몬
 ├── build.gradle                    # 의존성 빌드 구성
@@ -111,6 +112,7 @@ sequenceDiagram
 * **동작 상세**:
   * 구동 시점에 데이터베이스의 `markets` 테이블에 등록된 수수료 정책(`fee_rate`)을 읽어와 `AdminSettings` 내부 static Map에 캐싱해 둡니다.
   * 주문 생성 및 수수료 계산 등 트랜잭션이 집중되는 매커니즘에서 매번 데이터베이스를 조회하는 오버헤드를 배제합니다.
+  * **캐시 갱신 및 감사 이력 통합**: 마켓 및 수수료 변경 시 `MarketService`를 통해 데이터베이스를 업데이트하는 즉시 `AdminSettings` 캐시가 실시간 동기화되며, `market_histories` 테이블에 감사 이력이 동시에 안전하게 기록됩니다.
 
 ---
 
