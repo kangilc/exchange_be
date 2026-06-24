@@ -282,6 +282,7 @@ services:
     environment:
       - METRICS_ENABLED=true
       - METRICS_PORT=9102
+      - ADMIN_API_URL=http://admin-api:8181
       - JAVA_OPTS=-Xms64m -Xmx128m -XX:+UseSerialGC
     restart: on-failure
     deploy:

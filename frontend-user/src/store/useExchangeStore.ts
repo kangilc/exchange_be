@@ -205,6 +205,15 @@ interface ExchangeState {
     /** 사용 가능한 전체 마켓(심볼) 목록 및 각 심볼별 당일 시가/종가/현재가 정보를 조회하는 액션 */
     fetchMarkets: () => Promise<void>;
     tickerPrices: Record<string, { lastPrice: number; prevClosePrice: number }>;
+    lastRejectEvent: {
+        symbol: string;
+        side: 'BUY' | 'SELL';
+        price: number;
+        qty: number;
+        reason: string;
+        timestamp: number;
+    } | null;
+    clearRejectEvent: () => void;
 }
 
 // 심볼 해시코드 상수
@@ -392,6 +401,18 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     if (parsed.action === 'PONG') {
                         const rtt = Date.now() - parsed.timestamp;
                         set({ latency: rtt });
+                    } else if (parsed.action === 'REJECT') {
+                        console.warn("[WS REJECT] 주문이 거절되었습니다:", parsed);
+                        set({
+                            lastRejectEvent: {
+                                symbol: parsed.symbol,
+                                side: parsed.side,
+                                price: Number(parsed.price),
+                                qty: Number(parsed.qty),
+                                reason: parsed.reason,
+                                timestamp: Date.now()
+                            }
+                        });
                     }
                 } catch (e) {}
                 return;
@@ -476,6 +497,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         tradesLog: [],
         loadedCandles: [],
         tickerPrices: {},
+        lastRejectEvent: null,
+        clearRejectEvent: () => set({ lastRejectEvent: null }),
 
         bids: [],
         asks: [],

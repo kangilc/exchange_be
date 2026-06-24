@@ -73,10 +73,14 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const markets = useExchangeStore(state => state.markets);
     const fetchMarkets = useExchangeStore(state => state.fetchMarkets);
     const tickerPrices = useExchangeStore(state => state.tickerPrices);
+    const lastRejectEvent = useExchangeStore(state => state.lastRejectEvent);
+    const clearRejectEvent = useExchangeStore(state => state.clearRejectEvent);
 
     // 1. 거래 터미널 로컬 코어 상태
     const activeTicker = tickerPrices[activeSymbol];
     const basePrice = activeTicker ? activeTicker.prevClosePrice : (activeSymbol === 'BTC-USD' ? 65000 : 500);
+    const currentMarket = useMemo(() => markets.find((m: any) => m.symbol === activeSymbol), [markets, activeSymbol]);
+    const minAmt = currentMarket ? currentMarket.minAmt : 0;
     const [activeTab, setActiveTab] = useState<'trade' | 'custody' | 'investment'>('trade');
     const [isLiveMode, setIsLiveMode] = useState<boolean>(true);
     const [selectedSide, setSelectedSide] = useState<'BUY' | 'SELL'>('BUY');
@@ -183,6 +187,32 @@ export const TradingTerminal: React.FC = React.memo(() => {
         }
     }, [wsConnected, appendLog]);
 
+    // 웹소켓 주문 거절(REJECT) 시 잔고 롤백 및 로그 출력
+    useEffect(() => {
+        if (lastRejectEvent) {
+            const { symbol, side, price, qty, reason } = lastRejectEvent;
+            const coin = symbol === 'BTC-USD' ? 'BTC' : 'ADA';
+            const fiat = symbol === 'BTC-USD' ? 'USD' : 'KRW';
+            const actualPrice = price / 100.0;
+            const totalCost = actualPrice * qty;
+
+            setBalances(prev => {
+                const next = { ...prev };
+                if (side === 'BUY') {
+                    next[fiat] += totalCost;
+                } else {
+                    next[coin] += qty;
+                }
+                return next;
+            });
+
+            appendLog('warning', `주문거절 롤백: ${reason} (${qty} ${coin} @ ${actualPrice.toLocaleString()} ${fiat})`);
+            
+            // 처리 후 이벤트 즉시 초기화
+            clearRejectEvent();
+        }
+    }, [lastRejectEvent, clearRejectEvent, appendLog]);
+
     // 4. 주문 터미널 제출 처리
     const handleOrderSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
@@ -217,6 +247,12 @@ export const TradingTerminal: React.FC = React.memo(() => {
         }
 
         const totalCost = finalPrice * qtyVal;
+
+        // 최소 주문 금액 유효성 검사
+        if (minAmt > 0 && totalCost < minAmt) {
+            alert(`주문 총액이 최소 주문 금액보다 작습니다. (최소: ${minAmt.toLocaleString()} ${fiat}, 현재: ${totalCost.toLocaleString()} ${fiat})`);
+            return;
+        }
 
         // 자산 잔고 가드 체크
         if (selectedSide === 'BUY') {
@@ -297,7 +333,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
         } else {
             appendLog('warning', '주문 전송 실패: 웹소켓 연결 상태를 확인해주세요.');
         }
-    }, [wsConnected, orderPrice, orderQty, activeSymbol, orderType, selectedSide, balances, stopPrice, isLiveMode, apiBaseUrl, loadUserData, sendOrder, appendLog, authUserId, isAuthenticated, setLoginModalOpen]);
+    }, [wsConnected, orderPrice, orderQty, activeSymbol, orderType, selectedSide, balances, stopPrice, isLiveMode, apiBaseUrl, loadUserData, sendOrder, appendLog, authUserId, isAuthenticated, setLoginModalOpen, minAmt]);
 
     // 레거시 모달창 처리 및 공통 입출금 핵심 비즈니스 로직
     const handleCustodySubmit = async (e: React.FormEvent) => {
@@ -575,6 +611,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                 fiat={fiat}
                                 coin={coin}
                                 mobileTab={mobileTab}
+                                minAmt={minAmt}
                             />
                         </div>
 

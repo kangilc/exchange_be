@@ -17,6 +17,7 @@ import io.netty.util.concurrent.GlobalEventExecutor;
 public final class WsServer {
     public static void main(String[] args) throws Exception {
         WsMetricsServer.getInstance().start();
+        MarketConfigManager.getInstance().start();
         String broker = ConfigLoader.get("KAFKA_BROKER", "localhost:9092");
         int port = ConfigLoader.getInt("PORT", 8088);
 
@@ -53,6 +54,7 @@ public final class WsServer {
 
             b.bind(port).sync().channel().closeFuture().sync();
         } finally {
+            MarketConfigManager.getInstance().stop();
             broadcaster.stop();
             bossGroup.shutdownGracefully();
             workerGroup.shutdownGracefully();

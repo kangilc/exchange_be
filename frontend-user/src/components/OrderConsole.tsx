@@ -34,6 +34,8 @@ interface OrderConsoleProps {
     coin: string;
     /** 모바일 반응형 뷰 스위칭 탭 */
     mobileTab: string;
+    /** 최소 주문 금액 제한 설정 */
+    minAmt?: number;
 }
 
 /**
@@ -58,7 +60,8 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
     handleOrderSubmit,
     fiat,
     coin,
-    mobileTab
+    mobileTab,
+    minAmt = 0
 }) => {
     return (
         /* 모바일 탭 상태 분기에 따라 노출 여부 스위칭 */
@@ -184,6 +187,15 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
                                 : `${((parseFloat(orderPrice) || 0) * (parseFloat(orderQty) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${fiat}`}
                         </span>
                     </div>
+
+                    {minAmt > 0 && (
+                        <div className="flex justify-between items-center px-1 text-[10px] text-slate-400 font-bold">
+                            <span>최소 주문 금액:</span>
+                            <span className="font-mono text-amber-400">
+                                {minAmt.toLocaleString()} {fiat}
+                            </span>
+                        </div>
+                    )}
 
                     {/* 주문 실행 및 최종 매칭엔진 전송 액션 단추 */}
                     <button

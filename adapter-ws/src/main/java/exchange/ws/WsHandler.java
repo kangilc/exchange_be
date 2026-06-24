@@ -80,6 +80,21 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
                     long userId = node.has("userId") ? node.get("userId").asLong() : 1;
                     
                     if (!side.isEmpty() && price > 0 && qty > 0) {
+                        java.math.BigDecimal minAmt = MarketConfigManager.getInstance().getMinAmt(symbol);
+                        if (minAmt.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                            java.math.BigDecimal totalAmt = java.math.BigDecimal.valueOf(price)
+                                    .multiply(java.math.BigDecimal.valueOf(qty))
+                                    .divide(java.math.BigDecimal.valueOf(100));
+                            if (totalAmt.compareTo(minAmt) < 0) {
+                                String rejectMsg = String.format(
+                                        "{\"action\":\"REJECT\",\"symbol\":\"%s\",\"side\":\"%s\",\"price\":%d,\"qty\":%d,\"reason\":\"Minimum order amount requirement not met.\"}",
+                                        symbol, side.toUpperCase(), price, qty
+                                );
+                                ctx.channel().writeAndFlush(new TextWebSocketFrame(rejectMsg));
+                                return;
+                            }
+                        }
+
                         String cmd = String.format("NEW,%s,%d,%d,%d", side.toUpperCase(), price, qty, userId);
                         sendToEngine(symbol, cmd);
                         WsMetricsServer.getInstance().incrementMessages();
