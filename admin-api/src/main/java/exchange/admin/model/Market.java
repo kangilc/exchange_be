@@ -23,8 +23,8 @@ public class Market extends BaseEntity {
     @Column(name = "price_decimals")
     private Integer priceDecimals = 2;
 
-    @Column(name = "min_qty", precision = 20, scale = 8)
-    private BigDecimal minQty = BigDecimal.valueOf(0.0001);
+    @Column(name = "min_amt", precision = 20, scale = 8)
+    private BigDecimal minAmt = BigDecimal.valueOf(0.0001);
 
     @Column(name = "status", length = 20)
     private String status = "ACTIVE";
@@ -49,8 +49,8 @@ public class Market extends BaseEntity {
     public Integer getPriceDecimals() { return priceDecimals; }
     public void setPriceDecimals(Integer priceDecimals) { this.priceDecimals = priceDecimals; }
 
-    public BigDecimal getMinQty() { return minQty; }
-    public void setMinQty(BigDecimal minQty) { this.minQty = minQty; }
+    public BigDecimal getMinAmt() { return minAmt; }
+    public void setMinAmt(BigDecimal minAmt) { this.minAmt = minAmt; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }

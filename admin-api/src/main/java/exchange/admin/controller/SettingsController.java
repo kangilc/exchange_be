@@ -121,10 +121,9 @@ public class SettingsController {
                     ps.executeUpdate();
                 }
 
-                // 2. 업데이트된 markets 레코드 조회
                 double finalFee = 0;
                 int priceDecimals = 2;
-                java.math.BigDecimal minQty = java.math.BigDecimal.valueOf(0.0001);
+                java.math.BigDecimal minAmt = java.math.BigDecimal.valueOf(0.0001);
                 String status = "ACTIVE";
                 java.sql.Timestamp dbCreatedAt = now;
                 java.sql.Timestamp dbUpdatedAt = now;
@@ -132,13 +131,13 @@ public class SettingsController {
                 String dbUpdatedBy = updater;
 
                 try (PreparedStatement psSelect = conn.prepareStatement(
-                        "SELECT fee_rate, price_decimals, min_qty, status, created_at, updated_at, created_by, updated_by FROM markets WHERE symbol = ?")) {
+                        "SELECT fee_rate, price_decimals, min_amt, status, created_at, updated_at, created_by, updated_by FROM markets WHERE symbol = ?")) {
                     psSelect.setString(1, symbol);
                     try (java.sql.ResultSet rs = psSelect.executeQuery()) {
                         if (rs.next()) {
                             finalFee = rs.getDouble("fee_rate");
                             priceDecimals = rs.getInt("price_decimals");
-                            minQty = rs.getBigDecimal("min_qty");
+                            minAmt = rs.getBigDecimal("min_amt");
                             status = rs.getString("status");
                             dbCreatedAt = rs.getTimestamp("created_at");
                             dbUpdatedAt = rs.getTimestamp("updated_at");
@@ -150,11 +149,11 @@ public class SettingsController {
 
                 // 3. market_histories 에 명시적 로그 인서트 (markets 의 audit 정보를 그대로 삽입)
                 try (PreparedStatement psHist = conn.prepareStatement(
-                        "INSERT INTO market_histories (symbol, fee_rate, price_decimals, min_qty, status, created_at, updated_at, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                        "INSERT INTO market_histories (symbol, fee_rate, price_decimals, min_amt, status, created_at, updated_at, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
                     psHist.setString(1, symbol);
                     psHist.setDouble(2, finalFee);
                     psHist.setInt(3, priceDecimals);
-                    psHist.setBigDecimal(4, minQty);
+                    psHist.setBigDecimal(4, minAmt);
                     psHist.setString(5, status);
                     psHist.setTimestamp(6, dbCreatedAt);
                     psHist.setTimestamp(7, dbUpdatedAt);

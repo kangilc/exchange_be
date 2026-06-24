@@ -121,7 +121,7 @@ erDiagram
         varchar quote_currency "결제 통화 (USD, KRW)"
         numeric fee_rate "기본 수수료율"
         int price_decimals "가격 표시 소수점 자릿수 제한"
-        numeric min_qty "최소 주문 수량 제한"
+        numeric min_amt "최소 주문 금액"
         varchar status "마켓 활성 상태 (ACTIVE, INACTIVE)"
         timestamp created_at "상장 및 생성 일시"
         timestamp updated_at "수정 일시"
@@ -134,7 +134,7 @@ erDiagram
         varchar symbol FK "마켓 심볼 (markets.symbol 참조)"
         numeric fee_rate "변경 시점의 수수료율"
         int price_decimals "변경 시점의 소수점 자릿수"
-        numeric min_qty "변경 시점의 최소 주문량"
+        numeric min_amt "변경 시점의 최소 주문금액"
         varchar status "변경 시점의 마켓 상태"
         timestamp created_at "변경 생성 일시"
         timestamp updated_at "수정 일시"
@@ -166,4 +166,4 @@ erDiagram
 6. **`user_crypto_addresses` (입금 주소 매핑)**: 입금을 처리하기 위해 회원별, 가상자산별 매핑된 로컬 EVM(Ganache) 생성 지갑 주소를 보관합니다.
 7. **`crypto_withdrawals` (출금 요청 내역)**: 회원의 블록체인 자산 출금 요청 상태 및 블록체인 검증 상태(컨펌 횟수, 트랜잭션 해시 등)를 트래킹합니다.
 8. **`system_hot_wallets` (시스템 핫월렛)**: 거래소의 블록체인 네트워크 입출금을 중계하고 가스비를 지불하기 위한 공용 핫월렛 상태를 보관합니다.
-9. **`markets` / `market_histories` (마켓 정책 및 이력)**: 거래 가능한 마켓 쌍과 기본 수수료율, 소수점 처리 등 제어 속성을 담고 있으며 변경 시 이력이 아카이빙됩니다.
+9. **`markets` / `market_histories` (마켓 정책 및 이력)**: 거래 가능한 마켓 쌍과 기본 수수료율, 소수점 처리, 최소 주문금액 제어 속성을 담고 있으며 변경 시 이력이 아카이빙됩니다.
