@@ -18,6 +18,7 @@ public final class MarketConfigManager {
     private static final MarketConfigManager INSTANCE = new MarketConfigManager();
 
     private final ConcurrentHashMap<String, BigDecimal> minAmtCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Integer> decimalsCache = new ConcurrentHashMap<>();
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final String adminApiUrl;
@@ -56,6 +57,10 @@ public final class MarketConfigManager {
         return minAmtCache.getOrDefault(symbol, BigDecimal.ZERO);
     }
 
+    public int getDecimals(String symbol) {
+        return decimalsCache.getOrDefault(symbol, 2);
+    }
+
     private void refreshConfig() {
         try {
             String url = adminApiUrl + "/admin/stats/markets";
@@ -74,11 +79,13 @@ public final class MarketConfigManager {
                     for (JsonNode node : root) {
                         String symbol = node.has("symbol") ? node.get("symbol").asText() : null;
                         if (symbol != null) {
-                            // Extract minAmt
+                            // Extract minAmt & decimals
                             double minAmtVal = node.has("minAmt") ? node.get("minAmt").asDouble() : 0.0;
                             BigDecimal minAmt = BigDecimal.valueOf(minAmtVal);
                             minAmtCache.put(symbol, minAmt);
-                            System.out.println("[MarketConfigManager] Loaded symbol: " + symbol + ", minAmt: " + minAmt);
+                            int decimals = node.has("priceDecimals") ? node.get("priceDecimals").asInt() : 2;
+                            decimalsCache.put(symbol, decimals);
+                            System.out.println("[MarketConfigManager] Loaded symbol: " + symbol + ", minAmt: " + minAmt + ", decimals: " + decimals);
                         }
                     }
                 }

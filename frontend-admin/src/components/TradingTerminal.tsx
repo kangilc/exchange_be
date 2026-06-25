@@ -21,9 +21,10 @@ const OrderBookRow: React.FC<{
     side: 'ask' | 'bid';
     barWidth: number;
     cumVal: number;
+    scale: number;
     lastExecTime?: number;
     onClick?: () => void;
-}> = React.memo(({ price, qty, side, barWidth, cumVal, lastExecTime = 0, onClick }) => {
+}> = React.memo(({ price, qty, side, barWidth, cumVal, scale, lastExecTime = 0, onClick }) => {
     const prevExecTime = useRef<number>(lastExecTime);
     const [flashClass, setFlashClass] = useState<string>('');
 
@@ -47,7 +48,7 @@ const OrderBookRow: React.FC<{
             className="grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150 cursor-pointer"
         >
             <div className={`absolute right-0 top-0 bottom-0 transition-all duration-300 pointer-events-none ${side === 'ask' ? 'bg-rose-500/8' : 'bg-emerald-500/8'}`} style={{ width: `${barWidth}%` }} />
-            <span className={`relative z-10 font-bold ${side === 'ask' ? 'text-rose-400' : 'text-emerald-400'}`}>{(price / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            <span className={`relative z-10 font-bold ${side === 'ask' ? 'text-rose-400' : 'text-emerald-400'}`}>{(price / scale).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             <span className={`text-slate-300 relative z-10 text-right font-semibold rounded px-1.5 py-0.5 transition-all duration-150 ${flashClass}`}>{qty.toLocaleString()}</span>
             <span className="text-slate-500 relative z-10 text-right font-medium">{cumVal.toLocaleString()}</span>
         </div>
@@ -72,6 +73,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const throughput = useExchangeStore(state => state.throughput);
     const wsConnected = useExchangeStore(state => state.wsConnected);
     const sendOrder = useExchangeStore(state => state.sendOrder);
+    const getScaleFactor = useExchangeStore(state => state.getScaleFactor);
+    const scale = getScaleFactor(activeSymbol);
 
     // 1. 거래 터미널 로컬 코어 상태
     const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
@@ -266,7 +269,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
         }
 
         // WebSocket을 통해 매칭 엔진에 실시간 주문 발사
-        const scaledPrice = Math.round(finalPrice * 100);
+        const scaledPrice = Math.round(finalPrice * scale);
         const payload = {
             action: 'NEW',
             symbol: activeSymbol,
@@ -403,9 +406,10 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                             side="ask"
                                             barWidth={barWidth}
                                             cumVal={cumVal}
+                                            scale={scale}
                                             lastExecTime={0}
                                             onClick={() => {
-                                                setOrderPrice((price / 100.0).toString());
+                                                setOrderPrice((price / scale).toString());
                                                 if (orderType === 'MARKET') {
                                                     setOrderType('LIMIT');
                                                 }
@@ -420,8 +424,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
                         <div className="bg-slate-950/85 border-y border-white/5 py-3 px-4 flex justify-between items-center text-center">
                             <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider">Ask Spread</span>
                             <div className="flex flex-col items-center">
-                                <span className="text-sm text-white font-black tracking-tight">{midPrice > 0 ? midPrice.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '--'}</span>
-                                <span className="text-[9px] text-[#00f2fe] font-bold mt-0.5">갭: {spread.toLocaleString(undefined, { minimumFractionDigits: 2 })} {fiat}</span>
+                                <span className="text-sm text-white font-black tracking-tight">{midPrice > 0 ? (midPrice / scale).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '--'}</span>
+                                <span className="text-[9px] text-[#00f2fe] font-bold mt-0.5">갭: {(spread / scale).toLocaleString(undefined, { minimumFractionDigits: 2 })} {fiat}</span>
                             </div>
                             <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider">Bid Spread</span>
                         </div>
@@ -447,9 +451,10 @@ export const TradingTerminal: React.FC = React.memo(() => {
                                             side="bid"
                                             barWidth={barWidth}
                                             cumVal={cumVal}
+                                            scale={scale}
                                             lastExecTime={0}
                                             onClick={() => {
-                                                setOrderPrice((price / 100.0).toString());
+                                                setOrderPrice((price / scale).toString());
                                                 if (orderType === 'MARKET') {
                                                     setOrderType('LIMIT');
                                                 }

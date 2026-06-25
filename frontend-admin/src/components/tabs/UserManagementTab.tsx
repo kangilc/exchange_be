@@ -10,7 +10,8 @@ export const UserManagementTab: React.FC = () => {
         adjustUserAsset,
         fetchUsers,
         fetchUserLedgers,
-        fetchUserTrades
+        fetchUserTrades,
+        getScaleFactor
     } = useExchangeStore();
 
     React.useEffect(() => {
@@ -489,7 +490,8 @@ export const UserManagementTab: React.FC = () => {
                                         ) : (
                                             userTrades.map((t: any) => {
                                                 const isBuy = t.side === 'BUY';
-                                                const displayPrice = t.symbol.includes("BTC") ? (t.price / 100.0) : t.price;
+                                                const scale = getScaleFactor(t.symbol);
+                                                const displayPrice = t.price / scale;
                                                 const displayVolume = t.qty * (displayPrice);
                                                 const unit = t.symbol === 'BTC-USD' ? '$' : '₩';
                                                 

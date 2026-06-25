@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useExchangeStore } from '../store/useExchangeStore';
 import { TradingViewChart } from './TradingViewChart';
 import { Wallet, X } from 'lucide-react';
@@ -15,6 +15,11 @@ import { RecentTradesList } from './RecentTradesList';
 const PriceCell: React.FC<{ price: number; symbol: string }> = ({ price, symbol }) => {
     const prevPriceRef = React.useRef<number>(price);
     const [flashClass, setFlashClass] = React.useState<string>('');
+    const markets = useExchangeStore(state => state.markets);
+    const decimals = React.useMemo(() => {
+        const m = markets.find(x => x.symbol === symbol);
+        return m ? m.priceDecimals : 2;
+    }, [markets, symbol]);
 
     React.useEffect(() => {
         if (price !== prevPriceRef.current) {
@@ -29,7 +34,7 @@ const PriceCell: React.FC<{ price: number; symbol: string }> = ({ price, symbol 
 
     return (
         <span className={`transition-all duration-150 rounded px-1.5 py-0.5 ${flashClass}`}>
-            {price.toLocaleString(undefined, { minimumFractionDigits: symbol === 'BTC-USD' ? 2 : 0 })}
+            {price.toLocaleString(undefined, { minimumFractionDigits: decimals })}
         </span>
     );
 };
@@ -75,6 +80,7 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const tickerPrices = useExchangeStore(state => state.tickerPrices);
     const lastRejectEvent = useExchangeStore(state => state.lastRejectEvent);
     const clearRejectEvent = useExchangeStore(state => state.clearRejectEvent);
+    const getScaleFactor = useExchangeStore(state => state.getScaleFactor);
 
     // 1. 거래 터미널 로컬 코어 상태
     const activeTicker = tickerPrices[activeSymbol];
@@ -193,7 +199,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
             const { symbol, side, price, qty, reason } = lastRejectEvent;
             const coin = symbol === 'BTC-USD' ? 'BTC' : 'ADA';
             const fiat = symbol === 'BTC-USD' ? 'USD' : 'KRW';
-            const actualPrice = price / 100.0;
+            const scale = getScaleFactor(symbol);
+            const actualPrice = price / scale;
             const totalCost = actualPrice * qty;
 
             setBalances(prev => {
@@ -317,7 +324,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
         }
 
         // WebSocket을 통해 매칭 엔진에 실시간 주문 발사
-        const scaledPrice = Math.round(finalPrice * 100);
+        const scale = getScaleFactor(activeSymbol);
+        const scaledPrice = Math.round(finalPrice * scale);
         const payload = {
             action: 'NEW',
             symbol: activeSymbol,

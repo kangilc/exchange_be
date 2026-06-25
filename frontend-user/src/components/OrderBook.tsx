@@ -19,13 +19,13 @@ const OrderBookRow: React.FC<{
     barWidth: number;
     /** 해당 호가선까지의 누적 잔량 합계 */
     cumVal: number;
-    /** 전일 종가 또는 기준 가격 (등락률 계산 목적) */
-    basePrice: number;
     /** 수량 변경 타임스탬프 (깜빡임 트리거용) */
     lastChanged?: number;
     /** 호가 클릭 시 주문 가격 인풋 자동 입력 이벤트 */
     onClick?: () => void;
-}> = React.memo(({ price, qty, side, barWidth, cumVal, basePrice, lastChanged = 0, onClick }) => {
+    /** 마켓 소수점 스케일 팩터 */
+    scale: number;
+}> = React.memo(({ price, qty, side, barWidth, cumVal, lastChanged = 0, onClick, scale }) => {
     const prevChanged = useRef<number>(lastChanged);
     const [flashClass, setFlashClass] = useState<string>('');
 
@@ -43,7 +43,7 @@ const OrderBookRow: React.FC<{
         prevChanged.current = lastChanged;
     }, [lastChanged, side]);
 
-    const realPrice = price / 100.0;
+    const realPrice = price / scale;
 
     return (
         <div 
@@ -101,7 +101,6 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
     basePrice,
     fiat,
     coin,
-    orderPrice,
     setOrderPrice,
     orderType,
     setOrderType,
@@ -113,6 +112,8 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
     const volumePower = useExchangeStore(state => state.volumePower);
     const midPrice = useExchangeStore(state => state.midPrice);
     const spread = useExchangeStore(state => state.spread);
+    const getScaleFactor = useExchangeStore(state => state.getScaleFactor);
+    const scale = getScaleFactor();
 
     // 깜빡임 처리를 위해 이전 가격별 잔량을 저장하는 Reference Map
     const asksFlashMapRef = useRef<Map<number, { qty: number; lastChanged: number }>>(new Map());
@@ -201,10 +202,10 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
                                     side="ask"
                                     barWidth={barWidth}
                                     cumVal={cumVal}
-                                    basePrice={basePrice}
                                     lastChanged={lastChanged}
+                                    scale={scale}
                                     onClick={() => {
-                                        setOrderPrice((price / 100.0).toString());
+                                        setOrderPrice((price / scale).toString());
                                         if (orderType === 'MARKET') {
                                             setOrderType('LIMIT');
                                         }
@@ -221,15 +222,15 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
                     <div className="flex flex-col items-center">
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-white font-black tracking-tight">
-                                {midPrice > 0 ? (midPrice / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '--'}
+                                {midPrice > 0 ? (midPrice / scale).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '--'}
                             </span>
                             {midPrice > 0 && (
-                                <span className={`text-[10px] font-black ${midPrice / 100.0 - basePrice >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                    {midPrice / 100.0 - basePrice >= 0 ? '+' : ''}{(((midPrice / 100.0 - basePrice) / basePrice) * 100).toFixed(2)}%
+                                <span className={`text-[10px] font-black ${midPrice / scale - basePrice >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                    {midPrice / scale - basePrice >= 0 ? '+' : ''}{(((midPrice / scale - basePrice) / basePrice) * 100).toFixed(2)}%
                                 </span>
                             )}
                         </div>
-                        <span className="text-[9px] text-[#00f2fe] font-bold mt-0.5">갭: {(spread / 100.0).toLocaleString(undefined, { minimumFractionDigits: 2 })} {fiat}</span>
+                        <span className="text-[9px] text-[#00f2fe] font-bold mt-0.5">갭: {(spread / scale).toLocaleString(undefined, { minimumFractionDigits: 2 })} {fiat}</span>
                     </div>
                     <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider">Bid Spread</span>
                 </div>
@@ -255,10 +256,10 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
                                     side="bid"
                                     barWidth={barWidth}
                                     cumVal={cumVal}
-                                    basePrice={basePrice}
                                     lastChanged={lastChanged}
+                                    scale={scale}
                                     onClick={() => {
-                                        setOrderPrice((price / 100.0).toString());
+                                        setOrderPrice((price / scale).toString());
                                         if (orderType === 'MARKET') {
                                             setOrderType('LIMIT');
                                         }

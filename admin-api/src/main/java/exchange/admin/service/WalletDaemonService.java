@@ -102,7 +102,8 @@ public class WalletDaemonService {
         /** 가상 입금이 최초 감지되어 대기열에 등록된 일시 */
         private final LocalDateTime createdAt;
 
-        public PendingDeposit(Long userId, String currency, BigDecimal amount, String txHash, String cryptoAddress, int requiredConfirmations) {
+        public PendingDeposit(Long userId, String currency, BigDecimal amount, String txHash, String cryptoAddress,
+                int requiredConfirmations) {
             this.userId = userId;
             this.currency = currency;
             this.amount = amount;
@@ -113,17 +114,42 @@ public class WalletDaemonService {
             this.createdAt = LocalDateTime.now();
         }
 
-        public Long getUserId() { return userId; }
-        public String getCurrency() { return currency; }
-        public BigDecimal getAmount() { return amount; }
-        public String getTxHash() { return txHash; }
-        public String getCryptoAddress() { return cryptoAddress; }
-        public int getConfirmations() { return confirmations; }
+        public Long getUserId() {
+            return userId;
+        }
+
+        public String getCurrency() {
+            return currency;
+        }
+
+        public BigDecimal getAmount() {
+            return amount;
+        }
+
+        public String getTxHash() {
+            return txHash;
+        }
+
+        public String getCryptoAddress() {
+            return cryptoAddress;
+        }
+
+        public int getConfirmations() {
+            return confirmations;
+        }
 
         /** 블록이 새로 생성될 때마다 트랜잭션의 컨펌수를 1씩 증가시킵니다. */
-        public void incrementConfirmations() { this.confirmations++; }
-        public int getRequiredConfirmations() { return requiredConfirmations; }
-        public LocalDateTime getCreatedAt() { return createdAt; }
+        public void incrementConfirmations() {
+            this.confirmations++;
+        }
+
+        public int getRequiredConfirmations() {
+            return requiredConfirmations;
+        }
+
+        public LocalDateTime getCreatedAt() {
+            return createdAt;
+        }
     }
 
     /**
@@ -144,23 +170,23 @@ public class WalletDaemonService {
      * <h2>processBlockGenerations</h2>
      * 5초 주기로 백그라운드에서 실행되며 가상의 블록 생성을 트리거합니다.
      * <ol>
-     *   <li>가상 블록 번호를 1 증가시킵니다.</li>
-     *   <li>5%의 확률로 임의의 입금 이벤트를 시뮬레이션하여 대기열에 추가합니다.</li>
-     *   <li>대기 중인 가상 입금들의 컨펌수를 증가시키고, 완료 시 자산에 반영합니다.</li>
-     *   <li>승인되어 브로드캐스트된 출금 트랜잭션의 컨펌수를 증가시키고, 완료 시 자산 잠금을 해제하고 핫월렛에서 차감합니다.</li>
+     * <li>가상 블록 번호를 1 증가시킵니다.</li>
+     * <li>5%의 확률로 임의의 입금 이벤트를 시뮬레이션하여 대기열에 추가합니다.</li>
+     * <li>대기 중인 가상 입금들의 컨펌수를 증가시키고, 완료 시 자산에 반영합니다.</li>
+     * <li>승인되어 브로드캐스트된 출금 트랜잭션의 컨펌수를 증가시키고, 완료 시 자산 잠금을 해제하고 핫월렛에서 차감합니다.</li>
      * </ol>
      */
     @Scheduled(fixedDelay = 5000)
     @Transactional
     public void processBlockGenerations() {
         simulatedBlockHeight++;
-        
+
         // 5%의 확률로 임의의 사용자에게 입금 이벤트 시뮬레이션 수행
         if (random.nextInt(100) < 5) {
             simulateIncomingDeposit();
         }
 
-        // 실제 온체인 상의 입금(JAF 토큰 등) 감지 및 대기 중인 입금의 컨펌(블록 확인) 처리는 
+        // 실제 온체인 상의 입금(JAF 토큰 등) 감지 및 대기 중인 입금의 컨펌(블록 확인) 처리는
         // 시뮬레이터 ON/OFF 여부와 관계없이 실시간으로 계속 수행됩니다.
         scanJafDeposits();
         processPendingDeposits();
@@ -175,11 +201,12 @@ public class WalletDaemonService {
      */
     private void simulateIncomingDeposit() {
         List<UserCryptoAddress> allAddresses = userCryptoAddressRepository.findAll();
-        if (allAddresses.isEmpty()) return;
+        if (allAddresses.isEmpty())
+            return;
 
         // DB에 발급되어 있는 주소 중 무작위로 대상 주소 1개를 선택
         UserCryptoAddress targetAddr = allAddresses.get(random.nextInt(allAddresses.size()));
-        
+
         // 통화별 가격 및 수량 범위 설정
         BigDecimal amount;
         int reqConfirmations;
@@ -192,7 +219,7 @@ public class WalletDaemonService {
             }
             amount = BigDecimal.valueOf(10 + random.nextInt(90)).setScale(8, RoundingMode.HALF_UP);
             reqConfirmations = AdminSettings.getEthConfirmations();
-            
+
             // 실물 JAF 토큰의 경우, 핫월렛(Account 0)에서 사용자 주소로 실제 온체인 트랜잭션을 전송합니다.
             try {
                 if (jafTokenService.isInitialized()) {
@@ -230,22 +257,22 @@ public class WalletDaemonService {
         }
 
         // 임의의 가상 온체인 TXID(Transaction Hash) 생성
-        String txHash = "0x" + UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "").substring(0, 32);
-        
+        String txHash = "0x" + UUID.randomUUID().toString().replace("-", "")
+                + UUID.randomUUID().toString().replace("-", "").substring(0, 32);
+
         // 대기열 객체 생성
         PendingDeposit deposit = new PendingDeposit(
-            targetAddr.getUserId(),
-            currency,
-            amount,
-            txHash,
-            targetAddr.getCryptoAddress(),
-            reqConfirmations
-        );
+                targetAddr.getUserId(),
+                currency,
+                amount,
+                txHash,
+                targetAddr.getCryptoAddress(),
+                reqConfirmations);
 
         // 컨펌 대기 리스트에 주입
         pendingDeposits.add(deposit);
-        log.info("[블록체인 시뮬레이터] 신규 가상 입금 감지! {} @ {} -> 컨펌 대기 시작 (Target: {})", 
-            amount, targetAddr.getCryptoAddress(), reqConfirmations);
+        log.info("[블록체인 시뮬레이터] 신규 가상 입금 감지! {} @ {} -> 컨펌 대기 시작 (Target: {})",
+                amount, targetAddr.getCryptoAddress(), reqConfirmations);
     }
 
     /**
@@ -262,8 +289,8 @@ public class WalletDaemonService {
                 try {
                     userService.adjustAsset(dep.getUserId(), dep.getCurrency(), dep.getAmount());
                     completed.add(dep);
-                    log.info("[블록체인 시뮬레이터] 입금 컨펌 완료! User {} / {} {} -> 가상 지갑 정산 성공", 
-                        dep.getUserId(), dep.getAmount(), dep.getCurrency());
+                    log.info("[블록체인 시뮬레이터] 입금 컨펌 완료! User {} / {} {} -> 가상 지갑 정산 성공",
+                            dep.getUserId(), dep.getAmount(), dep.getCurrency());
                 } catch (Exception e) {
                     log.error("Failed to credit pending deposit: {}", e.getMessage());
                 }
@@ -281,7 +308,7 @@ public class WalletDaemonService {
     private void processPendingWithdrawals() {
         // 출금 트랜잭션 중 BROADCASTED(블록체인 망에 전송되어 컨펌을 기다리는 상태) 조회
         List<CryptoWithdrawal> broadcasted = cryptoWithdrawalRepository.findByStatus("BROADCASTED");
-        
+
         for (CryptoWithdrawal withdrawal : broadcasted) {
             int currentConfirmations = withdrawal.getConfirmations() + 1;
             withdrawal.setConfirmations(currentConfirmations);
@@ -301,9 +328,10 @@ public class WalletDaemonService {
             if (currentConfirmations >= reqConfirmations) {
                 // 최종 승인 처리
                 withdrawal.setStatus("SUCCESS");
-                
+
                 // 1. 유저의 가상 지갑 잠금 잔고 소멸
-                Wallet wallet = walletRepository.findByUserIdAndCurrency(withdrawal.getUserId(), withdrawal.getCurrency())
+                Wallet wallet = walletRepository
+                        .findByUserIdAndCurrency(withdrawal.getUserId(), withdrawal.getCurrency())
                         .orElse(null);
                 if (wallet != null) {
                     BigDecimal nextLocked = wallet.getLockedBalance().subtract(withdrawal.getAmount());
@@ -316,7 +344,8 @@ public class WalletDaemonService {
                 }
 
                 // 2. 거래소 핫월렛 잔고 차감
-                SystemHotWallet hotWallet = systemHotWalletRepository.findByCurrency(withdrawal.getCurrency().toUpperCase())
+                SystemHotWallet hotWallet = systemHotWalletRepository
+                        .findByCurrency(withdrawal.getCurrency().toUpperCase())
                         .orElse(null);
                 if (hotWallet != null) {
                     BigDecimal nextBalance = hotWallet.getBalance().subtract(withdrawal.getAmount());
@@ -338,10 +367,10 @@ public class WalletDaemonService {
                 journal.setCreatedAt(LocalDateTime.now());
                 ledgerJournalRepository.save(journal);
 
-                log.info("[블록체인 시뮬레이터] 출금 완료! ID: {} / {} {} 송금 최종 성공", 
-                    withdrawal.getWithdrawalId(), withdrawal.getAmount(), withdrawal.getCurrency());
+                log.info("[블록체인 시뮬레이터] 출금 완료! ID: {} / {} {} 송금 최종 성공",
+                        withdrawal.getWithdrawalId(), withdrawal.getAmount(), withdrawal.getCurrency());
             }
-            
+
             cryptoWithdrawalRepository.save(withdrawal);
         }
     }
@@ -370,8 +399,7 @@ public class WalletDaemonService {
                 org.web3j.protocol.core.methods.request.EthFilter filter = new org.web3j.protocol.core.methods.request.EthFilter(
                         new org.web3j.protocol.core.DefaultBlockParameterNumber(fromBlock),
                         new org.web3j.protocol.core.DefaultBlockParameterNumber(toBlock),
-                        jafTokenService.getContractAddress()
-                );
+                        jafTokenService.getContractAddress());
                 filter.addSingleTopic("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef");
 
                 EthLog ethLog = jafTokenService.getWeb3j().ethGetLogs(filter).send();
@@ -382,21 +410,25 @@ public class WalletDaemonService {
 
                 List<EthLog.LogResult> logs = ethLog.getLogs();
                 for (EthLog.LogResult logResult : logs) {
-                    org.web3j.protocol.core.methods.response.Log web3jLog = (org.web3j.protocol.core.methods.response.Log) logResult.get();
+                    org.web3j.protocol.core.methods.response.Log web3jLog = (org.web3j.protocol.core.methods.response.Log) logResult
+                            .get();
                     List<String> topics = web3jLog.getTopics();
                     if (topics.size() >= 3) {
                         String toAddress = "0x" + topics.get(2).substring(26);
                         String txHash = web3jLog.getTransactionHash();
 
                         // DB의 사용자 입금 주소 목록 매핑 시도
-                        Optional<UserCryptoAddress> userAddrOpt = userCryptoAddressRepository.findByCryptoAddressIgnoreCase(toAddress);
+                        Optional<UserCryptoAddress> userAddrOpt = userCryptoAddressRepository
+                                .findByCryptoAddressIgnoreCase(toAddress);
                         if (userAddrOpt.isPresent()) {
                             UserCryptoAddress userAddr = userAddrOpt.get();
                             if (userAddr.getCurrency().equalsIgnoreCase("JAF")) {
                                 BigInteger value = Numeric.toBigInt(web3jLog.getData());
-                                BigDecimal amount = new BigDecimal(value).divide(BigDecimal.TEN.pow(18), 8, RoundingMode.HALF_UP);
+                                BigDecimal amount = new BigDecimal(value).divide(BigDecimal.TEN.pow(18), 8,
+                                        RoundingMode.HALF_UP);
 
-                                boolean alreadyPending = pendingDeposits.stream().anyMatch(d -> d.getTxHash().equalsIgnoreCase(txHash));
+                                boolean alreadyPending = pendingDeposits.stream()
+                                        .anyMatch(d -> d.getTxHash().equalsIgnoreCase(txHash));
                                 if (!alreadyPending && !processedDepositTxHashes.contains(txHash)) {
                                     int reqConfirmations = AdminSettings.getEthConfirmations();
                                     PendingDeposit deposit = new PendingDeposit(
@@ -405,11 +437,11 @@ public class WalletDaemonService {
                                             amount,
                                             txHash,
                                             userAddr.getCryptoAddress(),
-                                            reqConfirmations
-                                    );
+                                            reqConfirmations);
                                     pendingDeposits.add(deposit);
                                     processedDepositTxHashes.add(txHash);
-                                    log.info("[WalletDaemonService] 온체인 JAF 입금 감지! TxHash: {}, 수량: {} JAF, 수신처: {} -> 컨펌 대기 대기열 진입",
+                                    log.info(
+                                            "[WalletDaemonService] 온체인 JAF 입금 감지! TxHash: {}, 수량: {} JAF, 수신처: {} -> 컨펌 대기 대기열 진입",
                                             txHash, amount, userAddr.getCryptoAddress());
                                 }
                             }

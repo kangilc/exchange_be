@@ -20,12 +20,13 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
     }
 
     @Query(value = "SELECT " +
-            "to_char(date_trunc(:timeBucket, created_at), 'YYYY-MM-DD HH24:MI:SS') as bucket, " +
-            "COUNT(trade_id) as tradeCount, " +
-            "SUM(qty) as totalQty, " +
-            "CAST(AVG(price) AS double precision) as avgPrice, " +
-            "CAST(SUM(qty * (price / 100.0)) AS double precision) as totalVolume " +
-            "FROM trades " +
+            "to_char(date_trunc(:timeBucket, t.created_at), 'YYYY-MM-DD HH24:MI:SS') as bucket, " +
+            "COUNT(t.trade_id) as tradeCount, " +
+            "SUM(t.qty) as totalQty, " +
+            "CAST(AVG(t.price) AS double precision) as avgPrice, " +
+            "CAST(SUM(t.qty * (t.price / POWER(10, COALESCE(m.price_decimals, 2)))) AS double precision) as totalVolume " +
+            "FROM trades t " +
+            "LEFT JOIN markets m ON t.symbol = m.symbol " +
             "GROUP BY 1 " +
             "ORDER BY 1 DESC", nativeQuery = true)
     List<TradeStatsProjection> getTradeStats(@Param("timeBucket") String timeBucket);
@@ -61,7 +62,7 @@ public interface TradeRepository extends JpaRepository<Trade, Long> {
     @Query(value = "SELECT COUNT(trade_id) FROM trades", nativeQuery = true)
     Long getTotalTradeCount();
 
-    @Query(value = "SELECT COALESCE(SUM(qty * (price / 100.0)), 0.0) FROM trades", nativeQuery = true)
+    @Query(value = "SELECT COALESCE(SUM(t.qty * (t.price / POWER(10, COALESCE(m.price_decimals, 2)))), 0.0) FROM trades t LEFT JOIN markets m ON t.symbol = m.symbol", nativeQuery = true)
     Double getTotalTradeVolume();
 
     java.util.Optional<Trade> findFirstBySymbolOrderByTradeIdDesc(String symbol);

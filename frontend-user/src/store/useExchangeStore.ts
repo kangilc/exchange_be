@@ -214,6 +214,7 @@ interface ExchangeState {
         timestamp: number;
     } | null;
     clearRejectEvent: () => void;
+    getScaleFactor: (symbol?: string) => number;
 }
 
 // 심볼 해시코드 상수
@@ -262,8 +263,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             let mid = 0;
             let diff = 0;
             if (bidsArr.length > 0 && asksArr.length > 0) {
-                const topBid = bidsArr[0][0] / 100.0;
-                const topAsk = asksArr[0][0] / 100.0;
+                const topBid = bidsArr[0][0];
+                const topAsk = asksArr[0][0];
                 mid = (topBid + topAsk) / 2.0;
                 diff = topAsk - topBid;
             }
@@ -466,7 +467,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             // 2. 음수 잔량일 경우 매칭(체결) 발생에 해당하므로 체결 내역에도 적재
             if (qtyNum < 0) {
                 const actualQty = Math.abs(qtyNum);
-                const actualPrice = priceNum / 100.0;
+                const scale = get().getScaleFactor(msgSymbol);
+                const actualPrice = priceNum / scale;
 
                 // ⚡ 임시 버퍼에 누적 (즉시 리렌더링 방지)
                 recentTradesBuffer.push({
@@ -507,6 +509,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         volumePower: 100.0,
         latency: 0,
         throughput: 0,
+        getScaleFactor: (symbol?: string) => {
+            const activeSym = symbol || get().activeSymbol;
+            const m = get().markets.find((x: any) => x.symbol === activeSym);
+            const decimals = m ? m.priceDecimals : 2;
+            return Math.pow(10, decimals);
+        },
 
         // 인증 상태 초기화 값 설정
         isAuthenticated: !!getLocalAccessToken(),
@@ -759,8 +767,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 let mid = 0;
                 let diff = 0;
                 if (bidsArr.length > 0 && asksArr.length > 0) {
-                    const topBid = bidsArr[0][0] / 100.0;
-                    const topAsk = asksArr[0][0] / 100.0;
+                    const topBid = bidsArr[0][0];
+                    const topAsk = asksArr[0][0];
                     mid = (topBid + topAsk) / 2.0;
                     diff = topAsk - topBid;
                 }
@@ -800,9 +808,10 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                             if (tickersRes.ok) {
                                 const tickersData = await tickersRes.json();
                                 tickersData.forEach((t: any) => {
+                                    const scale = get().getScaleFactor(t.symbol);
                                     prices[t.symbol] = {
-                                        lastPrice: t.lastPrice / 100.0,
-                                        prevClosePrice: t.prevClosePrice / 100.0
+                                        lastPrice: t.lastPrice / scale,
+                                        prevClosePrice: t.prevClosePrice / scale
                                     };
                                 });
                             }

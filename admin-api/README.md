@@ -87,15 +87,16 @@ sequenceDiagram
 
 ---
 
-## 📈 4. 실시간 거래 통계 및 모니터링 메트릭
-
+## 📈 4. 실시간 거래 통계 및 동적 소수점 정밀도 (Dynamic Decimals)
+ 
 `StatsController` 및 `StatsService`에서는 데이터베이스의 거래(Trades), 주문(Orders), 지갑(Wallets), 원장(LedgerJournal) 내역을 바탕으로 관리자 대시보드 및 지표 분석용 핵심 KPI를 동적으로 집계합니다.
-
+ 
+특히, 모든 암호화폐 거래 가격 및 대금 통계 연산은 마켓 테이블(`markets`)의 **`price_decimals`** 속성을 기반으로 하는 **동적 소수점 스케일링(Dynamic Decimal Scaling)**이 적용되어 작동합니다.
+* **동적 가격 변환**: 기존의 하드코딩된 `/ 100.0` 또는 `* 100` 스케일 계수를 제거하고, `POWER(10, COALESCE(price_decimals, 2))` SQL 함수 또는 `Math.pow(10, priceDecimals)` Java 로직을 통하여 마켓별로 상이한 자릿수 제한(BTC 2자리, ADA 4자리 등)에 맞춰 가치 및 거래 대금을 유연하고 오차 없이 산출합니다.
 * **자산 회전 강도 (Trading Velocity)**: 사용자 전체 자산의 KRW 환산 총액 대비 최근 30일간의 총 거래 대금 비율을 계측하여 자산 대비 거래 활성도를 퍼센티지(%)로 도출합니다.
 * **주문 체결 및 효율성 (Order Fill Rate)**: 최근 30일간 접수 및 종료된 전체 주문 중 체결 완료(FILLED)된 주문의 비중을 계산하여 매칭 엔진 효율을 측정합니다.
 * **사용자 활동 밀도 (DAU/MAU Ratio)**: 24시간 동안 주문 또는 자산 원장 변동이 발생한 고유 사용자 수(DAU)와 30일 동안 발생한 고유 사용자 수(MAU)의 비율을 연산하여 사용자 유지력과 고착도를 모니터링합니다.
 * **경쟁사 벤치마크 (Competitor Benchmark)**: 우리 거래소와 해외/국내 주요 거래소(Binance, Coinbase, Upbit 등)의 수수료율, 평균 체결 지연 시간(Latency), 처리량(TPS), 안정성 지표를 모의 대조 분석 지표로 제공합니다.
-
 
 ---
 
@@ -112,11 +113,11 @@ sequenceDiagram
   * **최대 엔트리 크기**: **100** (`maximumSize` 적용)
   * 캐시 만료 시에만 데이터베이스에서 최신 체결 내역을 `findFirstBySymbolOrderByTradeIdDesc` 쿼리로 조회 후 캐시를 자동으로 갱신합니다.
 
-### ⚙️ 글로벌 마켓 수수료 캐시 (Market Fee Config Cache)
-* **대상 클래스**: `AdminSettings` (Fee Rate Cache Holder)
+### ⚙️ 글로벌 마켓 정책 및 수수료 캐시 (Market Config Cache)
+* **대상 클래스**: `AdminSettings` (Fee Rate & Precision Cache Holder)
 * **구현 방식**: static 인터페이스 호환을 위한 `CacheManager` 연동 (Caffeine Cache)
 * **동작 상세**:
-  * 구동 시점에 데이터베이스의 `markets` 테이블에 등록된 수수료 정책(`fee_rate`)을 읽어와 `AdminSettings` 내부에서 스프링 `CacheManager`에 설정된 Caffeine Cache에 적재합니다.
+  * 구동 시점에 데이터베이스의 `markets` 테이블에 등록된 수수료 정책(`fee_rate`) 및 소수점 자리수 정책(`price_decimals`)을 읽어와 `AdminSettings` 내부 및 `ws-gateway` 등의 어댑터 캐시에 적재합니다.
   * **최대 엔트리 크기**: **50** (`maximumSize` 적용)
   * 주문 생성 및 수수료 계산 등 트랜잭션이 집중되는 메커니즘에서 매번 데이터베이스를 조회하는 오버헤드를 원천적으로 배제합니다.
   * **캐시 갱신 및 감사 이력 통합**: 마켓 및 수수료 변경 시 `MarketService`를 통해 데이터베이스를 업데이트하는 즉시 `AdminSettings` 캐시가 실시간 동기화되며, `market_histories` 테이블에 감사 이력이 동시에 안전하게 기록됩니다.

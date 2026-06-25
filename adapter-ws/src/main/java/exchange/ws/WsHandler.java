@@ -82,9 +82,11 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
                     if (!side.isEmpty() && price > 0 && qty > 0) {
                         java.math.BigDecimal minAmt = MarketConfigManager.getInstance().getMinAmt(symbol);
                         if (minAmt.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                            int decimals = MarketConfigManager.getInstance().getDecimals(symbol);
+                            java.math.BigDecimal scaleFactor = java.math.BigDecimal.TEN.pow(decimals);
                             java.math.BigDecimal totalAmt = java.math.BigDecimal.valueOf(price)
                                     .multiply(java.math.BigDecimal.valueOf(qty))
-                                    .divide(java.math.BigDecimal.valueOf(100));
+                                    .divide(scaleFactor);
                             if (totalAmt.compareTo(minAmt) < 0) {
                                 String rejectMsg = String.format(
                                         "{\"action\":\"REJECT\",\"symbol\":\"%s\",\"side\":\"%s\",\"price\":%d,\"qty\":%d,\"reason\":\"Minimum order amount requirement not met.\"}",

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useExchangeStore } from '../store/useExchangeStore';
 
 interface LocalStopLimitOrder {
     /** 예약 주문 식별자 */
@@ -48,15 +49,19 @@ export const InvestmentHistory: React.FC<InvestmentHistoryProps> = React.memo(({
     setStopLimitOrders,
     appendLog
 }) => {
+    const getScaleFactor = useExchangeStore(state => state.getScaleFactor);
+    const btcScale = getScaleFactor('BTC-USD');
+    const adaScale = getScaleFactor('ADA-KRW');
+
     // 1. userTrades 배열을 검색하여 BTC 매수 물량 및 가중평균 단가 동적 산출
     const btcBuyOrders = userTrades.filter(t => t.symbol === 'BTC-USD' && t.side === 'BUY');
     const btcTotalQty = btcBuyOrders.reduce((sum, t) => sum + Number(t.qty), 0);
-    const btcAvgPrice = btcTotalQty > 0 ? (btcBuyOrders.reduce((sum, t) => sum + (Number(t.qty) * (Number(t.price) / 100.0)), 0) / btcTotalQty) : 65000;
+    const btcAvgPrice = btcTotalQty > 0 ? (btcBuyOrders.reduce((sum, t) => sum + (Number(t.qty) * (Number(t.price) / btcScale)), 0) / btcTotalQty) : 65000;
 
     // 2. ADA 매수 물량 및 가중평균 단가 동적 산출
     const adaBuyOrders = userTrades.filter(t => t.symbol === 'ADA-KRW' && t.side === 'BUY');
     const adaTotalQty = adaBuyOrders.reduce((sum, t) => sum + Number(t.qty), 0);
-    const adaAvgPrice = adaTotalQty > 0 ? (adaBuyOrders.reduce((sum, t) => sum + (Number(t.qty) * (Number(t.price) / 100.0)), 0) / adaTotalQty) : 500;
+    const adaAvgPrice = adaTotalQty > 0 ? (adaBuyOrders.reduce((sum, t) => sum + (Number(t.qty) * (Number(t.price) / adaScale)), 0) / adaTotalQty) : 500;
 
     // 3. 실제 총 투자 원금(매수 평단가 기반) 원화 가치로 통합 환산 (BTC는 1350원 고정 환율 적용)
     const btcInvestedKrw = btcTotalQty * btcAvgPrice * 1350;
