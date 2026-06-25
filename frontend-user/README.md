@@ -193,3 +193,5 @@ docker compose up -d --build frontend-user
 1. **Zustand Selector 완전 적용**: `const { authEmail } = useExchangeStore()`와 같이 구조분해 할당으로 전체 스토어를 무한 루프 구독하던 구조를 `const authEmail = useExchangeStore(state => state.authEmail)` 셀렉터 구문으로 교체, 실시간 데이터가 30ms 단위로 요동칠 때 정적 컴포넌트들이 불필요하게 렌더링되던 비효율을 완벽히 잡음.
 2. **ResizeObserver 무한 루프 우회**: 차트 크기가 변할 때 브라우저가 레이아웃을 다시 연산하면서 `ResizeObserver loop completed with undelivered notifications` 에러를 뿜는 현상을 예방하기 위해, 차트 렌더 컨테이너의 부모 엘리먼트(`parentElement`) 크기를 동적 감시 및 제어하도록 안전 장치를 더함.
 3. **Zustand `.getState()` 사용**: 주문 전송 폼(`OrderConsole.tsx`)에서 주문 전송 등 단순 호출용 일회성 액션을 사용할 때는 컴포넌트 자체를 구독하지 않고 `useExchangeStore.getState().sendOrder(...)` 인터페이스를 직접 활용해 리렌더링 유발 점수를 0으로 통제하고 있음.
+4. **TypeScript verbatimModuleSyntax 준수 및 Lightweight Charts v5 최적화**: 타입스크립트의 엄격한 ESM 모듈 번들 컴파일 규격(`verbatimModuleSyntax`)을 충족하기 위해 value 임포트와 type-only 임포트를 완전 분리하고, Lightweight Charts v5 스펙에 부합하도록 통합 시리즈 API(`addSeries`)로 선언함으로써 컴파일 속도와 안정성을 대폭 끌어올림.
+
