@@ -1,0 +1,154 @@
+// JavaF Exchange Logical Database Schema (DBML)
+// Note: Physical Foreign Keys have been removed to prevent locking overhead and deadlocks.
+// Relations defined below are managed at the application/logical layer.
+
+Table markets {
+  symbol varchar [pk, note: '마켓 거래쌍 심볼 (BTC-USD, ADA-KRW 등)']
+  base_currency varchar [not null, note: '기준 통화 (BTC, ADA 등)']
+  quote_currency varchar [not null, note: '결제 통화 (USD, KRW 등)']
+  fee_rate numeric [not null, default: 0.001000, note: '기본 거래 수수료율']
+  price_decimals int [default: 2, note: '가격 표시 소수점 자릿수']
+  min_amt numeric [default: 0.0001, note: '최소 주문 금액']
+  listing_price bigint [default: 0, note: '상장 기준 가격']
+  status varchar [default: 'ACTIVE', note: '마켓 상태 (ACTIVE, INACTIVE)']
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_by varchar [note: '최초 생성자']
+  updated_by varchar [note: '최종 수정자']
+}
+
+Table market_histories {
+  history_id bigserial [pk, note: '이력 고유 번호']
+  symbol varchar [not null, note: '마켓 거래쌍 심볼 (markets.symbol 논리 참조)']
+  fee_rate numeric [not null, note: '변경 시점의 수수료율']
+  price_decimals int [not null, note: '변경 시점의 소수점 자릿수']
+  min_amt numeric [not null, note: '변경 시점의 최소 주문금액']
+  status varchar [not null, note: '변경 시점의 마켓 상태']
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_by varchar
+  updated_by varchar
+}
+
+Table users {
+  user_id bigserial [pk, note: '사용자 고유 일련번호']
+  email varchar [unique, not null, note: '이메일 주소']
+  password_hash varchar [not null, note: '비밀번호 단방향 암호화 해시']
+  status varchar [default: 'ACTIVE', note: '계정 상태 (ACTIVE, INACTIVE 등)']
+  grade varchar [default: 'STANDARD', note: '회원 등급 (STANDARD, VIP)']
+  refresh_token varchar [note: 'JWT Refresh Token']
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_by varchar
+  updated_by varchar
+}
+
+Table wallets {
+  wallet_id bigserial [pk, note: '지갑 고유 일련번호']
+  user_id bigint [not null, note: '사용자 고유 일련번호 (users.user_id 논리 참조)']
+  currency varchar [not null, note: '통화 기호 (KRW, BTC, USD, ADA 등)']
+  balance numeric [not null, default: 0.0, note: '사용 가능 잔액']
+  locked_balance numeric [not null, default: 0.0, note: '거래 보류/잠금 잔액']
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_by varchar
+  updated_by varchar
+
+  indexes {
+    (user_id, currency) [unique]
+  }
+}
+
+Table orders {
+  order_id bigint [pk, note: '주문 고유 ID (매칭 엔진 생성)']
+  user_id bigint [not null, note: '주문을 넣은 사용자 ID (users.user_id 논리 참조)']
+  symbol varchar [not null, note: '거래 대상 심볼']
+  side varchar [not null, note: '주문 방향 (BUY/SELL)']
+  price bigint [not null, note: '주문 가격 (정수 스케일링)']
+  qty bigint [not null, note: '주문 수량']
+  remaining_qty bigint [not null, note: '미체결 남은 수량']
+  status varchar [not null, note: '주문 상태 (NEW, PARTIALLY_FILLED, FILLED, CANCELLED)']
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_by varchar
+  updated_by varchar
+}
+
+Table trades {
+  trade_id bigint [pk, note: '체결 고유 ID (매칭 엔진 생성)']
+  symbol varchar [not null, note: '거래 대상 심볼']
+  buy_order_id bigint [not null, note: '매수 주문 ID (orders.order_id 논리 참조)']
+  sell_order_id bigint [not null, note: '매도 주문 ID (orders.order_id 논리 참조)']
+  price bigint [not null, note: '체결 가격']
+  qty bigint [not null, note: '체결 수량']
+  fee_rate numeric [default: 0.0, note: '적용 수수료율']
+  fee_amount numeric [default: 0.0, note: '수수료 금액']
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_by varchar
+  updated_by varchar
+}
+
+Table ledger_journal {
+  journal_id bigserial [pk, note: '원장 고유 일련번호']
+  user_id bigint [not null, note: '사용자 고유 일련번호 (users.user_id 논리 참조)']
+  currency varchar [not null, note: '변경 대상 통화 기호']
+  amount numeric [not null, note: '자산 변동 수량 (부호 포함)']
+  type varchar [not null, note: '변동 사유 (DEPOSIT, WITHDRAWAL, ORDER_HOLD, TRADE_SETTLE, CANCEL_RELEASE)']
+  reference_id bigint [note: '참조용 ID (주문 ID 또는 체결 일련번호)']
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_by varchar
+  updated_by varchar
+}
+
+Table user_crypto_addresses {
+  address_id bigserial [pk, note: '주소 일련번호']
+  user_id bigint [not null, note: '사용자 고유 일련번호 (users.user_id 논리 참조)']
+  currency varchar [not null, note: '가상자산 통화 기호']
+  crypto_address varchar [unique, not null, note: 'EVM 지갑 주소']
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_by varchar
+  updated_by varchar
+
+  indexes {
+    (user_id, currency) [unique]
+  }
+}
+
+Table crypto_withdrawals {
+  withdrawal_id bigserial [pk, note: '출금 일련번호']
+  user_id bigint [not null, note: '사용자 고유 일련번호 (users.user_id 논리 참조)']
+  currency varchar [not null, note: '통화 기호']
+  amount numeric [not null, note: '출금 신청 수량']
+  to_address varchar [not null, note: '외부 지갑 주소']
+  status varchar [not null, default: 'PENDING', note: '출금 상태']
+  confirmations int [not null, default: 0, note: '트랜잭션 컨펌 수']
+  tx_hash varchar [note: '출금 트랜잭션 해시']
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_by varchar
+  updated_by varchar
+}
+
+Table system_hot_wallets {
+  wallet_id bigserial [pk, note: '핫월렛 일련번호']
+  currency varchar [unique, not null, note: '가상자산 통화']
+  crypto_address varchar [not null, note: '핫월렛 지갑 주소']
+  balance numeric [not null, default: 0.0, note: '핫월렛 잔액']
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  created_by varchar
+  updated_by varchar
+}
+
+// Logical Relationships (No physical foreign keys in DB)
+Ref: market_histories.symbol > markets.symbol
+Ref: wallets.user_id > users.user_id
+Ref: orders.user_id > users.user_id
+Ref: trades.buy_order_id > orders.order_id
+Ref: trades.sell_order_id > orders.order_id
+Ref: ledger_journal.user_id > users.user_id
+Ref: user_crypto_addresses.user_id > users.user_id
+Ref: crypto_withdrawals.user_id > users.user_id

@@ -180,8 +180,9 @@ INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
 (2, 'JAF', '0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
 
 -- 7. 초기 마켓 데이터 주입
-INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_qty, status, created_by, updated_by) VALUES
-('BTC-USD', 'BTC', 'USD', 0.001000, 2, 0.00010000, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
-INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_qty, status, created_by, updated_by) VALUES
-('ADA-KRW', 'ADA', 'KRW', 0.001500, 2, 0.00010000, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
+INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, status, created_by, updated_by) VALUES
+('BTC-USD', 'BTC', 'USD', 0.001000, 2, 0.00010000, 6500000, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
+INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, status, created_by, updated_by) VALUES
+('ADA-KRW', 'ADA', 'KRW', 0.001500, 2, 0.00010000, 50000, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
+
 

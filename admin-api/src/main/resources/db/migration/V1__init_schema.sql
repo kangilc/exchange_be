@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS markets (
     quote_currency VARCHAR(10) NOT NULL,
     fee_rate NUMERIC(10, 6) NOT NULL DEFAULT 0.001000, -- 수수료율 (기본 0.1%)
     price_decimals INT DEFAULT 2,
-    min_qty NUMERIC(20, 8) DEFAULT 0.0001,
+    min_amt NUMERIC(20, 8) DEFAULT 0.0001, -- 최소 주문 금액 (min_qty에서 컬럼명 변경)
+    listing_price BIGINT DEFAULT 0, -- 상장 기준 가격 추가
     status VARCHAR(20) DEFAULT 'ACTIVE',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -17,10 +18,10 @@ CREATE TABLE IF NOT EXISTS markets (
 -- 0-1. 마켓 변경 이력 테이블 (Markets Modification History)
 CREATE TABLE IF NOT EXISTS market_histories (
     history_id BIGSERIAL PRIMARY KEY,
-    symbol VARCHAR(20) NOT NULL REFERENCES markets(symbol) ON DELETE CASCADE,
+    symbol VARCHAR(20) NOT NULL, -- 물리 FK 제거 (markets.symbol 논리 참조)
     fee_rate NUMERIC(10, 6) NOT NULL,
     price_decimals INT NOT NULL,
-    min_qty NUMERIC(20, 8) NOT NULL,
+    min_amt NUMERIC(20, 8) NOT NULL, -- min_qty에서 컬럼명 변경
     status VARCHAR(20) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -46,7 +47,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- 2. 자산 지갑 테이블 (Wallets)
 CREATE TABLE IF NOT EXISTS wallets (
     wallet_id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL, -- 물리 FK 제거 (users.user_id 논리 참조)
     currency VARCHAR(10) NOT NULL,
     balance NUMERIC(36, 18) NOT NULL DEFAULT 0.0,
     locked_balance NUMERIC(36, 18) NOT NULL DEFAULT 0.0,
@@ -60,7 +61,7 @@ CREATE TABLE IF NOT EXISTS wallets (
 -- 3. 주문 원장 테이블 (Orders)
 CREATE TABLE IF NOT EXISTS orders (
     order_id BIGINT PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL, -- 물리 FK 제거 (users.user_id 논리 참조)
     symbol VARCHAR(20) NOT NULL,
     side VARCHAR(10) NOT NULL,
     price BIGINT NOT NULL,
@@ -77,8 +78,8 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE TABLE IF NOT EXISTS trades (
     trade_id BIGINT PRIMARY KEY,
     symbol VARCHAR(20) NOT NULL,
-    buy_order_id BIGINT NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
-    sell_order_id BIGINT NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
+    buy_order_id BIGINT NOT NULL, -- 물리 FK 제거 (orders.order_id 논리 참조)
+    sell_order_id BIGINT NOT NULL, -- 물리 FK 제거 (orders.order_id 논리 참조)
     price BIGINT NOT NULL,
     qty BIGINT NOT NULL,
     fee_rate NUMERIC(10, 6) DEFAULT 0.0,
@@ -92,7 +93,7 @@ CREATE TABLE IF NOT EXISTS trades (
 -- 5. 자산 변경 이력 (Ledger Journal)
 CREATE TABLE IF NOT EXISTS ledger_journal (
     journal_id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL, -- 물리 FK 제거 (users.user_id 논리 참조)
     currency VARCHAR(10) NOT NULL,
     amount NUMERIC(36, 18) NOT NULL,
     type VARCHAR(30) NOT NULL, -- 'DEPOSIT', 'WITHDRAWAL', 'ORDER_HOLD', 'TRADE_SETTLE', 'CANCEL_RELEASE'
@@ -106,7 +107,7 @@ CREATE TABLE IF NOT EXISTS ledger_journal (
 -- 6. 사용자 지갑 입금용 암호화 주소 매핑 테이블
 CREATE TABLE IF NOT EXISTS user_crypto_addresses (
     address_id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL, -- 물리 FK 제거 (users.user_id 논리 참조)
     currency VARCHAR(10) NOT NULL,
     crypto_address VARCHAR(100) NOT NULL UNIQUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -119,7 +120,7 @@ CREATE TABLE IF NOT EXISTS user_crypto_addresses (
 -- 7. 암호화 자산 출금 요청 내역 관리 테이블
 CREATE TABLE IF NOT EXISTS crypto_withdrawals (
     withdrawal_id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL, -- 물리 FK 제거 (users.user_id 논리 참조)
     currency VARCHAR(10) NOT NULL,
     amount NUMERIC(36, 18) NOT NULL,
     to_address VARCHAR(100) NOT NULL,
@@ -155,7 +156,7 @@ COMMENT ON COLUMN users.created_at IS '사용자 가입 및 생성 일시';
 
 COMMENT ON TABLE wallets IS '자산 지갑 테이블';
 COMMENT ON COLUMN wallets.wallet_id IS '지갑 고유 일련번호';
-COMMENT ON COLUMN wallets.user_id IS '사용자 고유 일련번호 (users.user_id 참조)';
+COMMENT ON COLUMN wallets.user_id IS '사용자 고유 일련번호 (users.user_id 논리 참조)';
 COMMENT ON COLUMN wallets.currency IS '통화 기호 (예: KRW, BTC, USD, ADA)';
 COMMENT ON COLUMN wallets.balance IS '사용 가능 잔액';
 COMMENT ON COLUMN wallets.locked_balance IS '거래 등으로 잠긴 거래 대기/보류 잔액';
@@ -163,7 +164,7 @@ COMMENT ON COLUMN wallets.updated_at IS '지갑 최종 업데이트 일시';
 
 COMMENT ON TABLE orders IS '주문 원장 테이블';
 COMMENT ON COLUMN orders.order_id IS '주문 고유 ID';
-COMMENT ON COLUMN orders.user_id IS '주문을 접수한 사용자 고유 일련번호 (users.user_id 참조)';
+COMMENT ON COLUMN orders.user_id IS '주문을 접수한 사용자 고유 일련번호 (users.user_id 논리 참조)';
 COMMENT ON COLUMN orders.symbol IS '거래 쌍 심볼 (예: BTC-USD, ADA-KRW)';
 COMMENT ON COLUMN orders.side IS '주문 방향 (BUY: 매수, SELL: 매도)';
 COMMENT ON COLUMN orders.price IS '주문 가격 (정수형)';
@@ -175,20 +176,38 @@ COMMENT ON COLUMN orders.created_at IS '주문 생성 일시';
 COMMENT ON TABLE trades IS '체결 내역 테이블';
 COMMENT ON COLUMN trades.trade_id IS '체결 고유 ID';
 COMMENT ON COLUMN trades.symbol IS '거래 쌍 심볼 (예: BTC-USD, ADA-KRW)';
-COMMENT ON COLUMN trades.buy_order_id IS '매수 주문 ID (orders.order_id 참조)';
-COMMENT ON COLUMN trades.sell_order_id IS '매도 주문 ID (orders.order_id 참조)';
+COMMENT ON COLUMN trades.buy_order_id IS '매수 주문 ID (orders.order_id 논리 참조)';
+COMMENT ON COLUMN trades.sell_order_id IS '매도 주문 ID (orders.order_id 논리 참조)';
 COMMENT ON COLUMN trades.price IS '체결 가격';
 COMMENT ON COLUMN trades.qty IS '체결 수량';
 COMMENT ON COLUMN trades.created_at IS '체결 일시';
 
 COMMENT ON TABLE ledger_journal IS '자산 변경 이력 (원장 분개장)';
 COMMENT ON COLUMN ledger_journal.journal_id IS '원장 기록 고유 일련번호';
-COMMENT ON COLUMN ledger_journal.user_id IS '사용자 고유 일련번호 (users.user_id 참조)';
+COMMENT ON COLUMN ledger_journal.user_id IS '사용자 고유 일련번호 (users.user_id 논리 참조)';
 COMMENT ON COLUMN ledger_journal.currency IS '원장 변경 대상 통화';
 COMMENT ON COLUMN ledger_journal.amount IS '자산 변경 수량 (부호에 따라 입/출금 등 판단)';
 COMMENT ON COLUMN ledger_journal.type IS '자산 변경 유형 (DEPOSIT, WITHDRAWAL, ORDER_HOLD, TRADE_SETTLE, CANCEL_RELEASE)';
 COMMENT ON COLUMN ledger_journal.reference_id IS '참조 ID (관련 주문 ID 또는 체결 ID 등)';
 COMMENT ON COLUMN ledger_journal.created_at IS '원장 기록 생성 일시';
+
+COMMENT ON TABLE markets IS '마켓 메타데이터 테이블';
+COMMENT ON COLUMN markets.symbol IS '마켓 거래쌍 심볼';
+COMMENT ON COLUMN markets.base_currency IS '기준 통화 (BTC, ADA 등)';
+COMMENT ON COLUMN markets.quote_currency IS '결제 통화 (USD, KRW 등)';
+COMMENT ON COLUMN markets.fee_rate IS '마켓 수수료율';
+COMMENT ON COLUMN markets.price_decimals IS '가격 표시 소수점 자릿수';
+COMMENT ON COLUMN markets.min_amt IS '최소 주문 금액';
+COMMENT ON COLUMN markets.listing_price IS '상장 기준 가격';
+COMMENT ON COLUMN markets.status IS '마켓 활성 상태';
+
+COMMENT ON TABLE market_histories IS '마켓 변경 이력 테이블';
+COMMENT ON COLUMN market_histories.history_id IS '이력 고유 일련번호';
+COMMENT ON COLUMN market_histories.symbol IS '마켓 심볼 (markets.symbol 논리 참조)';
+COMMENT ON COLUMN market_histories.fee_rate IS '변경 시점의 수수료율';
+COMMENT ON COLUMN market_histories.price_decimals IS '변경 시점의 소수점 자릿수';
+COMMENT ON COLUMN market_histories.min_amt IS '변경 시점의 최소 주문금액';
+COMMENT ON COLUMN market_histories.status IS '변경 시점의 마켓 상태';
 
 -- 5-1. 데이터 조회 성능 최적화를 위한 B-Tree 인덱스 구성 (Paging & Search)
 -- 원장 조회 최적화 (유형 및 시간순)
@@ -200,7 +219,7 @@ CREATE INDEX IF NOT EXISTS idx_ledger_journal_user_currency_created_at ON ledger
 -- 체결 내역 조회 최적화 (마켓별 최근 체결 및 차트 데이터 생성용)
 CREATE INDEX IF NOT EXISTS idx_trades_symbol_created_at ON trades(symbol, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_trades_created_at ON trades(created_at DESC);
--- 주문 삭제 시 CASCADE Sequential Scan 성능 저하 방지를 위한 외래키(FK) 인덱스
+-- 논리적 관계 검색 최적화를 위한 인덱스 (기존 외래키 인덱스 유지)
 CREATE INDEX IF NOT EXISTS idx_trades_buy_order_id ON trades(buy_order_id);
 CREATE INDEX IF NOT EXISTS idx_trades_sell_order_id ON trades(sell_order_id);
 
@@ -211,3 +230,4 @@ CREATE INDEX IF NOT EXISTS idx_orders_user_symbol_created_at ON orders(user_id, 
 CREATE INDEX IF NOT EXISTS idx_orders_active_book 
 ON orders (symbol, side, price, created_at) 
 WHERE status IN ('NEW', 'PARTIALLY_FILLED');
+
