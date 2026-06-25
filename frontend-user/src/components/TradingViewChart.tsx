@@ -1,14 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { 
-    createChart, 
-    ColorType, 
+import { createChart, ColorType } from 'lightweight-charts';
+import type { 
     IChartApi, 
     ISeriesApi,
     CandlestickData,
     HistogramData,
-    LineData
+    LineData,
+    UTCTimestamp
 } from 'lightweight-charts';
-import type { UTCTimestamp } from 'lightweight-charts';
 import { useExchangeStore } from '../store/useExchangeStore';
 
 /**
