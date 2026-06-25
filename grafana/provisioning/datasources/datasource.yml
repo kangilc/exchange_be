@@ -16,3 +16,16 @@ datasources:
     url: http://loki:3100
     editable: true
 
+  - name: PostgreSQL
+    type: postgres
+    uid: PostgreSQL
+    access: proxy
+    url: postgres:5432
+    user: postgres
+    secureJsonData:
+      password: postgres
+    jsonData:
+      database: exchange
+      sslmode: disable
+
+
