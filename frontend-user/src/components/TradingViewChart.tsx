@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
 import type { 
     IChartApi, 
     ISeriesApi,
@@ -34,7 +34,7 @@ function calculateSMA(data: { value: number; time: UTCTimestamp }[], period: num
  * ⚡ 실시간 금융 시세 차트 컴포넌트 (TradingViewChart)
  * 
  * [최적화 & 레이아웃 설계 핵심]
- * - TradingView Lightweight Charts 엔진(v4/v5 규격)을 탑재하여 캔들스틱 및 거래량 히스토그램을 드로잉함.
+ * - TradingView Lightweight Charts 엔진(v5 규격)을 탑재하여 캔들스틱 및 거래량 히스토그램을 드로잉함.
  * - any 타입 캐스팅을 제거하고 타입 안전성(IChartApi, ISeriesApi)을 확보함.
  * - [반응형 리사이즈 우회 설계]: 캔버스 자체 크기 축소 버그를 방지하기 위해 ResizeObserver 감시 대상을 부모 엘리먼트로 지정.
  */
@@ -92,7 +92,8 @@ export const TradingViewChart: React.FC = React.memo(() => {
 
         chartRef.current = chart;
 
-        const candlestickSeries = chart.addCandlestickSeries({
+        // v5 unified addSeries API 사용
+        const candlestickSeries = chart.addSeries(CandlestickSeries, {
             upColor: '#22c55e',
             downColor: '#ef4444',
             borderDownColor: '#ef4444',
@@ -102,7 +103,7 @@ export const TradingViewChart: React.FC = React.memo(() => {
         });
         candlestickSeriesRef.current = candlestickSeries;
 
-        const volumeSeries = chart.addHistogramSeries({
+        const volumeSeries = chart.addSeries(HistogramSeries, {
             color: 'rgba(138, 43, 226, 0.25)',
             priceFormat: { type: 'volume' },
             priceScaleId: '',
@@ -112,14 +113,14 @@ export const TradingViewChart: React.FC = React.memo(() => {
         });
         volumeSeriesRef.current = volumeSeries;
 
-        const ma7Series = chart.addLineSeries({
+        const ma7Series = chart.addSeries(LineSeries, {
             color: '#f59e0b',
             lineWidth: 1.5,
             title: 'MA7',
         });
         ma7SeriesRef.current = ma7Series;
 
-        const ma25Series = chart.addLineSeries({
+        const ma25Series = chart.addSeries(LineSeries, {
             color: '#ec4899',
             lineWidth: 1.5,
             title: 'MA25',
