@@ -115,14 +115,14 @@ export const TradingViewChart: React.FC = React.memo(() => {
 
         const ma7Series = chart.addSeries(LineSeries, {
             color: '#f59e0b',
-            lineWidth: 2,
+            lineWidth: 1.5 as any,
             title: 'MA7',
         });
         ma7SeriesRef.current = ma7Series;
 
         const ma25Series = chart.addSeries(LineSeries, {
             color: '#ec4899',
-            lineWidth: 2,
+            lineWidth: 1.5 as any,
             title: 'MA25',
         });
         ma25SeriesRef.current = ma25Series;
