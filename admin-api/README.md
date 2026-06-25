@@ -20,19 +20,21 @@ admin-api/
 │   │   ├── CryptoWalletController.java # 로컬 EVM(Ganache) 기반 가상 자산 지갑 및 배포 관리
 │   │   ├── LedgerController.java   # 입출금/거래 원장(Ledger) 이력 관리
 │   │   ├── MarketController.java   # 마켓 활성화 여부 및 수수료 설정 제어
-│   │   ├── SettingsController.java # 글로벌 점검, 서킷브레이커(주문 제한 등) 세이프티 제어
-│   │   ├── StatsController.java    # 거래소 TPS, Latency, 활성 사용자(DAU/MAU) 실시간 메트릭 통계
-│   │   ├── UserController.java     # 회원 조회, 계정 잠금 및 해제
+│   │   ├── SettingsController.java # 글로벌 중복 로그인 차단, 온체인 모니터링, 지갑 시뮬레이션 및 수수료 등 전역 설정 변경 제어
+│   │   ├── StatsController.java    # 거래/자산/유저 통계 조회, 종목별 현재가(티커) 및 OHLCV 캔들 데이터 조회
+│   │   ├── UserController.java     # 회원 조회, 정보 수정, 회원별 체결/원장 내역 조회 및 모의 자산 수동 조정
 │   │   └── WalletController.java   # 법정화폐(Fiat) 및 가상자산 지갑 CRUD
 │   ├── dto/                        # 요청/응답 페이로드 변환용 데이터 전송 객체(DTO)
 │   ├── exception/                  # API 예외 통합 제어를 위한 GlobalExceptionHandler
 │   ├── model/                      # 데이터베이스 맵핑 JPA 엔티티 (User, Wallet, Ledger, Market, MarketHistory 등)
-│   ├── repository/                 # 데이터 조회를 위한 Spring Data JPA Repository 인터페이스 (MarketRepository, MarketHistoryRepository 등)
+│   ├── repository/                 # 데이터 조회를 위한 Spring Data JPA Repository 인터페이스
 │   ├── security/                   # JWT 검증 필터, 암호화 인코더 및 Security 설정
 │   └── service/                    # 핵심 비즈니스 로직 구현 서비스 계층
+│       ├── JAFTokenService.java    # 로컬 EVM(Ganache) 노드 연동 및 JAF ERC-20 토큰 스마트 컨트랙트 배포/이체 서비스
 │       ├── MarketService.java      # 마켓 구성 수정, 캐시 갱신 및 이력 저장 서비스
-│       ├── StatsService.java       # 실시간 지표 분석 및 연산
-│       └── WalletDaemonService.java# 블록체인 트랜잭션 동기화 모니터링 및 배치 작업 데몬
+│       ├── StatsService.java       # 시간 해상도별 캔들 데이터 집계, 대시보드 요약 및 KPI 성능 지표 분석 서비스
+│       ├── UserService.java        # 회원 등록, 정보 수정, 가상 지갑 수동 조정 및 원장 기록 서비스
+│       └── WalletDaemonService.java# 블록체인 가상 입출금 트랜잭션 동기화 모니터링 및 배치 작업 데몬
 ├── build.gradle                    # 의존성 빌드 구성
 └── Dockerfile                      # 컨테이너화 명세서
 ```
@@ -87,11 +89,13 @@ sequenceDiagram
 
 ## 📈 4. 실시간 거래 통계 및 모니터링 메트릭
 
-`StatsController` 및 `StatsService`에서는 프로메테우스(Prometheus) 지표 외에도 관리자 대시보드 조회를 위한 전용 비즈니스 핵심 지표를 동적으로 연산하여 반환합니다.
+`StatsController` 및 `StatsService`에서는 데이터베이스의 거래(Trades), 주문(Orders), 지갑(Wallets), 원장(LedgerJournal) 내역을 바탕으로 관리자 대시보드 및 지표 분석용 핵심 KPI를 동적으로 집계합니다.
 
-* **실시간 거래 활동(Trading Velocity)**: 초당 평균 주문 수(TPS) 및 체결 변동 계수 연산.
-* **매칭 엔진 연동 효율**: 전체 주문 건수 대비 체결 완료 건수의 비율(Fill Rate) 계산.
-* **사용자 활동(DAU/MAU Ratio)**: 일간 활성 사용자수(DAU)와 월간 활성 사용자수(MAU)의 상대 비율을 계측하여 서비스 활성화 강도를 백분율로 도출.
+* **자산 회전 강도 (Trading Velocity)**: 사용자 전체 자산의 KRW 환산 총액 대비 최근 30일간의 총 거래 대금 비율을 계측하여 자산 대비 거래 활성도를 퍼센티지(%)로 도출합니다.
+* **주문 체결 및 효율성 (Order Fill Rate)**: 최근 30일간 접수 및 종료된 전체 주문 중 체결 완료(FILLED)된 주문의 비중을 계산하여 매칭 엔진 효율을 측정합니다.
+* **사용자 활동 밀도 (DAU/MAU Ratio)**: 24시간 동안 주문 또는 자산 원장 변동이 발생한 고유 사용자 수(DAU)와 30일 동안 발생한 고유 사용자 수(MAU)의 비율을 연산하여 사용자 유지력과 고착도를 모니터링합니다.
+* **경쟁사 벤치마크 (Competitor Benchmark)**: 우리 거래소와 해외/국내 주요 거래소(Binance, Coinbase, Upbit 등)의 수수료율, 평균 체결 지연 시간(Latency), 처리량(TPS), 안정성 지표를 모의 대조 분석 지표로 제공합니다.
+
 
 ---
 
