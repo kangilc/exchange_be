@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 ## 📜 AI Agent Development Rules & Constraints## 1. 🛡️ 보안 및 안전 제약 (Security & Safety)
 
 * 자격 증명 노출 금지: .env 파일, API Key, 패스워드, JWT 시크릿 등을 코드 내에 하드코딩하지 마십시오. 반드시 환경 변수를 사용하십시오.
