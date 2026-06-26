@@ -16,6 +16,10 @@ import io.netty.util.concurrent.GlobalEventExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * 웹소켓 게이트웨이 메인 서버 클래스.
+ * Netty 기반의 비동기 웹소켓 서버를 초기화하고 구동하며, 카프카 브로드캐스터 및 메트릭 서버를 함께 실행한다.
+ */
 public final class WsServer {
     private static final Logger log = LoggerFactory.getLogger(WsServer.class);
 

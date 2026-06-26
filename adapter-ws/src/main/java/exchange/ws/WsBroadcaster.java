@@ -18,6 +18,10 @@ import java.util.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * 웹소켓 브로드캐스터.
+ * 카프카의 orderbook-delta 토픽을 구독하여 모든 활성 웹소켓 클라이언트에게 바이너리 메시지를 브로드캐스트한다.
+ */
 public final class WsBroadcaster implements Runnable {
     private static final Logger log = LoggerFactory.getLogger(WsBroadcaster.class);
     private final ChannelGroup clients;
@@ -38,6 +42,9 @@ public final class WsBroadcaster implements Runnable {
         this.consumer = new KafkaConsumer<>(props);
     }
 
+    /**
+     * 카프카 메시지 폴링 및 브로드캐스팅 루프 실행.
+     */
     @Override
     public void run() {
         log.info("Subscribing to orderbook-delta Kafka topic...");

@@ -12,6 +12,10 @@ import java.io.PrintWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * 웹소켓 클라이언트 메시지 핸들러.
+ * 클라이언트의 연결 수명주기, PING/PONG 처리 및 매칭 엔진으로의 주문/취소 명령 전달을 담당한다.
+ */
 public final class WsHandler extends SimpleChannelInboundHandler<Object> {
     private static final Logger log = LoggerFactory.getLogger(WsHandler.class);
     private final ChannelGroup clients;

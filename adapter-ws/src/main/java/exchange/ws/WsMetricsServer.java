@@ -11,6 +11,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * 웹소켓 메트릭 서버.
+ * 현재 활성화된 연결 수, 처리된 메시지 수 및 초당 처리량(TPS)을 프로메테우스(Prometheus) 포맷으로 노출한다.
+ */
 public final class WsMetricsServer {
     private static final Logger log = LoggerFactory.getLogger(WsMetricsServer.class);
     private static final WsMetricsServer INSTANCE = new WsMetricsServer();

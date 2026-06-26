@@ -6,6 +6,10 @@ import java.io.FileReader;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 환경 설정 로더.
+ * 프로파일(dev, qa, prod 등)에 맞는 .env 파일 및 환경 변수를 우선순위에 따라 로드한다.
+ */
 public final class ConfigLoader {
     private static final Map<String, String> localProperties = new HashMap<>();
     private static final String profile;

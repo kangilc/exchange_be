@@ -16,6 +16,10 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * 시장 설정 관리자.
+ * DB 접근을 최소화하기 위해 어드민 API를 주기적으로 폴링하여 최소 주문 수량 및 가격 소수점 자릿수를 캐싱한다.
+ */
 public final class MarketConfigManager {
     private static final Logger log = LoggerFactory.getLogger(MarketConfigManager.class);
     private static final MarketConfigManager INSTANCE = new MarketConfigManager();
