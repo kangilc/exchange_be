@@ -117,3 +117,27 @@ sequenceDiagram
    ```bash
    java -Denv.profile=dev -cp build/classes/java/main:build/resources/main exchange.kafka.db.DbPersisterRunner
    ```
+
+### 테스트 실행 및 검증 방법
+
+1. **테스트 데이터베이스 환경 설정**
+   * 테스트는 개발용 DB(`exchange`)와 완전히 분리된 전용 테스트 DB(`exchange_test`)를 대상으로 실행됩니다.
+   * 로컬/도커에 PostgreSQL 컨테이너가 정상 구동 중이어야 하며, `exchange_test` 데이터베이스가 사전에 생성되어 있어야 합니다.
+     ```bash
+     # 도커 PostgreSQL 내부에 exchange_test DB 생성 명령어
+     docker exec -i postgres psql -U postgres -c "CREATE DATABASE exchange_test;"
+     ```
+
+2. **단위 및 통합 테스트 실행**
+   * `Flyway` 마이그레이션을 이용하여 `admin-api` 모듈의 스키마 스펙(`../admin-api/src/main/resources/db/migration`)을 자동으로 `exchange_test` DB에 갱신 후 테스트 케이스를 수행합니다.
+   * **전체 테스트 실행**:
+     ```bash
+     ./gradlew :adapter-kafka:test
+     ```
+   * **특정 테스트 클래스 개별 실행**:
+     ```bash
+     ./gradlew :adapter-kafka:test --tests "exchange.kafka.db.DbPersisterRunnerTest"
+     ```
+
+3. **테스트 결과 리포트 확인**
+   * 테스트 완료 시 생성되는 HTML 리포트(`adapter-kafka/build/reports/tests/test/index.html`)를 브라우저로 열어 상세한 성공/실패 원인을 파악할 수 있습니다.
