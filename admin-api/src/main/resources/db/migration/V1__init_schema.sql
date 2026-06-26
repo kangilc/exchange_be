@@ -294,3 +294,12 @@ CREATE INDEX IF NOT EXISTS idx_orders_active_book
 ON orders (symbol, side, price, created_at) 
 WHERE status IN ('NEW', 'PARTIALLY_FILLED');
 
+-- 출금 내역 조회 최적화 (회원별 최근 출금 신청 내역 조회용)
+CREATE INDEX IF NOT EXISTS idx_crypto_withdrawals_user_created_at ON crypto_withdrawals(user_id, created_at DESC);
+
+-- 마켓 설정 변경 이력 조회 최적화
+CREATE INDEX IF NOT EXISTS idx_market_histories_symbol ON market_histories(symbol);
+
+-- 공통 코드 그룹별 정렬 조회 최적화 (그룹 내 정렬 순서 보장)
+CREATE INDEX IF NOT EXISTS idx_common_codes_group_display ON common_codes(group_code, display_order);
+
