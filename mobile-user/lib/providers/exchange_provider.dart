@@ -60,12 +60,17 @@ class ExchangeState {
   final double volumePower;
   final Map<String, double> balances;
 
-  // 인증 관련 상태 추가
+  // 인증 관련 상태
   final bool isAuthenticated;
   final String authEmail;
   final int authUserId;
   final String accessToken;
   final String refreshToken;
+
+  // 계측 및 알림 관련 상태 추가
+  final int latency;
+  final int throughput;
+  final Map<String, dynamic>? lastRejectEvent;
 
   ExchangeState({
     this.apiBaseUrl = 'http://10.0.2.2:8181',
@@ -85,6 +90,9 @@ class ExchangeState {
     this.authUserId = 1,
     this.accessToken = '',
     this.refreshToken = '',
+    this.latency = 0,
+    this.throughput = 0,
+    this.lastRejectEvent,
   });
 
   ExchangeState copyWith({
@@ -105,6 +113,9 @@ class ExchangeState {
     int? authUserId,
     String? accessToken,
     String? refreshToken,
+    int? latency,
+    int? throughput,
+    Map<String, dynamic>? lastRejectEvent,
   }) {
     return ExchangeState(
       apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
@@ -124,6 +135,9 @@ class ExchangeState {
       authUserId: authUserId ?? this.authUserId,
       accessToken: accessToken ?? this.accessToken,
       refreshToken: refreshToken ?? this.refreshToken,
+      latency: latency ?? this.latency,
+      throughput: throughput ?? this.throughput,
+      lastRejectEvent: lastRejectEvent != null ? (lastRejectEvent.isEmpty ? null : lastRejectEvent) : this.lastRejectEvent,
     );
   }
 }
@@ -131,6 +145,7 @@ class ExchangeState {
 /// 전역 거래소 상태 관리자
 class ExchangeNotifier extends StateNotifier<ExchangeState> {
   ExchangeNotifier() : super(ExchangeState()) {
+    _setupDioInterceptor();
     initStore();
   }
 
@@ -147,6 +162,62 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
   // 체결강도 계산용 임시 윈도우
   final List<Map<String, dynamic>> _tradesPowerWindow = [];
 
+  // 스로틀링(Throttling) 및 계측용 타이머와 변수들
+  Timer? _updateTimer;
+  Timer? _pingTimer;
+  Timer? _tpsTimer;
+  bool _hasChanges = false;
+  int _msgCount = 0;
+
+  void _setupDioInterceptor() {
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) {
+        if (state.accessToken.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer ${state.accessToken}';
+        }
+        return handler.next(options);
+      },
+      onError: (DioException e, handler) async {
+        if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+          if (state.refreshToken.isNotEmpty) {
+            debugPrint("[Auth] 토큰 만료 감지. Refresh Token으로 갱신 시도 중...");
+            try {
+              final refreshDio = Dio();
+              final refreshRes = await refreshDio.post(
+                '${state.apiBaseUrl}/admin/auth/refresh',
+                data: {'refreshToken': state.refreshToken},
+              );
+
+              if (refreshRes.statusCode == 200) {
+                final newAccess = refreshRes.data['accessToken'];
+                final newRefresh = refreshRes.data['refreshToken'];
+
+                state = state.copyWith(
+                  accessToken: newAccess,
+                  refreshToken: newRefresh,
+                );
+
+                debugPrint("[Auth] 토큰 갱신 성공. 원래 요청 재시도.");
+                // Update the authorization header
+                e.requestOptions.headers['Authorization'] = 'Bearer $newAccess';
+                // Retry the request
+                final retryRes = await _dio.fetch(e.requestOptions);
+                return handler.resolve(retryRes);
+              }
+            } catch (err) {
+              debugPrint("[Auth] Refresh Token 갱신 실패. 강제 로그아웃 됨. $err");
+              logout();
+              return handler.reject(e);
+            }
+          } else {
+            logout();
+          }
+        }
+        return handler.next(e);
+      },
+    ));
+  }
+
   void initStore() async {
     // 1. --dart-define=API_HOST 로 빌드 시 주입한 호스트 우선 적용
     const String envHost = String.fromEnvironment('API_HOST', defaultValue: '');
@@ -161,7 +232,9 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
 
     // 스냅샷 호출 및 웹소켓 연결
     await fetchFullSnapshot(state.activeSymbol);
-    await fetchUserBalances();
+    if (state.isAuthenticated) {
+      await fetchUserBalances();
+    }
     _connectWebSocket();
   }
 
@@ -171,6 +244,7 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
     _asksMap.clear();
     _tradesPowerWindow.clear();
     _tradesLogList = [];
+    _hasChanges = true;
 
     state = state.copyWith(
       activeSymbol: symbol,
@@ -184,7 +258,9 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
     );
 
     await fetchFullSnapshot(symbol);
-    await fetchUserBalances();
+    if (state.isAuthenticated) {
+      await fetchUserBalances();
+    }
   }
 
   Future<void> fetchFullSnapshot(String symbol) async {
@@ -209,12 +285,20 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
             _asksMap[item[0] as int] = item[1] as int;
           }
         }
-
-        _updateOrderBookCalculations();
+        _hasChanges = true;
       }
     } catch (e) {
       debugPrint('[스냅샷 에러] $symbol 호가 동기화 실패: $e');
     }
+  }
+
+  void _startUpdateLoop() {
+    _updateTimer?.cancel();
+    _updateTimer = Timer.periodic(const Duration(milliseconds: 30), (_) {
+      if (!_hasChanges) return;
+      _updateOrderBookCalculations();
+      _hasChanges = false;
+    });
   }
 
   /// 바이너리 고성능 웹소켓 연결 수립
@@ -230,9 +314,11 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
 
       _subscription = _channel!.stream.listen(
         (data) {
-          // 바이너리 메시지만 파싱 처리
+          _msgCount++;
           if (data is Uint8List) {
             _handleBinaryMessage(data);
+          } else if (data is String) {
+            _handleTextMessage(data);
           }
         },
         onError: (err) {
@@ -244,6 +330,28 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
           _handleDisconnect();
         },
       );
+
+      // PING 타이머 (2초 간격)
+      _pingTimer?.cancel();
+      _pingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        if (state.wsConnected) {
+          _channel?.sink.add(jsonEncode({
+            'action': 'PING',
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          }));
+        }
+      });
+
+      // TPS 타미어 (1초 간격)
+      _tpsTimer?.cancel();
+      _tpsTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        state = state.copyWith(throughput: _msgCount);
+        _msgCount = 0;
+      });
+
+      // 30ms 스로틀 렌더 루프 가동
+      _startUpdateLoop();
+
     } catch (e) {
       debugPrint('[웹소켓 연결 예외] $e');
       _handleDisconnect();
@@ -253,10 +361,42 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
   /// 웹소켓 끊김 시 3초 후 재연결 처리
   void _handleDisconnect() {
     state = state.copyWith(wsConnected: false);
+    _pingTimer?.cancel();
+    _tpsTimer?.cancel();
+    _updateTimer?.cancel();
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(const Duration(seconds: 3), () {
       _connectWebSocket();
     });
+  }
+
+  /// 문자열 데이터 수신 처리 (PING/PONG, REJECT)
+  void _handleTextMessage(String data) {
+    try {
+      final parsed = jsonDecode(data);
+      if (parsed['action'] == 'PONG') {
+        final rtt = DateTime.now().millisecondsSinceEpoch - (parsed['timestamp'] as int);
+        state = state.copyWith(latency: rtt);
+      } else if (parsed['action'] == 'REJECT') {
+        debugPrint("[WS REJECT] 주문 거절 수신: $parsed");
+        state = state.copyWith(
+          lastRejectEvent: {
+            'symbol': parsed['symbol'],
+            'side': parsed['side'],
+            'price': parsed['price'],
+            'qty': parsed['qty'],
+            'reason': parsed['reason'],
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          }
+        );
+      }
+    } catch (e) {
+      // 파싱 무시
+    }
+  }
+
+  void clearRejectEvent() {
+    state = state.copyWith(lastRejectEvent: {}); // 전달 시 빈 Map은 null로 치환
   }
 
   /// 바이너리 데이터 수신 처리 (32바이트)
@@ -313,7 +453,7 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
       _cleanTradesPowerWindow(now);
     }
 
-    _updateOrderBookCalculations();
+    _hasChanges = true; // 변경 플래그 ON (30ms 루프에서 갱신 예정)
   }
 
   /// 체결 강도 윈도우 오래된 데이터 만료 처리
@@ -372,7 +512,9 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
   /// 사용자 로그인 처리
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
-      final response = await _dio.post(
+      // _dio 대신 기본 Dio 사용 (인터셉터 우회)
+      final tempDio = Dio();
+      final response = await tempDio.post(
         '${state.apiBaseUrl}/admin/auth/login',
         data: {'email': email, 'password': password},
       );
@@ -452,13 +594,10 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
 
   /// 사용자 지갑 자산 실시간 조회 연동
   Future<void> fetchUserBalances() async {
+    if (!state.isAuthenticated) return;
     try {
-      final response = await _dio.get(
-        '${state.apiBaseUrl}/admin/wallets/me',
-        options: Options(
-          headers: state.accessToken.isNotEmpty ? {'Authorization': 'Bearer ${state.accessToken}'} : {},
-        ),
-      );
+      // _dio 인스턴스를 사용하여 인터셉터 로직(RTR)이 자동으로 타도록 함
+      final response = await _dio.get('${state.apiBaseUrl}/admin/wallets/me');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         final Map<String, double> newBalances = {};
@@ -497,10 +636,19 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
 
     if (available < requiredAmt) {
       debugPrint('[주문 거부] 잔고 부족: 필요 $requiredAmt, 가용 $available');
+      // 로컬 UI에서도 REJECT 처리
+      state = state.copyWith(lastRejectEvent: {
+        'symbol': state.activeSymbol,
+        'side': side,
+        'price': price,
+        'qty': qty,
+        'reason': '잔고가 부족합니다.',
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
       return false;
     }
 
-    // 2. 서버 자산 가감 처리
+    // 2. 서버 자산 가감 처리 (이 호출도 _dio를 통하므로 RTR 자동 지원)
     try {
       final double fiatDelta = side == 'BUY' ? -totalCost : totalCost;
       final double coinDelta = side == 'BUY' ? qty : -qty;
@@ -545,6 +693,9 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
     _subscription?.cancel();
     _channel?.sink.close();
     _reconnectTimer?.cancel();
+    _updateTimer?.cancel();
+    _pingTimer?.cancel();
+    _tpsTimer?.cancel();
     super.dispose();
   }
 }
@@ -553,3 +704,4 @@ class ExchangeNotifier extends StateNotifier<ExchangeState> {
 final exchangeProvider = StateNotifierProvider<ExchangeNotifier, ExchangeState>((ref) {
   return ExchangeNotifier();
 });
+
