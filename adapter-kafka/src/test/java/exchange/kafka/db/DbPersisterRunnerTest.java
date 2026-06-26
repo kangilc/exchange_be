@@ -29,82 +29,16 @@ public class DbPersisterRunnerTest {
     public static void setupConfig() throws Exception {
         System.out.println("DEBUG: System property DB_URL = " + System.getProperty("DB_URL"));
         
-        // PostgreSQL exchange_test DB에 테스트용 테이블 DDL 수행 (Flyway의 V1__init_schema 스펙 일치)
-        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, "postgres", "postgres")) {
-            try (Statement stmt = conn.createStatement()) {
-                // 1. 사용자 테이블 생성
-                stmt.execute("CREATE TABLE IF NOT EXISTS users (" +
-                        "user_id BIGSERIAL PRIMARY KEY, " +
-                        "email VARCHAR(255) UNIQUE NOT NULL, " +
-                        "password_hash VARCHAR(255) NOT NULL, " +
-                        "status VARCHAR(20) DEFAULT 'ACTIVE', " +
-                        "grade VARCHAR(20) DEFAULT 'STANDARD', " +
-                        "role VARCHAR(20) DEFAULT 'USER', " +
-                        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                        ")");
-
-                // 2. 마켓 정보 테이블 생성 (min_amt 컬럼 등 최신 스펙 반영)
-                stmt.execute("CREATE TABLE IF NOT EXISTS markets (" +
-                        "symbol VARCHAR(20) PRIMARY KEY, " +
-                        "base_currency VARCHAR(10) NOT NULL, " +
-                        "quote_currency VARCHAR(10) NOT NULL, " +
-                        "fee_rate NUMERIC(10, 6) NOT NULL DEFAULT 0.001000, " +
-                        "price_decimals INT DEFAULT 2, " +
-                        "min_amt NUMERIC(20, 8) DEFAULT 0.0001, " +
-                        "listing_price BIGINT DEFAULT 0, " +
-                        "status VARCHAR(20) DEFAULT 'ACTIVE', " +
-                        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                        ")");
-
-                // 3. 자산 지갑 테이블 생성
-                stmt.execute("CREATE TABLE IF NOT EXISTS wallets (" +
-                        "wallet_id BIGSERIAL PRIMARY KEY, " +
-                        "user_id BIGINT NOT NULL, " +
-                        "currency VARCHAR(10) NOT NULL, " +
-                        "balance NUMERIC(36, 18) NOT NULL DEFAULT 0.0, " +
-                        "locked_balance NUMERIC(36, 18) NOT NULL DEFAULT 0.0, " +
-                        "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
-                        "CONSTRAINT uq_user_currency UNIQUE (user_id, currency)" +
-                        ")");
-
-                // 4. 주문 원장 테이블 생성
-                stmt.execute("CREATE TABLE IF NOT EXISTS orders (" +
-                        "order_id BIGINT PRIMARY KEY, " +
-                        "user_id BIGINT NOT NULL, " +
-                        "symbol VARCHAR(20) NOT NULL, " +
-                        "side VARCHAR(10) NOT NULL, " +
-                        "price BIGINT NOT NULL, " +
-                        "qty BIGINT NOT NULL, " +
-                        "remaining_qty BIGINT NOT NULL, " +
-                        "status VARCHAR(20) NOT NULL, " +
-                        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                        ")");
-
-                // 5. 체결 내역 테이블 생성
-                stmt.execute("CREATE TABLE IF NOT EXISTS trades (" +
-                        "trade_id BIGINT PRIMARY KEY, " +
-                        "symbol VARCHAR(20) NOT NULL, " +
-                        "buy_order_id BIGINT NOT NULL, " +
-                        "sell_order_id BIGINT NOT NULL, " +
-                        "price BIGINT NOT NULL, " +
-                        "qty BIGINT NOT NULL, " +
-                        "fee_rate NUMERIC(10, 6) DEFAULT 0.0, " +
-                        "fee_amount NUMERIC(36, 18) DEFAULT 0.0, " +
-                        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                        ")");
-
-                // 6. 자산 변경 이력(원장) 테이블 생성
-                stmt.execute("CREATE TABLE IF NOT EXISTS ledger_journal (" +
-                        "journal_id BIGSERIAL PRIMARY KEY, " +
-                        "user_id BIGINT NOT NULL, " +
-                        "currency VARCHAR(10) NOT NULL, " +
-                        "amount NUMERIC(36, 18) NOT NULL, " +
-                        "type VARCHAR(30) NOT NULL, " +
-                        "reference_id BIGINT, " +
-                        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                        ")");
-            }
-        }
+        // Flyway를 통해 admin-api 모듈의 최신 스펙 마이그레이션 파일들을 읽어 exchange_test DB를 자동으로 구축합니다.
+        org.flywaydb.core.Flyway flyway = org.flywaydb.core.Flyway.configure()
+                .dataSource(TEST_DB_URL, "postgres", "postgres")
+                .locations("filesystem:../admin-api/src/main/resources/db/migration")
+                .cleanDisabled(false) // clean 기능 활성화
+                .load();
+        
+        // 이전 테스트 잔재를 완전히 소거하고 스키마를 최신 상태로 재구축
+        flyway.clean();
+        flyway.migrate();
     }
 
     @BeforeEach
