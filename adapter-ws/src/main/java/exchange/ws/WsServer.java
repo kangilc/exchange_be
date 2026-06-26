@@ -13,8 +13,12 @@ import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.util.concurrent.GlobalEventExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class WsServer {
+    private static final Logger log = LoggerFactory.getLogger(WsServer.class);
+
     public static void main(String[] args) throws Exception {
         WsMetricsServer.getInstance().start();
         MarketConfigManager.getInstance().start();
@@ -22,8 +26,8 @@ public final class WsServer {
         int port = ConfigLoader.getInt("PORT", 8088);
 
 
-        System.out.println("Starting Netty WebSocket Gateway on port: " + port);
-        System.out.println("Consuming from Kafka Broker: " + broker);
+        log.info("Starting Netty WebSocket Gateway on port: {}", port);
+        log.info("Consuming from Kafka Broker: {}", broker);
 
         // Broadcaster mapping active Netty client channels
         ChannelGroup clients = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);

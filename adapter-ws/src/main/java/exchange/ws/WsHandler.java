@@ -9,8 +9,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.net.Socket;
 import java.io.PrintWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class WsHandler extends SimpleChannelInboundHandler<Object> {
+    private static final Logger log = LoggerFactory.getLogger(WsHandler.class);
     private final ChannelGroup clients;
     private final String engineHost;
     private final String adaEngineHost;
@@ -37,7 +40,7 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
 
     @Override
     public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
-        System.out.println("Client disconnected: " + ctx.channel().remoteAddress());
+        log.info("Client disconnected: {}", ctx.channel().remoteAddress());
         clients.remove(ctx.channel());
         WsMetricsServer.getInstance().decrementConnections();
         closeAllSockets();
@@ -48,7 +51,7 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
         if (evt instanceof WebSocketServerProtocolHandler.HandshakeComplete) {
             clients.add(ctx.channel());
             WsMetricsServer.getInstance().incrementConnections();
-            System.out.println("WebSocket connection established with: " + ctx.channel().remoteAddress());
+            log.info("WebSocket connection established with: {}", ctx.channel().remoteAddress());
         } else {
             super.userEventTriggered(ctx, evt);
         }
@@ -110,14 +113,14 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
                     }
                 }
             } catch (Exception e) {
-                System.err.println("Failed to process incoming WS frame: " + text + ", error: " + e.getMessage());
+                log.error("Failed to process incoming WS frame: {}, error: {}", text, e.getMessage());
             }
         }
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        System.err.println("WS client exception: " + cause.getMessage());
+        log.error("WS client exception: ", cause);
         ctx.close();
     }
 
@@ -130,7 +133,7 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
 
         try {
             if (targetSocket == null || targetSocket.isClosed() || !targetSocket.isConnected()) {
-                System.out.println("Connecting to Matching Engine command port (" + symbol + ") at " + targetHost + ":" + targetPort);
+                log.info("Connecting to Matching Engine command port ({}) at {}:{}", symbol, targetHost, targetPort);
                 targetSocket = new Socket(targetHost, targetPort);
                 targetWriter = new PrintWriter(targetSocket.getOutputStream(), true);
                 
@@ -145,7 +148,7 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
             targetWriter.println(cmd);
             targetWriter.flush();
         } catch (Exception e) {
-            System.err.println("Error sending command to Matching Engine (" + symbol + "): " + e.getMessage());
+            log.error("Error sending command to Matching Engine ({}): {}", symbol, e.getMessage());
             closeSocket(isAda);
         }
     }

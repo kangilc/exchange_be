@@ -8,8 +8,11 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class WsMetricsServer {
+    private static final Logger log = LoggerFactory.getLogger(WsMetricsServer.class);
     private static final WsMetricsServer INSTANCE = new WsMetricsServer();
 
     private final AtomicLong activeConnections = new AtomicLong(0);
@@ -38,7 +41,7 @@ public final class WsMetricsServer {
     public void start() {
         boolean enabled = Boolean.parseBoolean(ConfigLoader.get("METRICS_ENABLED", "false"));
         if (!enabled) {
-            System.out.println("WS Metrics server is disabled (METRICS_ENABLED=false). Skipping HTTP server creation.");
+            log.info("WS Metrics server is disabled (METRICS_ENABLED=false). Skipping HTTP server creation.");
             return;
         }
 
@@ -48,7 +51,7 @@ public final class WsMetricsServer {
             server.createContext("/metrics", new MetricsHandler());
             server.setExecutor(null); // default executor
             server.start();
-            System.out.println("Lightweight WS Gateway HTTP Metrics Server started on port " + port);
+            log.info("Lightweight WS Gateway HTTP Metrics Server started on port {}", port);
 
             // Start background TPS tracker thread
             Thread tpsUpdater = new Thread(() -> {
@@ -69,7 +72,7 @@ public final class WsMetricsServer {
             tpsUpdater.start();
 
         } catch (IOException e) {
-            System.err.println("Failed to start WS Metrics Server on port " + port + ": " + e.getMessage());
+            log.error("Failed to start WS Metrics Server on port {}: {}", port, e.getMessage());
         }
     }
 

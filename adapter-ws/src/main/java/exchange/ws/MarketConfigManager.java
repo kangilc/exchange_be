@@ -13,8 +13,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class MarketConfigManager {
+    private static final Logger log = LoggerFactory.getLogger(MarketConfigManager.class);
     private static final MarketConfigManager INSTANCE = new MarketConfigManager();
 
     private final ConcurrentHashMap<String, BigDecimal> minAmtCache = new ConcurrentHashMap<>();
@@ -64,7 +67,7 @@ public final class MarketConfigManager {
     private void refreshConfig() {
         try {
             String url = adminApiUrl + "/admin/stats/markets";
-            System.out.println("[MarketConfigManager] Fetching market configs from: " + url);
+            log.info("Fetching market configs from: {}", url);
             
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
@@ -85,15 +88,15 @@ public final class MarketConfigManager {
                             minAmtCache.put(symbol, minAmt);
                             int decimals = node.has("priceDecimals") ? node.get("priceDecimals").asInt() : 2;
                             decimalsCache.put(symbol, decimals);
-                            System.out.println("[MarketConfigManager] Loaded symbol: " + symbol + ", minAmt: " + minAmt + ", decimals: " + decimals);
+                            log.info("Loaded symbol: {}, minAmt: {}, decimals: {}", symbol, minAmt, decimals);
                         }
                     }
                 }
             } else {
-                System.err.println("[MarketConfigManager] Failed to fetch market configs. Status: " + response.statusCode());
+                log.error("Failed to fetch market configs. Status: {}", response.statusCode());
             }
         } catch (Exception e) {
-            System.err.println("[MarketConfigManager] Error refreshing market configurations: " + e.getMessage());
+            log.error("Error refreshing market configurations: {}", e.getMessage());
         }
     }
 }

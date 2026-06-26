@@ -15,8 +15,11 @@ import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class WsBroadcaster implements Runnable {
+    private static final Logger log = LoggerFactory.getLogger(WsBroadcaster.class);
     private final ChannelGroup clients;
     private final KafkaConsumer<String, String> consumer;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -37,7 +40,7 @@ public final class WsBroadcaster implements Runnable {
 
     @Override
     public void run() {
-        System.out.println("Subscribing to orderbook-delta Kafka topic...");
+        log.info("Subscribing to orderbook-delta Kafka topic...");
         consumer.subscribe(Collections.singletonList("orderbook-delta"));
         
         while (running) {
@@ -69,11 +72,11 @@ public final class WsBroadcaster implements Runnable {
                         }
                         WsMetricsServer.getInstance().incrementMessages();
                     } catch (Exception e) {
-                        System.err.println("Failed to parse or broadcast event: " + e.getMessage());
+                        log.error("Failed to parse or broadcast event: {}", e.getMessage());
                     }
                 }
             } catch (Exception e) {
-                System.err.println("Kafka consumer loop error: " + e.getMessage());
+                log.error("Kafka consumer loop error: {}", e.getMessage());
             }
         }
         consumer.close();
