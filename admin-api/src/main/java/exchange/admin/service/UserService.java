@@ -3,6 +3,7 @@ package exchange.admin.service;
 import exchange.admin.model.LedgerJournal;
 import exchange.admin.model.User;
 import exchange.admin.model.Wallet;
+import exchange.admin.model.constant.UserGrade;
 import exchange.admin.repository.LedgerJournalRepository;
 import exchange.admin.repository.UserRepository;
 import exchange.admin.repository.WalletRepository;
@@ -62,7 +63,8 @@ public class UserService {
         User user = new User();
         user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(password));
-        user.setGrade(grade != null ? grade : "STANDARD");
+        // String 타입을 UserGrade Enum 타입으로 변환하여 저장
+        user.setGrade(grade != null ? UserGrade.valueOf(grade.toUpperCase()) : UserGrade.STANDARD);
         user.setStatus("ACTIVE");
         
         User savedUser = userRepository.save(user);
@@ -89,7 +91,8 @@ public class UserService {
         return userRepository.findById(id).map(user -> {
             if (email != null) user.setEmail(email);
             if (status != null) user.setStatus(status);
-            if (grade != null) user.setGrade(grade);
+            // String 타입을 UserGrade Enum 타입으로 변환하여 저장
+            if (grade != null) user.setGrade(UserGrade.valueOf(grade.toUpperCase()));
             return userRepository.save(user);
         });
     }

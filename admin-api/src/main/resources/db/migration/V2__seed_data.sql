@@ -2,6 +2,37 @@
 -- Flyway DB Seed Data Migration (DML 전용)
 -- =========================================================================
 
+-- 0. 공통 코드 데이터 주입
+INSERT INTO code_groups (group_code, group_name, description, created_by, updated_by) VALUES
+('CURRENCY_DESC', '지원 자산 국문 설명', '거래소에서 지원하는 가상자산 및 법정화폐의 국문 명칭 정의', 'SYSTEM', 'SYSTEM'),
+('LEDGER_TYPE_DESC', '원장 전표 유형 설명', '자산 변동 원장 기록 사유에 대한 국문 설명 매핑', 'SYSTEM', 'SYSTEM'),
+('WITHDRAWAL_STATUS_DESC', '출금 상태 설명', '출금 요청 처리 진행 단계 설명', 'SYSTEM', 'SYSTEM')
+ON CONFLICT (group_code) DO NOTHING;
+
+INSERT INTO common_codes (group_code, code_value, code_name, description, display_order, is_active, created_by, updated_by) VALUES
+('CURRENCY_DESC', 'KRW', '원화', '대한민국 법정화폐', 1, true, 'SYSTEM', 'SYSTEM'),
+('CURRENCY_DESC', 'USD', '미국 달러', '미국 법정화폐', 2, true, 'SYSTEM', 'SYSTEM'),
+('CURRENCY_DESC', 'BTC', '비트코인', '대장 가상자산', 3, true, 'SYSTEM', 'SYSTEM'),
+('CURRENCY_DESC', 'ADA', '에이다', '카르다노 가상자산', 4, true, 'SYSTEM', 'SYSTEM'),
+('CURRENCY_DESC', 'JAF', '자프 토큰', '거래소 유틸리티 토큰', 5, true, 'SYSTEM', 'SYSTEM'),
+
+('LEDGER_TYPE_DESC', 'DEPOSIT', '입금 완료', '외부 입금 완료 처리', 1, true, 'SYSTEM', 'SYSTEM'),
+('LEDGER_TYPE_DESC', 'WITHDRAWAL', '출금 완료', '외부 출금 승인 및 완료', 2, true, 'SYSTEM', 'SYSTEM'),
+('LEDGER_TYPE_DESC', 'ORDER_HOLD', '주문 잠금', '주문 접수로 인한 자산 잠금', 3, true, 'SYSTEM', 'SYSTEM'),
+('LEDGER_TYPE_DESC', 'TRADE_SETTLE', '체결 정산', '체결 거래 자산 교환 정산', 4, true, 'SYSTEM', 'SYSTEM'),
+('LEDGER_TYPE_DESC', 'CANCEL_RELEASE', '취소 반환', '주문 취소에 따른 잠금 잔액 복원', 5, true, 'SYSTEM', 'SYSTEM'),
+('LEDGER_TYPE_DESC', 'FEE_PAID', '수수료 납부', '거래 체결에 따른 수수료 납부', 6, true, 'SYSTEM', 'SYSTEM'),
+('LEDGER_TYPE_DESC', 'FEE_REVENUE', '수수료 수급', '거래소 수수료 계정으로의 세입 적립', 7, true, 'SYSTEM', 'SYSTEM'),
+
+('WITHDRAWAL_STATUS_DESC', 'PENDING', '대기 중', '관리자 승인 대기', 1, true, 'SYSTEM', 'SYSTEM'),
+('WITHDRAWAL_STATUS_DESC', 'APPROVED', '승인됨', '출금 승인 완료', 2, true, 'SYSTEM', 'SYSTEM'),
+('WITHDRAWAL_STATUS_DESC', 'REJECTED', '거절됨', '관리자 출금 반려', 3, true, 'SYSTEM', 'SYSTEM'),
+('WITHDRAWAL_STATUS_DESC', 'BROADCASTED', '전파됨', '블록체인 네트워크 전송 진행 중', 4, true, 'SYSTEM', 'SYSTEM'),
+('WITHDRAWAL_STATUS_DESC', 'SUCCESS', '성공', '블록체인 트랜잭션 최종 확정 완료', 5, true, 'SYSTEM', 'SYSTEM'),
+('WITHDRAWAL_STATUS_DESC', 'FAILED', '실패', '네트워크 실패 등으로 인한 출금 전송 에러', 6, true, 'SYSTEM', 'SYSTEM')
+ON CONFLICT (group_code, code_value) DO NOTHING;
+
+
 -- 1. 초기 시드 회원 데이터 인젝션 (1000명의 사용자 자동 생성 및 최근 1년 동안 균등 분산)
 INSERT INTO users (user_id, email, password_hash, created_at)
 SELECT 

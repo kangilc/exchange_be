@@ -1,5 +1,7 @@
 package exchange.admin.model;
 
+import exchange.admin.model.constant.UserGrade;
+import exchange.admin.model.constant.UserRole;
 import jakarta.persistence.*;
 
 /**
@@ -24,14 +26,18 @@ public class User extends BaseEntity {
     @Column(name = "status")
     private String status = "ACTIVE";
 
+    // 회원 거래 등급 (Enum화 및 JPA 문자열 바인딩 적용)
+    @Enumerated(EnumType.STRING)
     @Column(name = "grade")
-    private String grade = "STANDARD";
+    private UserGrade grade = UserGrade.STANDARD;
 
     @Column(name = "refresh_token")
     private String refreshToken;
 
+    // 회원 역할 권한 (Enum화 및 JPA 문자열 바인딩 적용)
+    @Enumerated(EnumType.STRING)
     @Column(name = "role")
-    private String role = "USER";
+    private UserRole role = UserRole.USER;
 
     public User() {
     }
@@ -68,11 +74,11 @@ public class User extends BaseEntity {
         this.status = status;
     }
 
-    public String getGrade() {
+    public UserGrade getGrade() {
         return grade;
     }
 
-    public void setGrade(String grade) {
+    public void setGrade(UserGrade grade) {
         this.grade = grade;
     }
 
@@ -84,11 +90,11 @@ public class User extends BaseEntity {
         this.refreshToken = refreshToken;
     }
 
-    public String getRole() {
+    public UserRole getRole() {
         return role;
     }
 
-    public void setRole(String role) {
+    public void setRole(UserRole role) {
         this.role = role;
     }
 }

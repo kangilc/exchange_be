@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${DB_URL:jdbc:postgresql://postgres:5432/exchange}
+    url: ${DB_URL:jdbc:postgresql://postgres:5432/exchange?stringtype=unspecified}
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
     hikari:

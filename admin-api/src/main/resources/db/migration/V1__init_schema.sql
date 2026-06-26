@@ -1,3 +1,42 @@
+-- 0-0. 공통 코드 관리 테이블 (Common Codes)
+CREATE TABLE IF NOT EXISTS code_groups (
+    group_code VARCHAR(50) PRIMARY KEY,
+    group_name VARCHAR(100) NOT NULL,
+    description VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100)
+);
+
+CREATE TABLE IF NOT EXISTS common_codes (
+    group_code VARCHAR(50) NOT NULL REFERENCES code_groups(group_code) ON DELETE CASCADE,
+    code_value VARCHAR(50) NOT NULL,
+    code_name VARCHAR(100) NOT NULL,
+    description VARCHAR(255),
+    display_order INT DEFAULT 1,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100),
+    PRIMARY KEY (group_code, code_value)
+);
+
+COMMENT ON TABLE code_groups IS '공통 코드 그룹 테이블';
+COMMENT ON COLUMN code_groups.group_code IS '그룹 코드 식별자';
+COMMENT ON COLUMN code_groups.group_name IS '그룹 코드명';
+COMMENT ON COLUMN code_groups.description IS '그룹 코드 설명';
+
+COMMENT ON TABLE common_codes IS '공통 세부 코드 테이블';
+COMMENT ON COLUMN common_codes.group_code IS '그룹 코드 식별자 (code_groups.group_code 참조)';
+COMMENT ON COLUMN common_codes.code_value IS '세부 코드값';
+COMMENT ON COLUMN common_codes.code_name IS '세부 코드명';
+COMMENT ON COLUMN common_codes.description IS '세부 코드 설명';
+COMMENT ON COLUMN common_codes.display_order IS '화면 표시 순서';
+COMMENT ON COLUMN common_codes.is_active IS '사용 여부 활성화 상태';
+
+
 -- 0. 마켓 메타데이터 테이블 (Markets Settings)
 CREATE TABLE IF NOT EXISTS markets (
     symbol VARCHAR(20) PRIMARY KEY,

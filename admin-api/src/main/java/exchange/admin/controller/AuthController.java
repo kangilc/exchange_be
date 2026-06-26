@@ -59,9 +59,9 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "이메일 또는 비밀번호가 올바르지 않습니다."));
         }
 
-        // 토큰 쌍 생성
+        // 토큰 쌍 생성 (user.getGrade() Enum의 name() 스트링 전달)
         String refreshToken = tokenProvider.generateRefreshToken(user.getEmail());
-        String accessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), user.getGrade(), refreshToken);
+        String accessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), user.getGrade().name(), refreshToken);
 
         // 중복 로그인 여부 판별 (차단 설정이 켜져 있고 이전 리프레시 토큰이 DB에 있으면 이미 로그인된 상태임)
         boolean priorLoginExisted = AdminSettings.isDuplicateLoginBlockEnabled()
@@ -120,9 +120,9 @@ public class AuthController {
                     .body(Map.of("message", "만료되었거나 이미 교체된 Refresh Token입니다. 강제 로그아웃됩니다."));
         }
 
-        // 3. 토큰 회전(RTR) 적용: 새 Access Token 및 새 Refresh Token 발급
+        // 3. 토큰 회전(RTR) 적용: 새 Access Token 및 새 Refresh Token 발급 (user.getGrade() Enum의 name() 스트링 전달)
         String newRefreshToken = tokenProvider.generateRefreshToken(user.getEmail());
-        String newAccessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), user.getGrade(), newRefreshToken);
+        String newAccessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), user.getGrade().name(), newRefreshToken);
 
         // 새 Refresh Token 데이터베이스 업데이트
         user.setRefreshToken(newRefreshToken);

@@ -1,98 +1,76 @@
-# 동적 마켓 온보딩 및 메타데이터 기반 아키텍처 구현 계획서 (Dynamic Market Onboarding)
+# DB VARCHAR 유지 및 애플리케이션 Enum 통합 구현 계획서
 
-신규 코인 및 거래쌍(마켓) 추가 시, 기존 하드코딩된 정적 구조를 탈피하고 어드민 콘솔에서 무중단으로 상장 및 가동이 가능하도록 하는 **동적 마켓 온보딩 및 메타데이터 기반 아키텍처(Dynamic Market Onboarding)**를 구축하는 계획이다.
+데이터베이스의 DDL 유지보수 유연성을 높이기 위해 컬럼은 일반 `VARCHAR` 문자열 방식을 유지하되, 애플리케이션 개발 생산성 및 타입 정합성을 보장받을 수 있도록 백엔드(Java Enum) 및 프론트엔드(TypeScript) 레이어에서만 ENUM 통합 및 OpenAPI 타입 자동 생성 파이프라인을 구축합니다.
 
----
+## User Review Required
+
+> [!NOTE]
+> * **DB 컬럼 스펙 보존**: PostgreSQL의 `VARCHAR` 컬럼 스펙을 그대로 보존하므로, 위험 부담이 큰 DB 레벨의 ENUM DDL 변환 처리를 완전히 배제합니다.
+> * **JPA 매핑**: JPA 엔티티 필드를 `String`에서 `Enum` 타입으로 안전하게 교체하고 `@Enumerated(EnumType.STRING)`을 지정하여 DB 저장 시 문자열로 처리하도록 유도합니다.
+> * **MyBatis 매핑**: MyBatis 글로벌 설정 파일에 `default-enum-type-handler=org.apache.ibatis.type.EnumTypeHandler`를 등록하여 자바 Enum 객체가 쿼리 결과 문자열과 정상적으로 자동 바인딩되도록 조치합니다.
 
 ## Proposed Changes
 
-### 1. Database Schema & Migration
-* **`market_fees` 테이블 폐지 및 `markets` 테이블 통합**:
-  기존의 `market_fees` 수수료율 설정 테이블을 없애고, 신규 생성할 `markets` 테이블에 수수료율(`fee_rate`)을 통합하여 함께 관리한다.
-  또한 다른 테이블 및 자바 `BaseEntity`와의 매핑 정합성을 위해 **`created_by` 및 `updated_by` (등록자/수정자) 컬럼을 함께 추가**한다.
+### 1. Database Schema & Migration (admin-api)
+
+#### [NEW] [V3__add_common_codes.sql](file:///d:/exchange_be/admin-api/src/main/resources/db/migration/V3__add_common_codes.sql)
+* 데이터베이스의 기존 테이블 구조(VARCHAR)는 그대로 유지합니다.
+* 공통 코드를 동적으로 저장/조회하기 위한 공통 코드 테이블 DDL 및 초기 데이터를 추가합니다.
   ```sql
-  CREATE TABLE IF NOT EXISTS markets (
-      symbol VARCHAR(20) PRIMARY KEY,
-      base_currency VARCHAR(10) NOT NULL,
-      quote_currency VARCHAR(10) NOT NULL,
-      fee_rate NUMERIC(10, 6) NOT NULL DEFAULT 0.001000, -- 수수료율 설정 통합
-      price_decimals INT DEFAULT 2,
-      min_qty NUMERIC(20, 8) DEFAULT 0.0001,
-      status VARCHAR(20) DEFAULT 'ACTIVE',
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      created_by VARCHAR(100),
-      updated_by VARCHAR(100)
+  CREATE TABLE code_groups (
+      group_code VARCHAR(50) PRIMARY KEY,
+      group_name VARCHAR(100) NOT NULL
   );
-  ```
-* **`market_histories` (마켓 변경 이력 관리 테이블) 신규 추가**:
-  마켓 메타데이터 정보가 수정될 때마다 그 변경 기록을 추적 및 감사할 수 있도록 이력 테이블을 신설한다.
-  **이력 테이블의 등록/수정자 및 일시 정보(`created_at`, `updated_at`, `created_by`, `updated_by`)는 변경 대상이 된 `markets` 테이블의 값을 그대로 이관받아 기록**한다.
-  ```sql
-  CREATE TABLE IF NOT EXISTS market_histories (
-      history_id BIGSERIAL PRIMARY KEY,
-      symbol VARCHAR(20) NOT NULL REFERENCES markets(symbol) ON DELETE CASCADE,
-      fee_rate NUMERIC(10, 6) NOT NULL,
-      price_decimals INT NOT NULL,
-      min_qty NUMERIC(20, 8) NOT NULL,
-      status VARCHAR(20) NOT NULL,
-      created_at TIMESTAMP NOT NULL, -- markets의 created_at과 동일
-      updated_at TIMESTAMP NOT NULL, -- markets의 updated_at과 동일
-      created_by VARCHAR(100),       -- markets의 created_by와 동일
-      updated_by VARCHAR(100)        -- markets의 updated_by와 동일
+
+  CREATE TABLE common_codes (
+      group_code VARCHAR(50) REFERENCES code_groups(group_code) ON DELETE CASCADE,
+      code_value VARCHAR(50) NOT NULL,
+      code_name VARCHAR(100) NOT NULL,
+      display_order INT DEFAULT 1,
+      is_active BOOLEAN DEFAULT TRUE,
+      PRIMARY KEY (group_code, code_value)
   );
+
+  -- 기초 코드 데이터 주입 (예: 자산 국문 명칭, 전표 유형 한글 라벨 등)
+  INSERT INTO code_groups VALUES ('CURRENCY_DESC', '지원 자산 국문 설명');
+  INSERT INTO common_codes VALUES ('CURRENCY_DESC', 'KRW', '원화', 1, true);
+  INSERT INTO common_codes VALUES ('CURRENCY_DESC', 'BTC', '비트코인', 2, true);
   ```
-* [MODIFY] [V1__init_schema.sql](file:///home/administrator/exchange_be/admin-api/src/main/resources/db/migration/V1__init_schema.sql):
-  `market_fees` 테이블 생성 구문을 제거하고 `markets` 및 `market_histories` 테이블 생성 구문으로 교체한다. (데이터베이스 트리거 및 리스너는 사용하지 않음)
-* [MODIFY] [V2__seed_data.sql](file:///home/administrator/exchange_be/admin-api/src/main/resources/db/migration/V2__seed_data.sql):
-  기존 `market_fees` 테이블 대상 인서트 구문을 제거하고, 신규 규격의 `markets` 테이블에 초기 마켓 데이터(`BTC-USD`, `ADA-KRW`)와 기본 수수료 정보를 적재하도록 쿼리를 수정한다.
-* **지갑 동적 생성 지원**: 지갑이 필요해지는 시점에 지갑 레코드를 자동 생성할 수 있도록 `INSERT ... ON CONFLICT DO NOTHING` 처리를 강화한다.
-* > [!WARNING]
-  > **Flyway 마이그레이션 체크섬 사이드 이펙트 해결**:
-  > 기존 DB 인스턴스의 볼륨 데이터가 남아있으면 Flyway 체크섬 오류로 크래시가 발생하므로, 배포/시작 전에 반드시 기존 도커 볼륨을 클리어해야 한다 (`docker compose down -v`).
 
-### 2. User & Admin Frontend (UI)
-* **마켓 목록 및 API 기반 동적 렌더링**:
-  프론트엔드에서 하드코딩된 마켓 리스트를 제거하고, 화면에 **마켓 목록(심볼, 현재가, 등락폭, 거래대금)**을 표시한다.
-  사용자가 마켓 목록의 특정 마켓을 클릭하면, 백엔드의 `/api/markets` API 호출 결과를 기반으로 거래 탭, 호가창(Order Book), 주문 콘솔, 차트를 동적으로 렌더링하도록 변경한다.
-* **React User 마켓 목록 연동**:
-  - `TradingTerminal.tsx`의 PC 레이아웃 "실시간 보유 자산" 바로 아래 영역에 마켓 목록 표(심볼, 현재가, 등락폭, 거래대금)를 렌더링한다.
-  - 모바일 탭 종류에 `'market'`을 추가하고 디폴트 탭으로 지정하여 모바일 접속 시 마켓 목록 표가 최우선으로 보여지도록 처리한다.
-  - 각 마켓 행을 클릭하면 해당 마켓(`BTC-USD`, `ADA-KRW` 등)으로 즉시 스위칭되도록 구현한다.
+### 2. Backend Java Refactoring (admin-api & adapter-kafka)
 
-### 3. Backend (admin-api)
-* [MODIFY] [AdminApiApplication.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/AdminApiApplication.java):
-  초기 데이터 검사 쿼리를 `SELECT symbol, fee_rate FROM market_fees`에서 `SELECT symbol, fee_rate FROM markets`로 수정한다.
-* [MODIFY] [AdminSettings.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/config/AdminSettings.java):
-  하드코딩되어 저장되던 특정 마켓 수수료 변수(`btcUsdFeeRate`, `adaKrwFeeRate`) 및 관련 Getter/Setter를 완전히 제거하고, 대신 DB의 `markets` 테이블 정보를 맵 형태 등으로 참조하도록 수정한다.
-* [MODIFY] [SettingsController.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/controller/SettingsController.java):
-  - 기존 수수료 수정 쿼리(`updateFeeInDb`)가 `market_fees` 테이블 대신 `markets` 테이블을 업데이트 하도록 쿼리를 변경한다.
-  - 설정값 조회(`GET /admin/settings`) 및 저장(`POST /admin/settings`) 시, 하드코딩된 수수료율 키 대신 상장된 전체 마켓의 수수료율 정보(`markets` 테이블 목록)를 동적으로 연동하여 조회 및 업데이트하도록 변경한다.
-* [MODIFY] [StatsService.java](file:///home/administrator/exchange_be/admin-api/src/main/java/exchange/admin/service/StatsService.java):
-  - 통계 요약 및 화면 갱신 데이터 구성 시, 하드코딩된 static 설정을 읽어오는 대신 `markets` 테이블을 조인 및 조회하여 동적으로 마켓별 수수료율 데이터를 반환한다.
-* **서비스 레이어 명시적 이력 로깅 (Service-level Explicit Logging)**:
-  마켓 수정이 발생하는 백엔드 비즈니스 서비스 코드단에서 명시적으로 `MarketHistory` 객체를 생성하여 저장(Save)하는 로직을 직접 구현한다.
-  * **값의 복사**: `MarketHistory` 저장 시 생성/수정 일시 및 생성/수정자 필드는 변경 완료된 `Market` 엔티티의 필드 값을 그대로 대입하여 저장한다.
-* **마켓 및 수수료 관리 API**: 신규 마켓 추가, 상장 상태 제어, 수수료율 수정을 처리하는 REST API를 개발한다.
-* **Lazy Wallet Initialization**: 입금 요청 및 체결 완료 처리 시 지갑 미존재 시 자동 생성하는 공통 유틸리티를 적용한다.
-* **카프카 토픽 및 엔진 격리 유지**: 마켓 간 완벽한 성능 격리를 위해 기존의 마켓별 개별 토픽(`order-commands-{symbol}`, `matching-events-{symbol}`) 구조와 docker-compose 기반 독립 매칭 엔진 컨테이너 배포 구조를 그대로 유지한다.
+#### [NEW] [Enums (공통 상수 도메인 정의)](file:///d:/exchange_be/admin-api/src/main/java/exchange/admin/model/constant/)
+* `OrderStatus`, `UserRole`, `UserGrade`, `LedgerType`, `WithdrawalStatus`, `MarketStatus` 자바 Enum 클래스를 생성합니다.
 
-### 4. Matching Engine (engine-core & db-persister)
-* [MODIFY] [DbPersisterRunner.java](file:///home/administrator/exchange_be/adapter-kafka/src/main/java/exchange/kafka/db/DbPersisterRunner.java):
-  - 수수료 캐시 로딩 쿼리를 `SELECT symbol, fee_rate FROM market_fees`에서 `SELECT symbol, fee_rate FROM markets`로 수정한다.
-  - > [!TIP]
-    > **수수료 캐시 폴백 일반화**: 캐시 로드 실패 시 적용되는 하드코딩된 분기(`if ("ADA-KRW".equals(symbol))`)를 지우고, 임의의 마켓에 대해 시스템 글로벌 기본 수수료율(예: `0.001`)이 폴백되도록 리팩토링한다.
+#### [MODIFY] [User.java](file:///d:/exchange_be/admin-api/src/main/java/exchange/admin/model/User.java)
+* 필드 `role`과 `grade`를 문자열에서 `UserRole`, `UserGrade` Enum 타입으로 각각 수정하고 `@Enumerated(EnumType.STRING)`을 지정합니다.
 
+#### [MODIFY] [CustomUserDetailsService.java](file:///d:/exchange_be/admin-api/src/main/java/exchange/admin/security/CustomUserDetailsService.java)
+* 문자열 대신 Enum 상수 비교 방식으로 SYSTEM 계정 외부 로그인 차단 비즈니스 로직을 변경합니다.
+
+#### [MODIFY] [application.properties (또는 application.yml)](file:///d:/exchange_be/admin-api/src/main/resources/application.properties)
+* MyBatis 연동 호환을 위한 설정 항목 추가:
+  ```properties
+  mybatis.configuration.default-enum-type-handler=org.apache.ibatis.type.EnumTypeHandler
+  ```
+
+### 3. Frontend Types Auto-Generation (TypeScript)
+
+#### [MODIFY] [package.json (frontend-admin 및 frontend-user)](file:///d:/exchange_be/frontend-admin/package.json)
+* OpenAPI 기반 스키마 변환 라이브러리(`openapi-typescript` 등)를 의존성에 추가하고, 백엔드의 OpenAPI JSON 엔드포인트를 호출하여 자동으로 TypeScript 타입 정의 파일을 생성하는 스크립트를 정의합니다.
+  ```json
+  "scripts": {
+    "generate-api": "openapi-typescript http://localhost:8088/v3/api-docs -o src/api/types.ts"
+  }
+  ```
 
 ---
 
 ## Verification Plan
 
 ### Automated Tests
-* DB 신규 마켓 추가, 수수료 변경 및 Java 비즈니스 서비스 단에서의 명시적 이력 기록(history) 검증 API 단위 테스트 (등록/수정 정보 동일 여부 확인)
-* 지갑 동시 자동 생성 로직 동기화 정합성 테스트
+* `./gradlew.bat :adapter-kafka:test`를 기동하여 변경 후에도 테스트가 모두 차질 없이 작동하는지 최종 테스트를 거칩니다.
 
 ### Manual Verification
-* 변경 배포 시 반드시 `docker compose down -v`를 실행하여 Flyway 정합성 초기화 후 정상 빌드 및 실행 여부 검증
-* 어드민 콘솔에서 신규 마켓 `ETH-USDT` 상장 등록 및 수수료 변경 조작 후 `market_histories` 테이블에 로그가 정상적으로 명시적 인서트 되는지 검증 (created_at, updated_at, created_by, updated_by 값이 markets와 같은지 확인)
-* 유저 화면 노출 및 체결 정상 동작 여부 최종 검증
+* `admin-api` 서버 기동 후 `GET http://localhost:8088/v3/api-docs`를 확인하여 API 문서 스펙에 Enum 정보가 문자열 기반 스키마로 명세되어 출력되는지 검사합니다.
+* 프론트엔드 모듈 경로에서 `npm run generate-api` 스크립트를 수행하여 `src/api/types.ts` 파일이 정상적으로 동적 생성되는지 검증합니다.

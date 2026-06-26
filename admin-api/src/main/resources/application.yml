@@ -21,3 +21,9 @@ spring:
 app:
   jwt:
     secret: ${JWT_SECRET:super_secure_jwt_secret_key_at_least_32_chars_long_exchange_api_token}
+
+# MyBatis 전역 Enum 타입 핸들러 설정 (자바 Enum과 DB 문자열 자동 매핑용)
+mybatis:
+  configuration:
+    default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler
+

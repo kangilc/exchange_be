@@ -34,12 +34,12 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
         // 보안 조치: SYSTEM 역할의 정산용 계정은 외부 로그인 인증을 차단합니다.
-        if ("SYSTEM".equalsIgnoreCase(user.getRole())) {
+        if (exchange.admin.model.constant.UserRole.SYSTEM == user.getRole()) {
             throw new UsernameNotFoundException("System accounts are not allowed to authenticate: " + email);
         }
 
         // 예: GRADE가 'ADMIN'이면 ROLE_ADMIN 권한 매핑
-        String role = "ROLE_" + user.getGrade().toUpperCase();
+        String role = "ROLE_" + user.getGrade().name().toUpperCase();
 
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
