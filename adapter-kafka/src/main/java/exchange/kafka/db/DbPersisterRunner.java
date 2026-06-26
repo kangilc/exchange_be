@@ -32,10 +32,10 @@ public final class DbPersisterRunner {
     // JSON 파싱을 위한 ObjectMapper 인스턴스
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    // 수수료 캐시 정보를 보관하는 동시성 해시맵
-    private static final java.util.concurrent.ConcurrentHashMap<String, Double> feeRatesCache = new java.util.concurrent.ConcurrentHashMap<>();
+    // 마켓 설정 정보를 보관하는 동시성 해시맵
+    private static final java.util.concurrent.ConcurrentHashMap<String, MarketConfig> marketConfigCache = new java.util.concurrent.ConcurrentHashMap<>();
     // DB의 최신 마켓 정보를 마지막으로 조회한 시각 (밀리초)
-    private static volatile long lastFeeRatesLoadTs = 0;
+    private static volatile long lastMarketConfigsLoadTs = 0;
 
     public static void main(String[] args) {
         System.out.println("==================================================");
@@ -163,9 +163,12 @@ public final class DbPersisterRunner {
         String baseAsset = symbol.split("-")[0];  // 예: BTC-USD 에서 BTC
         String quoteAsset = symbol.split("-")[1]; // 예: BTC-USD 에서 USD
 
+        MarketConfig config = getMarketConfig(conn, symbol);
+        double divisor = Math.pow(10, config.priceDecimals);
+
         if ("BUY".equals(side)) {
-            // 매수(BUY) 주문 시: 가격(소수점 2자리 고려하여 / 100.0) * 수량 만큼 결제 자산(quote)을 잠금
-            double requiredQuote = (price / 100.0) * qty;
+            // 매수(BUY) 주문 시: 가격(소수점 자릿수 고려) * 수량 만큼 결제 자산(quote)을 잠금
+            double requiredQuote = (price / divisor) * qty;
             adjustBalance(conn, userId, quoteAsset, -requiredQuote, requiredQuote, "ORDER_HOLD", orderId);
         } else {
             // 매도(SELL) 주문 시: 주문 수량만큼 기초 자산(base)을 잠금
@@ -193,9 +196,11 @@ public final class DbPersisterRunner {
         long qty = node.get("qty").asLong();
         long ts = node.get("ts").asLong();
 
-        // 수수료율 계산
-        double feeRate = getFeeRate(conn, symbol);
-        double feeAmount = (price / 100.0 * qty) * feeRate;
+        // 수수료율 및 소수점 자리 계산
+        MarketConfig config = getMarketConfig(conn, symbol);
+        double divisor = Math.pow(10, config.priceDecimals);
+        double feeRate = config.feeRate;
+        double feeAmount = (price / divisor * qty) * feeRate;
 
         // 1. 체결 이벤트 저장
         String sqlTrade = "INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, fee_rate, fee_amount, created_at) " +
@@ -235,7 +240,7 @@ public final class DbPersisterRunner {
         String baseAsset = symbol.split("-")[0];
         String quoteAsset = symbol.split("-")[1];
 
-        double tradeQuoteQty = (price / 100.0) * qty;
+        double tradeQuoteQty = (price / divisor) * qty;
         double tradeBaseQty = qty;
 
         // 구매자(Buyer) 처리: 잠금되어 있던 결제 자산(quote) 차감 및 획득한 기초 자산(base) 가산
@@ -295,9 +300,12 @@ public final class DbPersisterRunner {
         String baseAsset = symbol.split("-")[0];
         String quoteAsset = symbol.split("-")[1];
 
+        MarketConfig config = getMarketConfig(conn, symbol);
+        double divisor = Math.pow(10, config.priceDecimals);
+
         if ("BUY".equals(side)) {
             // 매수 주문 취소 시: 남은 수량에 해당되는 결제자산(quote) 잠금 해제
-            double refundQuote = (price / 100.0) * remainingQty;
+            double refundQuote = (price / divisor) * remainingQty;
             adjustBalance(conn, userId, quoteAsset, refundQuote, -refundQuote, "CANCEL_RELEASE", orderId);
         } else {
             // 매도 주문 취소 시: 남은 수량만큼의 코인/기초자산(base) 잠금 해제
@@ -394,33 +402,49 @@ public final class DbPersisterRunner {
         }
     }
 
+    private static class MarketConfig {
+        final double feeRate;
+        final int priceDecimals;
+
+        MarketConfig(double feeRate, int priceDecimals) {
+            this.feeRate = feeRate;
+            this.priceDecimals = priceDecimals;
+        }
+    }
+
     /**
-     * DB의 markets 테이블에서 실시간 마켓 수수료율을 캐싱 및 제공합니다.
+     * DB의 markets 테이블에서 실시간 마켓 설정(수수료율, 소수점 자릿수)을 캐싱 및 제공합니다.
      * 매 10초 주기로 DB 쿼리를 다시 실행하여 캐시 맵을 갱신(리로드)합니다.
      * 
      * @param conn DB Connection
      * @param symbol 마켓 구분자 (예: BTC-USD)
-     * @return 수수료율 (기본값: 0.001)
+     * @return 마켓 설정 정보 (없을 경우 기본값 수수료율 0.001, 소수점 2자리)
      */
-    private static double getFeeRate(Connection conn, String symbol) {
+    private static MarketConfig getMarketConfig(Connection conn, String symbol) {
         long now = System.currentTimeMillis();
         // 10초 주기로 DB에서 최신 설정값을 리로드하여 메모리 캐시 최신화
-        if (now - lastFeeRatesLoadTs > 10000 || feeRatesCache.isEmpty()) {
+        if (now - lastMarketConfigsLoadTs > 10000 || marketConfigCache.isEmpty()) {
             try {
-                String sql = "SELECT symbol, fee_rate FROM markets";
+                String sql = "SELECT symbol, fee_rate, price_decimals FROM markets";
                 try (PreparedStatement ps = conn.prepareStatement(sql);
                      ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
-                        feeRatesCache.put(rs.getString("symbol"), rs.getDouble("fee_rate"));
+                        String sym = rs.getString("symbol");
+                        double feeRate = rs.getDouble("fee_rate");
+                        int priceDecimals = rs.getInt("price_decimals");
+                        if (rs.wasNull()) {
+                            priceDecimals = 2; // 안전한 기본값
+                        }
+                        marketConfigCache.put(sym, new MarketConfig(feeRate, priceDecimals));
                     }
-                    lastFeeRatesLoadTs = now;
+                    lastMarketConfigsLoadTs = now;
                 }
             } catch (SQLException e) {
-                System.err.println("Failed to load fee rates from database: " + e.getMessage());
+                System.err.println("Failed to load market configs from database: " + e.getMessage());
             }
         }
         
-        return feeRatesCache.getOrDefault(symbol, 0.001);
+        return marketConfigCache.getOrDefault(symbol, new MarketConfig(0.001, 2));
     }
 }
 
