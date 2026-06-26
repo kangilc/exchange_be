@@ -2,7 +2,8 @@
 trigger: always_on
 ---
 
-## 📜 AI Agent Development Rules & Constraints## 1. 🛡️ 보안 및 안전 제약 (Security & Safety)
+## 📜 AI Agent Development Rules & Constraints## 
+1. 🛡️ 보안 및 안전 제약 (Security & Safety)
 
 * 자격 증명 노출 금지: .env 파일, API Key, 패스워드, JWT 시크릿 등을 코드 내에 하드코딩하지 마십시오. 반드시 환경 변수를 사용하십시오.
 * 파괴적 명령 금지: 데이터베이스를 삭제(DROP, TRUNCATE)하거나 파일 시스템을 영구 삭제(rm -rf 등)하는 명령은 터미널에서 절대 독단적으로 실행하지 마십시오.
@@ -20,6 +21,9 @@ trigger: always_on
 * 에러 핸들링: 모든 비동기 처리(Async/Await)와 API 호출에는 반드시 명시적인 예외 처리(try-catch)와 사용자 친화적인 에러 로그를 포함하십시오. [4, 5] 
 * 리소스 및 메모리 누수 방지: 웹소켓(WebSocket) 연결, 이벤트 리스너, setInterval/setTimeout 등은 컴포넌트 언마운트나 상태 변경 시 반드시 명시적으로 정리(cleanup)하십시오.
 * 상태 관리 최적화: Zustand 등 전역 상태를 구독할 때, 실시간 데이터로 인한 불필요한 리렌더링을 방지하기 위해 반드시 개별 셀렉터(Selector)를 사용하여 구독하십시오.
+* JPA, Mybatis를 병용해서 사용이니 일반 적인 CURD는 JPA, 복잡한 쿼리는 Mybatis Dao를 사용하도록.
+* 소스 수정 등의 일을 할 때 반드시 한글 주석을 추가
+* 관련 프로젝트 내의 README.md 파일 현행화
 
 ## 4. 📝 깃 및 변경 관리 제약 (Git & Change Management)
 
