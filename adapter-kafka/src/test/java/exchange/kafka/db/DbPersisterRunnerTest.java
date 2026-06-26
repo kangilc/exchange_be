@@ -15,14 +15,17 @@ import static org.junit.jupiter.api.Assertions.*;
 public class DbPersisterRunnerTest {
 
     // PostgreSQL 테스트용 데이터베이스 URL (exchange_test)
-    private static final String TEST_DB_URL = "jdbc:postgresql://localhost:5432/exchange_test";
+    private static final String BASE_DB_URL = exchange.kafka.ConfigLoader.get("DB_URL", "jdbc:postgresql://localhost:5432/exchange");
+    private static final String TEST_DB_URL = BASE_DB_URL.endsWith("/exchange") ? BASE_DB_URL.substring(0, BASE_DB_URL.length() - 9) + "/exchange_test" : BASE_DB_URL;
+    private static final String TEST_DB_USER = exchange.kafka.ConfigLoader.get("DB_USER", "postgres");
+    private static final String TEST_DB_PASSWORD = exchange.kafka.ConfigLoader.get("DB_PASSWORD", "postgres");
     private static final ObjectMapper mapper = new ObjectMapper();
 
     static {
         // 테스트용 DB 환경 변수를 System Property로 지정하여 ConfigLoader가 읽도록 유도
         System.setProperty("DB_URL", TEST_DB_URL);
-        System.setProperty("DB_USER", "postgres");
-        System.setProperty("DB_PASSWORD", "postgres");
+        System.setProperty("DB_USER", TEST_DB_USER);
+        System.setProperty("DB_PASSWORD", TEST_DB_PASSWORD);
     }
 
     @BeforeAll
@@ -31,7 +34,7 @@ public class DbPersisterRunnerTest {
         
         // Flyway를 통해 admin-api 모듈의 최신 스펙 마이그레이션 파일들을 읽어 exchange_test DB를 자동으로 구축합니다.
         org.flywaydb.core.Flyway flyway = org.flywaydb.core.Flyway.configure()
-                .dataSource(TEST_DB_URL, "postgres", "postgres")
+                .dataSource(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)
                 .locations("filesystem:../admin-api/src/main/resources/db/migration")
                 .cleanDisabled(false) // clean 기능 활성화
                 .load();
@@ -44,7 +47,7 @@ public class DbPersisterRunnerTest {
     @BeforeEach
     public void clearDatabase() throws Exception {
         // 테스트 케이스 수행 전 모든 데이터 클리어 및 초기 모의 데이터 적재
-        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, "postgres", "postgres")) {
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute("TRUNCATE TABLE ledger_journal, trades, orders, wallets, markets, users RESTART IDENTITY CASCADE");
                 
@@ -93,7 +96,7 @@ public class DbPersisterRunnerTest {
 
         invokeProcessMessage(node.toString());
 
-        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, "postgres", "postgres")) {
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
             // 주문이 정상 저장되었는지 검증
             try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM orders WHERE order_id = 1")) {
                 try (ResultSet rs = ps.executeQuery()) {
@@ -117,7 +120,7 @@ public class DbPersisterRunnerTest {
     @Test
     @DisplayName("기본 주문 취소 (CANCEL) 검증")
     public void testBasicOrderCancel() throws Exception {
-        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, "postgres", "postgres")) {
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute("INSERT INTO orders (order_id, user_id, symbol, side, price, qty, remaining_qty, status) " +
                         "VALUES (5, 100, 'BTC-USD', 'BUY', 6000000, 1, 1, 'NEW')");
@@ -133,7 +136,7 @@ public class DbPersisterRunnerTest {
 
         invokeProcessMessage(node.toString());
 
-        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, "postgres", "postgres")) {
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
             // 주문 상태가 CANCELLED로 변경되었는지 검증
             try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM orders WHERE order_id = 5")) {
                 try (ResultSet rs = ps.executeQuery()) {
@@ -157,7 +160,7 @@ public class DbPersisterRunnerTest {
     @Test
     @DisplayName("기본 체결 정산, 수수료 차감 및 마켓별 시스템 계정 적립 검증")
     public void testBasicTradeSettlementAndFees() throws Exception {
-        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, "postgres", "postgres")) {
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
             try (Statement stmt = conn.createStatement()) {
                 // 매수자 주문 적재 및 잔고 잠금
                 stmt.execute("INSERT INTO orders (order_id, user_id, symbol, side, price, qty, remaining_qty, status) " +
@@ -186,7 +189,7 @@ public class DbPersisterRunnerTest {
 
         invokeProcessMessage(node.toString());
 
-        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, "postgres", "postgres")) {
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
             // 양측 주문이 모두 FILLED 상태가 되었는지 확인
             try (PreparedStatement ps = conn.prepareStatement("SELECT remaining_qty, status FROM orders WHERE order_id IN (10, 20)")) {
                 try (ResultSet rs = ps.executeQuery()) {
@@ -234,7 +237,7 @@ public class DbPersisterRunnerTest {
     @DisplayName("코인 소수점 자릿수 동적 처리 검증")
     public void testDynamicPriceDecimals() throws Exception {
         // ADA 마켓은 price_decimals = 0이므로 scale 적용 없이 500원이 실제 500원임
-        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, "postgres", "postgres")) {
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute("INSERT INTO orders (order_id, user_id, symbol, side, price, qty, remaining_qty, status) " +
                         "VALUES (11, 100, 'ADA-KRW', 'BUY', 500, 10, 10, 'NEW')");
@@ -262,7 +265,7 @@ public class DbPersisterRunnerTest {
 
         invokeProcessMessage(node.toString());
 
-        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, "postgres", "postgres")) {
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
             // 매수자 잔액에서 수수료 7.5원이 차감되었는지 확인
             try (PreparedStatement ps = conn.prepareStatement("SELECT balance FROM wallets WHERE user_id = 100 AND currency = 'KRW'")) {
                 try (ResultSet rs = ps.executeQuery()) {
@@ -300,7 +303,7 @@ public class DbPersisterRunnerTest {
         // 2차 중복 전송
         invokeProcessMessage(node.toString());
 
-        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, "postgres", "postgres")) {
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
             // 주문이 유니크하게 1개만 생성되어야 함
             try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM orders WHERE order_id = 100")) {
                 try (ResultSet rs = ps.executeQuery()) {
@@ -327,7 +330,7 @@ public class DbPersisterRunnerTest {
 
         invokeProcessMessage(node.toString());
 
-        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, "postgres", "postgres")) {
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
             // 트랜잭션이 롤백되어 주문 내역이 남지 않았는지 검증
             try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM orders WHERE order_id = 9999")) {
                 try (ResultSet rs = ps.executeQuery()) {
