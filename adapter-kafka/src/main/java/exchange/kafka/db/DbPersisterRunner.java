@@ -15,6 +15,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import exchange.kafka.KafkaConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Properties;
@@ -24,6 +26,7 @@ import java.util.Properties;
  * 이에 따른 유저의 자산 변동(잔액 차감, 잠금 설정, 정산) 및 회계 원장(ledger_journal) 기록을 수행하는 핵심 정산기
  */
 public final class DbPersisterRunner {
+    private static final Logger log = LoggerFactory.getLogger(DbPersisterRunner.class);
     // 설정 파일 로더로부터 DB 및 Kafka 연결 정보를 읽어옵니다.
     private static final String KAFKA_BROKER = ConfigLoader.get("KAFKA_BROKER", "localhost:9092");
     private static final String DB_URL = ConfigLoader.get("DB_URL", "jdbc:postgresql://localhost:5432/exchange");
@@ -41,17 +44,17 @@ public final class DbPersisterRunner {
     private static final java.util.concurrent.ConcurrentHashMap<String, Long> systemFeeUserIdCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     public static void main(String[] args) {
-        System.out.println("==================================================");
-        System.out.println("  🌌 HIGH-PERFORMANCE DB SETTLEMENT PERSISTER  ");
-        System.out.println("==================================================");
-        System.out.println("Connecting to database: " + DB_URL);
-        System.out.println("Kafka Broker          : " + KAFKA_BROKER);
+        log.info("==================================================");
+        log.info("  🌌 HIGH-PERFORMANCE DB SETTLEMENT PERSISTER  ");
+        log.info("==================================================");
+        log.info("Connecting to database: {}", DB_URL);
+        log.info("Kafka Broker          : {}", KAFKA_BROKER);
 
         // 프로그램 시작 시 DB 연결 가능 여부를 사전에 테스트(웜업)
         try (Connection conn = getConnection()) {
-            System.out.println("Successfully connected to PostgreSQL database!");
+            log.info("Successfully connected to PostgreSQL database!");
         } catch (Exception e) {
-            System.err.println("Database connection failed. Persister will retry continuously: " + e.getMessage());
+            log.error("Database connection failed. Persister will retry continuously: {}", e.getMessage());
         }
 
         // Kafka 컨슈머 구성
@@ -68,7 +71,8 @@ public final class DbPersisterRunner {
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props)) {
             // 접수(accept), 체결(trade), 취소(cancel) 토픽을 구독
             consumer.subscribe(Arrays.asList(KafkaConfig.TOPIC_ACCEPT, KafkaConfig.TOPIC_TRADE, KafkaConfig.TOPIC_CANCEL));
-            System.out.println("Subscribed to " + KafkaConfig.TOPIC_ACCEPT + ", " + KafkaConfig.TOPIC_TRADE + ", " + KafkaConfig.TOPIC_CANCEL + ". Starting poll loop...");
+            log.info("Subscribed to {}, {}, {}. Starting poll loop...", 
+                    KafkaConfig.TOPIC_ACCEPT, KafkaConfig.TOPIC_TRADE, KafkaConfig.TOPIC_CANCEL);
 
             // Kafka로부터 이벤트를 가져오는 메인 폴링(Poll) 루프
             while (true) {
@@ -78,7 +82,7 @@ public final class DbPersisterRunner {
                         processMessage(record.value());
                     }
                 } catch (Exception e) {
-                    System.err.println("Error in poll loop: " + e.getMessage());
+                    log.error("Error in poll loop: ", e);
                     try {
                         Thread.sleep(2000); // 에러 발생 시 2초 대기 후 루프 재개
                     } catch (InterruptedException ie) {
@@ -180,7 +184,7 @@ public final class DbPersisterRunner {
             adjustBalance(conn, userId, baseAsset, -requiredBase, requiredBase, "ORDER_HOLD", orderId);
         }
 
-        System.out.printf("[ACCEPT] Order %d (User %d, %s %s @ %,d Qty %d) persisted.\n", orderId, userId, symbol, side,
+        log.info("[ACCEPT] Order {} (User {}, {} {} @ {}, Qty {}) persisted.", orderId, userId, symbol, side,
                 price, qty);
     }
 
@@ -266,7 +270,7 @@ public final class DbPersisterRunner {
             adjustBalance(conn, systemFeeUserId, quoteAsset, feeAmount, 0, "FEE_REVENUE", seq);
         }
 
-        System.out.printf("[TRADE] Trade %d (Taker %d, Maker %d, Price %d, Qty %d) settled.\n", seq, takerOrderId,
+        log.info("[TRADE] Trade {} (Taker {}, Maker {}, Price {}, Qty {}) settled.", seq, takerOrderId,
                 makerOrderId, price, qty);
     }
 
@@ -356,7 +360,7 @@ public final class DbPersisterRunner {
             adjustBalance(conn, userId, baseAsset, refundBase, -refundBase, "CANCEL_RELEASE", orderId);
         }
 
-        System.out.printf("[CANCEL] Order %d (User %d, refunded %d remaining) successfully processed.\n", orderId,
+        log.info("[CANCEL] Order {} (User {}, refunded {} remaining) successfully processed.", orderId,
                 userId, remainingQty);
     }
 
@@ -485,7 +489,7 @@ public final class DbPersisterRunner {
                     lastMarketConfigsLoadTs = now;
                 }
             } catch (SQLException e) {
-                System.err.println("Failed to load market configs from database: " + e.getMessage());
+                log.error("Failed to load market configs from database: {}", e.getMessage());
             }
         }
 

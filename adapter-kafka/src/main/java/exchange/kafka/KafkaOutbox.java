@@ -4,6 +4,9 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.clients.producer.Callback;
+import org.apache.kafka.common.KafkaException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 
@@ -12,6 +15,8 @@ import java.util.Properties;
  * 각 메시지 유형별로 상응하는 Kafka 토픽으로 비동기 전송
  */
 public final class KafkaOutbox {
+    private static final Logger log = LoggerFactory.getLogger(KafkaOutbox.class);
+
     // 내부 실제 Kafka 메시지 전송을 처리할 프로듀서 객체
     private final KafkaProducer<String, String> producer;
 
@@ -34,19 +39,27 @@ public final class KafkaOutbox {
             return;
         }
 
+        String[] parts;
+        String type;
+        String symbol;
+
+        // 1. 데이터 파싱 단계 (포맷 불일치나 파싱 오류는 로그만 출력 후 스킵)
         try {
-            // 쉼표(,) 구분자로 이벤트를 분할
-            String[] parts = line.split(",");
+            parts = line.split(",");
             if (parts.length < 2) {
-                System.err.println("[KafkaOutbox] 잘못된 이벤트 포맷 (필드 부족): " + line);
+                log.error("잘못된 이벤트 포맷 (필드 부족): {}", line);
                 return;
             }
+            type = parts[0];
+            symbol = parts[1];
+        } catch (Exception e) {
+            log.error("이벤트 스플릿 오류 (무시): {} | 라인: {}", e.getMessage(), line);
+            return;
+        }
 
-            String type = parts[0]; // 이벤트 타입 (ACCEPT, DELTA, TRADE, CANCEL)
-            String symbol = parts[1]; // 마켓 심볼 (예: BTC-USD)
-
+        // 각 타입별 파싱 및 전송
+        try {
             if (type.equals("ACCEPT")) {
-                // [주문 접수 이벤트] 포맷: ACCEPT,symbol,seq,orderId,userId,side,price,qty
                 long seq = Long.parseLong(parts[2]);
                 long orderId = Long.parseLong(parts[3]);
                 long userId = Long.parseLong(parts[4]);
@@ -67,11 +80,9 @@ public final class KafkaOutbox {
                   .append("}");
                 
                 String jsonPayload = sb.toString();
-                // Kafka 공용 토픽 상수를 이용해 발행 및 에러 감지
-                producer.send(new ProducerRecord<>(KafkaConfig.TOPIC_ACCEPT, symbol, jsonPayload), new TrackingCallback("ACCEPT", symbol));
+                sendToKafka(KafkaConfig.TOPIC_ACCEPT, symbol, jsonPayload, "ACCEPT");
 
             } else if (type.equals("DELTA")) {
-                // [호가창 변동 이벤트] 포맷: DELTA,symbol,seq,side,price,deltaQty
                 long seq = Long.parseLong(parts[2]);
                 String side = parts[3];
                 long price = Long.parseLong(parts[4]);
@@ -87,10 +98,9 @@ public final class KafkaOutbox {
                   .append("}");
 
                 String jsonPayload = sb.toString();
-                producer.send(new ProducerRecord<>(KafkaConfig.TOPIC_DELTA, symbol, jsonPayload), new TrackingCallback("DELTA", symbol));
+                sendToKafka(KafkaConfig.TOPIC_DELTA, symbol, jsonPayload, "DELTA");
 
             } else if (type.equals("TRADE")) {
-                // [주문 체결 이벤트] 포맷: TRADE,symbol,seq,takerOrderId,takerUserId,makerOrderId,makerUserId,price,qty
                 long seq = Long.parseLong(parts[2]);
                 long takerOrderId = Long.parseLong(parts[3]);
                 long takerUserId = Long.parseLong(parts[4]);
@@ -112,10 +122,9 @@ public final class KafkaOutbox {
                   .append("}");
 
                 String jsonPayload = sb.toString();
-                producer.send(new ProducerRecord<>(KafkaConfig.TOPIC_TRADE, symbol, jsonPayload), new TrackingCallback("TRADE", symbol));
+                sendToKafka(KafkaConfig.TOPIC_TRADE, symbol, jsonPayload, "TRADE");
 
             } else if (type.equals("CANCEL")) {
-                // [주문 취소 이벤트] 포맷: CANCEL,symbol,seq,orderId,userId
                 long seq = Long.parseLong(parts[2]);
                 long orderId = Long.parseLong(parts[3]);
                 long userId = Long.parseLong(parts[4]);
@@ -129,11 +138,26 @@ public final class KafkaOutbox {
                   .append("}");
 
                 String jsonPayload = sb.toString();
-                producer.send(new ProducerRecord<>(KafkaConfig.TOPIC_CANCEL, symbol, jsonPayload), new TrackingCallback("CANCEL", symbol));
+                sendToKafka(KafkaConfig.TOPIC_CANCEL, symbol, jsonPayload, "CANCEL");
             }
+        } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
+            // 데이터 포맷 변환 오류는 로그 출력 후 스킵
+            log.error("데이터 필드 값 변환 실패 (무시): {} | 라인: {}", e.getMessage(), line);
+        }
+    }
+
+    /**
+     * Kafka 전송을 수행하고 치명적인 예외는 상위로 전파
+     */
+    private void sendToKafka(String topic, String key, String value, String eventType) {
+        try {
+            producer.send(new ProducerRecord<>(topic, key, value), new TrackingCallback(eventType, key));
+        } catch (KafkaException | IllegalStateException e) {
+            // Kafka 클라이언트 치명적인 오류나 프로듀서 비정상 상태는 상위 호출자로 전파하여 재연결 유도
+            log.error("치명적인 Kafka 예외 발생 (토픽: {}) -> 재전파", topic);
+            throw e;
         } catch (Exception e) {
-            // 패킷 결함 발생 시 어댑터가 기동 중단되지 않도록 안전 가드
-            System.err.println("[KafkaOutbox] 이벤트 파싱/전송 중 예외 발생 (데이터 무시): " + e.getMessage() + " | 원시 데이터: " + line);
+            log.error("기타 전송 실패 (토픽: {}) -> {}", topic, e.getMessage());
         }
     }
 
@@ -159,8 +183,7 @@ public final class KafkaOutbox {
         @Override
         public void onCompletion(RecordMetadata metadata, Exception exception) {
             if (exception != null) {
-                System.err.printf("[KafkaOutbox] %s 이벤트 전송 실패 (심볼: %s) -> %s\n", 
-                        eventType, symbol, exception.getMessage());
+                log.error("{} 이벤트 전송 실패 (심볼: {}) -> {}", eventType, symbol, exception.getMessage());
             }
         }
     }
