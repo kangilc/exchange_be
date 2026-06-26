@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS users (
     status VARCHAR(20) DEFAULT 'ACTIVE',
     grade VARCHAR(20) DEFAULT 'STANDARD',
     refresh_token VARCHAR(255),
+    role VARCHAR(20) DEFAULT 'USER', -- 사용자 역할 구분 (USER, SYSTEM)
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(100),
@@ -152,6 +153,7 @@ COMMENT ON COLUMN users.email IS '사용자 이메일 주소';
 COMMENT ON COLUMN users.password_hash IS '비밀번호 단방향 암호화 해시';
 COMMENT ON COLUMN users.status IS '사용자 상태 (ACTIVE, INACTIVE 등)';
 COMMENT ON COLUMN users.grade IS '사용자 등급 (STANDARD, VIP 등)';
+COMMENT ON COLUMN users.role IS '사용자 역할 구분 (USER, SYSTEM)';
 COMMENT ON COLUMN users.created_at IS '사용자 가입 및 생성 일시';
 
 COMMENT ON TABLE wallets IS '자산 지갑 테이블';
@@ -208,6 +210,28 @@ COMMENT ON COLUMN market_histories.fee_rate IS '변경 시점의 수수료율';
 COMMENT ON COLUMN market_histories.price_decimals IS '변경 시점의 소수점 자릿수';
 COMMENT ON COLUMN market_histories.min_amt IS '변경 시점의 최소 주문금액';
 COMMENT ON COLUMN market_histories.status IS '변경 시점의 마켓 상태';
+
+COMMENT ON TABLE user_crypto_addresses IS '사용자 가상자산 주소 매핑 테이블';
+COMMENT ON COLUMN user_crypto_addresses.address_id IS '주소 ID 고유 번호';
+COMMENT ON COLUMN user_crypto_addresses.user_id IS '사용자 고유 일련번호 (users.user_id 논리 참조)';
+COMMENT ON COLUMN user_crypto_addresses.currency IS '가상자산 통화 기호';
+COMMENT ON COLUMN user_crypto_addresses.crypto_address IS '가상자산 지갑 주소';
+
+COMMENT ON TABLE crypto_withdrawals IS '암호화자산 출금 요청 내역 테이블';
+COMMENT ON COLUMN crypto_withdrawals.withdrawal_id IS '출금 고유 ID';
+COMMENT ON COLUMN crypto_withdrawals.user_id IS '사용자 고유 일련번호 (users.user_id 논리 참조)';
+COMMENT ON COLUMN crypto_withdrawals.currency IS '출금 통화 기호';
+COMMENT ON COLUMN crypto_withdrawals.amount IS '출금 신청 수량';
+COMMENT ON COLUMN crypto_withdrawals.to_address IS '수신 대상 외부 지갑 주소';
+COMMENT ON COLUMN crypto_withdrawals.status IS '출금 상태 (PENDING, APPROVED, REJECTED, 등)';
+COMMENT ON COLUMN crypto_withdrawals.confirmations IS '블록체인 컨펌 수';
+COMMENT ON COLUMN crypto_withdrawals.tx_hash IS '출금 트랜잭션 해시';
+
+COMMENT ON TABLE system_hot_wallets IS '거래소 시스템 핫월렛 관리 테이블';
+COMMENT ON COLUMN system_hot_wallets.wallet_id IS '핫월렛 고유 ID';
+COMMENT ON COLUMN system_hot_wallets.currency IS '지원 가상자산 통화 기호';
+COMMENT ON COLUMN system_hot_wallets.crypto_address IS '핫월렛 지갑 주소';
+COMMENT ON COLUMN system_hot_wallets.balance IS '핫월렛 잔액';
 
 -- 5-1. 데이터 조회 성능 최적화를 위한 B-Tree 인덱스 구성 (Paging & Search)
 -- 원장 조회 최적화 (유형 및 시간순)

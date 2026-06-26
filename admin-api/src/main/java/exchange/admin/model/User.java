@@ -30,6 +30,9 @@ public class User extends BaseEntity {
     @Column(name = "refresh_token")
     private String refreshToken;
 
+    @Column(name = "role")
+    private String role = "USER";
+
     public User() {
     }
 
@@ -79,5 +82,13 @@ public class User extends BaseEntity {
 
     public void setRefreshToken(String refreshToken) {
         this.refreshToken = refreshToken;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
     }
 }

@@ -12,6 +12,13 @@ SELECT
 FROM generate_series(1, 1000) AS i
 ON CONFLICT (user_id) DO UPDATE SET created_at = EXCLUDED.created_at;
 
+-- 1-1. 마켓별 시스템 수수료 수급용 계정 등록
+INSERT INTO users (user_id, email, password_hash, role, created_at) VALUES
+(1001, 'sys-fee-btc-usd@javaf.net', 'SYSTEM_ACCOUNT_NO_PASSWORD', 'SYSTEM', NOW()),
+(1002, 'sys-fee-ada-krw@javaf.net', 'SYSTEM_ACCOUNT_NO_PASSWORD', 'SYSTEM', NOW())
+ON CONFLICT (user_id) DO NOTHING;
+
+
 -- 2. 지갑 잔액 초기화 (1000명의 사용자별 10억 KRW, 10 BTC, 10만 ADA 지원)
 INSERT INTO wallets (user_id, currency, balance, locked_balance)
 SELECT 

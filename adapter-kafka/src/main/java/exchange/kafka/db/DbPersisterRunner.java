@@ -36,6 +36,8 @@ public final class DbPersisterRunner {
     private static final java.util.concurrent.ConcurrentHashMap<String, MarketConfig> marketConfigCache = new java.util.concurrent.ConcurrentHashMap<>();
     // DB의 최신 마켓 정보를 마지막으로 조회한 시각 (밀리초)
     private static volatile long lastMarketConfigsLoadTs = 0;
+    // 마켓별 시스템 수수료 수계 계정 ID를 캐싱하는 동시성 해시맵
+    private static final java.util.concurrent.ConcurrentHashMap<String, Long> systemFeeUserIdCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     public static void main(String[] args) {
         System.out.println("==================================================");
@@ -253,7 +255,43 @@ public final class DbPersisterRunner {
         adjustBalance(conn, sellerUserId, baseAsset, 0, -tradeBaseQty, "TRADE_SETTLE", seq); 
         adjustBalance(conn, sellerUserId, quoteAsset, tradeQuoteQty, 0, "TRADE_SETTLE", seq); 
 
+        // 수수료 차감 및 시스템 계정 적립 (구매자가 지불)
+        if (feeAmount > 0) {
+            adjustBalance(conn, buyerUserId, quoteAsset, -feeAmount, 0, "FEE_PAID", seq);
+            long systemFeeUserId = getSystemFeeUserId(conn, symbol);
+            adjustBalance(conn, systemFeeUserId, quoteAsset, feeAmount, 0, "FEE_REVENUE", seq);
+        }
+
         System.out.printf("[TRADE] Trade %d (Taker %d, Maker %d, Price %d, Qty %d) settled.\n", seq, takerOrderId, makerOrderId, price, qty);
+    }
+
+    /**
+     * 마켓별 시스템 수수료 수급용 계정의 user_id를 조회합니다 (성능 향상을 위한 메모리 캐싱 적용).
+     */
+    private static long getSystemFeeUserId(Connection conn, String symbol) throws SQLException {
+        // 1. 메모리 캐시에 존재할 경우 DB 조회 없이 즉시 반환 (O(1))
+        if (systemFeeUserIdCache.containsKey(symbol)) {
+            return systemFeeUserIdCache.get(symbol);
+        }
+
+        // 2. 캐시되지 않은 경우 DB 조회 후 캐시 저장
+        String email = "sys-fee-" + symbol.toLowerCase() + "@javaf.net";
+        String sql = "SELECT user_id FROM users WHERE email = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, email);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    long userId = rs.getLong("user_id");
+                    systemFeeUserIdCache.put(symbol, userId);
+                    return userId;
+                }
+            }
+        }
+        
+        // 3. DB에 없을 경우 기본 폴백 ID 처리 후 캐시 저장
+        long fallbackId = "BTC-USD".equalsIgnoreCase(symbol) ? 1001L : 1002L;
+        systemFeeUserIdCache.put(symbol, fallbackId);
+        return fallbackId;
     }
 
     /**
