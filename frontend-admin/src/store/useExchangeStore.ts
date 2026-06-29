@@ -63,7 +63,8 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
                 body: JSON.stringify({ refreshToken: getLocalRefreshToken() })
             });
             if (refreshRes.ok) {
-                const tokens = await refreshRes.json();
+                const refreshBody = await refreshRes.json();
+                const tokens = refreshBody.data !== undefined ? refreshBody.data : refreshBody;
                 setLocalTokens(tokens.accessToken, tokens.refreshToken);
                 // 새로 발급받은 Access Token 재주입 후 원래 요청 재시도
                 (options.headers as any)['Authorization'] = `Bearer ${tokens.accessToken}`;
@@ -78,6 +79,12 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
             console.error("[Auth] 토큰 갱신 에러", e);
         }
     }
+    // ApiResponse로 래핑된 경우 data 필드를 자동 추출하도록 json() 메서드 오버라이드
+    const originalJson = res.json.bind(res);
+    res.json = async () => {
+        const j = await originalJson();
+        return (j && j.data !== undefined) ? j.data : j;
+    };
     return res;
 };
 
@@ -438,7 +445,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     body: JSON.stringify({ email, password })
                 });
                 if (res.ok) {
-                    const tokens = await res.json();
+                    const loginBody = await res.json();
+                    const tokens = loginBody.data !== undefined ? loginBody.data : loginBody;
                     setLocalTokens(tokens.accessToken, tokens.refreshToken);
                     localStorage.setItem('admin_auth_email', tokens.email);
                     set({ isAuthenticated: true, authEmail: tokens.email });
@@ -1072,7 +1080,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetch(`${get().apiBaseUrl}/admin/stats/markets`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const body = await res.json();
+                    const data = body.data !== undefined ? body.data : body;
                     set({ markets: data || [] });
 
                     if (data) {
@@ -1080,7 +1089,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                         try {
                             const tickersRes = await fetch(`${get().apiBaseUrl}/admin/stats/tickers`);
                             if (tickersRes.ok) {
-                                const tickersData = await tickersRes.json();
+                                const tBody = await tickersRes.json();
+                                const tickersData = tBody.data !== undefined ? tBody.data : tBody;
                                 tickersData.forEach((t: any) => {
                                     const scale = get().getScaleFactor(t.symbol);
                                     prices[t.symbol] = {

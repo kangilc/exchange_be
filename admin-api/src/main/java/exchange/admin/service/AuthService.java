@@ -45,7 +45,8 @@ public class AuthService {
 
         // 토큰 발급
         String refreshToken = tokenProvider.generateRefreshToken(user.getEmail());
-        String accessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), user.getGrade().name(), refreshToken);
+        // JWT 토큰에 관리자 권한(Role)을 명시적으로 주입함
+        String accessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), user.getRole().name(), refreshToken);
 
         // 중복 로그인 확인
         boolean priorLoginExisted = AdminSettings.isDuplicateLoginBlockEnabled()
@@ -92,9 +93,9 @@ public class AuthService {
             throw new AuthException("만료되었거나 이미 교체된 Refresh Token입니다. 강제 로그아웃됩니다.");
         }
 
-        // 3. 토큰 회전(RTR) 및 재발급
+        // 3. 토큰 회전(RTR) 및 재발급 (권한 주입 포함)
         String newRefreshToken = tokenProvider.generateRefreshToken(user.getEmail());
-        String newAccessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), user.getGrade().name(), newRefreshToken);
+        String newAccessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), user.getRole().name(), newRefreshToken);
 
         // 토큰 저장
         user.setRefreshToken(newRefreshToken);

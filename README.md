@@ -104,6 +104,8 @@ graph TD
     *   **안전한 하이브리드 비밀번호 인코더:** 신규 비밀번호는 솔트가 가미된 강력한 `BCrypt` 알고리즘으로 암호화하여 저장하며, 데이터베이스 내 기존 1,000명의 레거시 SHA-256 및 시드 목(Mock) 데이터 비밀번호도 안전하게 호환 대조되도록 구현함.
     *   **인증 비즈니스 로직 분리 (AuthService):** 기존 `AuthController`에 밀집되어 있던 로그인, 토큰 재발급, 로그아웃 관련 비즈니스 로직을 `AuthService` 레이어로 분리하고 응답을 `AuthResponseDTO`로 캡슐화하여 단일 책임 원칙(SRP) 준수.
     *   **기본 관리자 계정 자동 생성 (local/dev 프로파일):** 시스템 시작 시 기본 관리자 계정(`admin@javaf.net` / `admin123!@#`, `ADMIN` 권한) 존재 여부를 확인하고 없으면 자동 생성함. 로컬 및 개발 환경에서만 동작하며, PostgreSQL 초기화 완료를 대기한 뒤 `users_user_id_seq` 시퀀스를 동기화하고 계정을 생성함. 운영(`prod`) 환경에서는 실행되지 않음.
+    *   **전역 API 응답 구조 통일 및 프론트엔드 호환 패치 (🌟 신규):** 모든 백엔드 컨트롤러의 응답을 `ApiResponse (status, message, data)` 규격으로 감싸도록 `GlobalResponseWrapper`를 도입함. 또한 프론트엔드(`useExchangeStore.ts`)의 `fetchWithAuth` 및 각종 데이터 페칭 로직이 이 래퍼 구조를 자동으로 언래핑(Unwrap)하도록 수정하여 호환성과 안정성을 확보함.
+    *   **생성자 기반 의존성 주입 리팩토링 (🌟 신규):** 컨트롤러(`AuthController`, `CryptoWalletController` 등)에서 사용하던 `@Autowired` 필드 주입을 Lombok의 `@RequiredArgsConstructor`와 `final` 필드를 활용한 생성자 주입 방식으로 개선하여 의존성 불변성과 테스트 용이성을 확보함.
 *   **JPA Auditing 및 AOP 기반 스레드 안전 등록자/수정자 자동 이원화 주입 아키텍처 (🌟 신규):**
     *   **전체 테이블 Auditing 확장:** `users`뿐만 아니라 `wallets`, `ledger_journal`, `crypto_withdrawals`, `user_crypto_addresses`, `system_hot_wallets`, `trades` 등 전체 영속성 엔티티가 `BaseEntity`를 공동 상속하게 설계하여 오디팅 컬럼(`createdAt`, `updatedAt`, `createdBy`, `updatedBy`) 구성을 전체 테이블에 일괄 이식함.
     *   **AOP 기반 스레드 안전 이원화 기록 (`@SystemAuditor`):** 

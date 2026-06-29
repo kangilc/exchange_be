@@ -31,30 +31,25 @@ import java.util.UUID;
 @Slf4j
 @RestController
 @RequestMapping("/admin/crypto")
+@lombok.RequiredArgsConstructor
 public class CryptoWalletController {
 
     /** 출금 요청 내역(CryptoWithdrawal)에 접근하기 위한 리포지토리 */
-    @Autowired
-    private CryptoWithdrawalRepository cryptoWithdrawalRepository;
+    private final CryptoWithdrawalRepository cryptoWithdrawalRepository;
 
     /** 시스템 핫월렛(SystemHotWallet) 잔고 관리를 위한 리포지토리 */
-    @Autowired
-    private SystemHotWalletRepository systemHotWalletRepository;
+    private final SystemHotWalletRepository systemHotWalletRepository;
 
     /** 사용자별 발급된 온체인 지갑 주소(UserCryptoAddress) 조회를 위한 리포지토리 */
-    @Autowired
-    private UserCryptoAddressRepository userCryptoAddressRepository;
+    private final UserCryptoAddressRepository userCryptoAddressRepository;
 
     /** 사용자의 가상 지갑(Wallet) 잔고 수정을 위한 리포지토리 */
-    @Autowired
-    private WalletRepository walletRepository;
+    private final WalletRepository walletRepository;
 
     /** 블록체인 시뮬레이션 데몬 및 입금 대기열 관리를 위한 서비스 */
-    @Autowired
-    private WalletDaemonService walletDaemonService;
+    private final WalletDaemonService walletDaemonService;
 
-    @Autowired
-    private JAFTokenService jafTokenService;
+    private final JAFTokenService jafTokenService;
 
     /**
      * [GET] /admin/crypto/withdrawals

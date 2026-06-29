@@ -95,12 +95,13 @@ public class AdminApiApplication {
                 log.error("Database initialization task failed", e);
             }
 
-            // 기본 관리자 계정 자동 생성
+            // 3. 기본 관리자 계정 자동 생성
             String adminEmail = "admin@javaf.net";
             try {
                 if (userRepository.findByEmail(adminEmail).isEmpty()) {
                     // 유저 권한으로 생성 후 관리자 권한으로 수정함
-                    exchange.admin.model.User adminUser = userService.registerUser(adminEmail, "admin123!@#", exchange.admin.model.constant.UserGrade.STANDARD.name());
+                    exchange.admin.model.User adminUser = userService.registerUser(adminEmail, "admin123!@#",
+                            exchange.admin.model.constant.UserGrade.STANDARD.name());
                     adminUser.setRole(exchange.admin.model.constant.UserRole.ADMIN);
                     userRepository.save(adminUser);
                     log.info("Default admin user seeded successfully!");

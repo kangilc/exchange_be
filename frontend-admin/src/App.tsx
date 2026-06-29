@@ -204,9 +204,9 @@ export const App: React.FC = () => {
         const res = await login(loginEmail, loginPassword);
         if (res.success) {
             if (res.priorLoginExisted) {
-                alert('⚠️ 다른 기기나 브라우저에서 먼저 로그인했던 관리자 세션이 감지되었습니다. 이전 세션은 즉시 안전하게 로그아웃(세션 파기) 처리됩니다.');
+                alert('⚠️ 중복 로그인이 감지되어 이전 세션이 로그아웃 되었습니다.');
             } else {
-                alert('로그인 성공');
+                // alert('로그인 성공');
             }
         } else {
             alert('로그인 정보가 올바르지 않습니다.');

@@ -20,10 +20,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/admin/auth")
 @CrossOrigin(origins = "*")
+@lombok.RequiredArgsConstructor
 public class AuthController {
 
-    @Autowired
-    private AuthService authService;
+    private final AuthService authService;
 
     /**
      * 로그인 처리 및 JWT 발급.
