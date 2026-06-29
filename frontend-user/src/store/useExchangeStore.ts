@@ -595,7 +595,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/wallets/me`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const json = await res.json();
+                    const data = json.data || json;
                     const balMap: Record<string, number> = {};
                     data.forEach((w: any) => {
                         balMap[w.currency] = parseFloat(w.balance);
@@ -613,8 +614,9 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/me/trades?page=0&size=50`);
                 if (res.ok) {
-                    const data = await res.json();
-                    return data.content || [];
+                    const json = await res.json();
+                    const data = json.data || json;
+                    return data.content || data || [];
                 }
             } catch (err) {
                 console.error("Failed to fetch user trades", err);
@@ -627,8 +629,9 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/me/ledgers?page=0&size=50`);
                 if (res.ok) {
-                    const data = await res.json();
-                    return data.content || [];
+                    const json = await res.json();
+                    const data = json.data || json;
+                    return data.content || data || [];
                 }
             } catch (err) {
                 console.error("Failed to fetch user ledgers", err);
@@ -798,7 +801,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetch(`${get().apiBaseUrl}/admin/stats/markets`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const json = await res.json();
+                    const data = json.data || json;
                     set({ markets: data || [] });
 
                     if (data) {
@@ -806,7 +810,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                         try {
                             const tickersRes = await fetch(`${get().apiBaseUrl}/admin/stats/tickers`);
                             if (tickersRes.ok) {
-                                const tickersData = await tickersRes.json();
+                                const tickersJson = await tickersRes.json();
+                                const tickersData = tickersJson.data || tickersJson;
                                 tickersData.forEach((t: any) => {
                                     const scale = get().getScaleFactor(t.symbol);
                                     prices[t.symbol] = {
