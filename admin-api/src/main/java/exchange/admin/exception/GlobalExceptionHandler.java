@@ -37,4 +37,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.error(HttpStatus.UNAUTHORIZED.value(), ex.getMessage()));
     }
+
+    /**
+     * 서버 내부에서 발생하는 예상치 못한 모든 예외(500)를 가로채어 규격화된 포맷(ApiResponse)으로 반환함.
+     * 실제 에러 로그는 서버 콘솔에만 기록함.
+     * 
+     * @param ex 서버 내부 예외
+     * @return 500 에러를 담은 규격화된 응답 객체
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Void>> handleAllExceptions(Exception ex) {
+        // 보안을 위해 실제 에러 메시지는 서버 로그에만 남김.
+        ex.printStackTrace();
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), "서버 내부 오류 발생"));
+    }
 }

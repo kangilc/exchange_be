@@ -27,7 +27,8 @@ import java.util.Collections;
 /**
  * Spring Security 및 웹 보안 설정을 통합 구성하는 클래스입니다.
  * 세션을 사용하지 않는 Stateless(REST API) 정책을 취하며, JWT 기반의 사용자 인증 메커니즘을 적용합니다.
- * CORS 정책 허용, Swagger UI 등의 공개 엔드포인트 라우팅 허용 및 BCrypt/SHA-256 호환 패스워드 인코더 등을 빈으로 등록합니다.
+ * CORS 정책 허용, Swagger UI 등의 공개 엔드포인트 라우팅 허용 및 BCrypt/SHA-256 호환 패스워드 인코더 등을 빈으로
+ * 등록합니다.
  */
 @Configuration
 @EnableWebSecurity
@@ -64,24 +65,29 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(AbstractHttpConfigurer::disable)
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll() // Swagger UI 및 OpenAPI 스펙 허용
-                .requestMatchers("/admin/auth/**").permitAll() // 로그인/토큰갱신 공개
-                .requestMatchers("/admin/stats/candles").permitAll() // 일반 사용자 차트용 캔들 조회 허용
-                .requestMatchers("/admin/stats/markets").permitAll() // 일반 사용자 마켓 조회 허용
-                .requestMatchers("/admin/stats/ticker", "/admin/stats/tickers").permitAll() // 일반 사용자 및 비인가 마켓 현재가 조회 허용
-                .requestMatchers("/admin/users/me/**").authenticated() // 일반 사용자 본인 계정 정보(체결/원장 등) 조회 허용
-                .requestMatchers("/admin/wallets/me").authenticated() // 일반 사용자 본인 지갑 조회 허용
-                .requestMatchers("/admin/wallets/user/**").permitAll() // 일반 사용자 모의 지갑 조회 허용
-                .requestMatchers("/admin/users/*/assets/adjust").permitAll() // 일반 사용자 모의 자산 조정 허용
-                .requestMatchers("/admin/**").hasRole("ADMIN") // 그 외 관리자 경로는 ADMIN 권한 필수
-                .anyRequest().authenticated()
-            )
-            // JWT 인증 필터를 UsernamePasswordAuthenticationFilter 앞에 추가
-            .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll() // Swagger
+                                                                                                              // UI 및
+                                                                                                              // OpenAPI
+                                                                                                              // 스펙 허용
+                        .requestMatchers("/admin/auth/**").permitAll() // 로그인/토큰갱신 공개
+                        .requestMatchers("/admin/stats/candles").permitAll() // 일반 사용자 차트용 캔들 조회 허용
+                        .requestMatchers("/admin/stats/markets").permitAll() // 일반 사용자 마켓 조회 허용
+                        .requestMatchers("/admin/stats/ticker", "/admin/stats/tickers").permitAll() // 일반 사용자 및 비인가 마켓
+                                                                                                    // 현재가 조회 허용
+                        .requestMatchers("/admin/users/me/**").authenticated() // 일반 사용자 본인 계정 정보(체결/원장 등) 조회 허용
+                        .requestMatchers("/admin/wallets/me").authenticated() // 일반 사용자 본인 지갑 조회 허용
+                        .requestMatchers("/admin/wallets/user/**").permitAll() // 일반 사용자 모의 지갑 조회 허용
+                        .requestMatchers("/admin/users/*/assets/adjust").permitAll() // 일반 사용자 모의 자산 조정 허용
+                        .requestMatchers("/admin/**").hasRole("ADMIN") // 그 외 관리자 경로는 ADMIN 권한 필수
+                        .requestMatchers("/error").permitAll()
+                        .requestMatchers("/favicon.ico").permitAll()
+                        .anyRequest().authenticated())
+                // JWT 인증 필터를 UsernamePasswordAuthenticationFilter 앞에 추가
+                .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -90,7 +96,8 @@ public class SecurityConfig {
      * 인증을 처리하는 AuthenticationManager 빈을 반환합니다.
      */
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
+            throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
     }
 
@@ -154,7 +161,8 @@ public class SecurityConfig {
                     StringBuilder hexString = new StringBuilder();
                     for (byte b : hash) {
                         String hex = Integer.toHexString(0xff & b);
-                        if (hex.length() == 1) hexString.append('0');
+                        if (hex.length() == 1)
+                            hexString.append('0');
                         hexString.append(hex);
                     }
                     return hexString.toString();

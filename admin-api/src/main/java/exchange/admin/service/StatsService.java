@@ -33,6 +33,7 @@ public class StatsService {
 
     /**
      * 지정된 해상도(resolution) 단위로 그룹핑된 거래 통계 목록을 조회합니다.
+     * 
      * @param resolution 시간 해상도 (예: daily, weekly 등)
      * @return 거래 통계 목록
      */
@@ -43,6 +44,7 @@ public class StatsService {
 
     /**
      * 지정된 해상도 단위로 그룹핑된 원장 변경 통계 목록을 조회합니다.
+     * 
      * @param resolution 시간 해상도
      * @return 원장 변경 통계 목록
      */
@@ -53,6 +55,7 @@ public class StatsService {
 
     /**
      * 지정된 해상도 단위로 그룹핑된 신규 회원 가입 통계 목록을 조회합니다.
+     * 
      * @param resolution 시간 해상도
      * @return 가입 통계 목록
      */
@@ -63,6 +66,7 @@ public class StatsService {
 
     /**
      * 거래소 전반의 요약 통계(총 회원수, 누적 체결 수, 누적 거래 대금 등)를 집계합니다.
+     * 
      * @return 요약 통계 맵
      */
     public java.util.Map<String, Object> getSummaryStats() {
@@ -76,10 +80,11 @@ public class StatsService {
 
     /**
      * 특정 마켓 종목의 최종 체결 가격을 조회합니다. 캐시를 적용하여 조회 부하를 완화하며, 체결 내역이 없는 경우 상장가를 반환합니다.
+     * 
      * @param symbol 마켓 심볼 (예: BTC-USD)
      * @return 최종 체결 가격 (정수형)
      */
-    @org.springframework.cache.annotation.Cacheable(value = "lastPrice", key = "#symbol")
+    @org.springframework.cache.annotation.Cacheable(value = "lastPrice")
     public Long getLastPrice(String symbol) {
         return tradeRepository.findFirstBySymbolOrderByTradeIdDesc(symbol)
                 .map(exchange.admin.model.Trade::getPrice)
@@ -90,6 +95,7 @@ public class StatsService {
 
     /**
      * 특정 마켓 종목의 전일 종가(기준가)를 조회합니다. 오전 9시 정각 기준으로 구분값을 계산합니다.
+     * 
      * @param symbol 마켓 심볼 (예: BTC-USD)
      * @return 전일 종가 (정수형)
      */
@@ -239,6 +245,7 @@ public class StatsService {
     /**
      * 어드민 대시보드에서 활용하는 거래소 핵심 성능 및 재무 지표를 집계하여 산출합니다.
      * (누적 수수료 수익, 24시간 수익, DAU/MAU 활성 유저 비율, 30일 자산 유입 흐름, 거래 회전율 및 경쟁사 벤치마크 데이터 등)
+     * 
      * @return 집계된 성능 지표 Map
      */
     public java.util.Map<String, Object> getPerformanceStats() {
@@ -481,6 +488,7 @@ public class StatsService {
 
     /**
      * 현재 개설된 활성 마켓 종목 목록에 대해 각 종목별 현재가 및 전일 종가 정보가 매핑된 티커 리스트를 제공합니다.
+     * 
      * @return 티커 맵 목록
      */
     public List<java.util.Map<String, Object>> getTickers() {
@@ -499,6 +507,7 @@ public class StatsService {
 
     /**
      * 입력된 해상도 문자열을 PostgreSQL 시계열 date_trunc 함수의 인자 규격에 맞게 변환/정규화합니다.
+     * 
      * @param resolution 프론트엔드 입력 해상도
      * @return DB 질의용 시간 버킷 문자열 (day, week, month 등)
      */

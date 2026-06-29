@@ -35,9 +35,9 @@ public class LedgerController {
      */
     @GetMapping
     public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<LedgerJournalRepository.DetailedLedgerProjection>>> getAllDetailedLedgers(
-            @RequestParam(required = false) String search,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(name = "search", required = false) String search,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "50") int size) {
 
         // 검색 키워드가 있는 경우 앞뒤 공백을 제거하고 SQL LIKE 검색 패턴(%검색어%)을 빌드함
         String searchParam = (search != null && !search.trim().isEmpty()) ? "%" + search.trim() + "%" : null;

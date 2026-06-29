@@ -6,6 +6,17 @@
 
 ---
 
+## 🆕 최근 업데이트 (Recent Updates)
+- VS Code 환경 컴파일러 호환성 문제 해결 (`-parameters` 누락으로 인한 500 에러).
+  - `@RequestParam` 및 `@PathVariable` 파라미터 이름 명시 처리.
+  - `StatsService` 캐시 키 자동 생성 로직 롤백 및 안정화.
+- PostgreSQL 네이티브 쿼리 타입 추론 오류 해결 (`PSQLException`).
+  - `LedgerJournalRepository`의 `IS NULL` 파라미터에 명시적 `CAST(... AS text)` 추가.
+- `GlobalExceptionHandler` 전역 500 예외 처리 추가.
+  - 보안을 위해 스택 트레이스 노출 차단, `ApiResponse` 규격화 메시지로 클라이언트 응답.
+
+---
+
 ## 🚀 주요 성능 지표 (Benchmark)
 
 로컬 머신(OpenJDK 17 환경)에서 오프라인 백테스터를 구동해 측정한 매칭 엔진의 순수 처리 한계 성능.
