@@ -1,6 +1,7 @@
 package exchange.admin.controller;
 
 import lombok.extern.slf4j.Slf4j;
+import exchange.admin.dto.ApiResponse;
 import exchange.admin.model.CryptoWithdrawal;
 import exchange.admin.model.SystemHotWallet;
 import exchange.admin.model.Wallet;
@@ -11,6 +12,7 @@ import exchange.admin.repository.WalletRepository;
 import exchange.admin.service.WalletDaemonService;
 import exchange.admin.service.JAFTokenService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -64,9 +66,9 @@ public class CryptoWalletController {
      * @return 200 OK와 함께 전체 출금 신청 목록 반환
      */
     @GetMapping("/withdrawals")
-    public ResponseEntity<?> getAllWithdrawals() {
+    public ResponseEntity<ApiResponse<java.util.List<CryptoWithdrawal>>> getAllWithdrawals() {
         // 데이터베이스에서 모든 출금 신청 내역을 생성일시(createdAt) 기준 내림차순(최신순)으로 정렬하여 반환합니다.
-        return ResponseEntity.ok(cryptoWithdrawalRepository.findAllByOrderByCreatedAtDesc());
+        return ApiResponse.ok(cryptoWithdrawalRepository.findAllByOrderByCreatedAtDesc());
     }
 
     /**
@@ -79,9 +81,9 @@ public class CryptoWalletController {
      * @return 200 OK와 함께 시스템 핫월렛 목록 반환
      */
     @GetMapping("/hot-wallets")
-    public ResponseEntity<?> getHotWallets() {
+    public ResponseEntity<ApiResponse<java.util.List<SystemHotWallet>>> getHotWallets() {
         // DB에 저장된 암호화폐별 시스템 핫월렛(BTC, ETH, ADA 등) 잔고 및 정보 목록을 전체 조회합니다.
-        return ResponseEntity.ok(systemHotWalletRepository.findAll());
+        return ApiResponse.ok(systemHotWalletRepository.findAll());
     }
 
     /**
@@ -93,9 +95,9 @@ public class CryptoWalletController {
      * @return 200 OK와 함께 전체 사용자 주소 목록 반환
      */
     @GetMapping("/addresses")
-    public ResponseEntity<?> getUserAddresses() {
+    public ResponseEntity<ApiResponse<java.util.List<exchange.admin.model.UserCryptoAddress>>> getUserAddresses() {
         // 사용자가 입금하기 위해 생성 및 발급받은 온체인 주소 목록 전체를 조회합니다.
-        return ResponseEntity.ok(userCryptoAddressRepository.findAll());
+        return ApiResponse.ok(userCryptoAddressRepository.findAll());
     }
 
     /**
@@ -107,9 +109,9 @@ public class CryptoWalletController {
      * @return 200 OK와 함께 현재 진행 중인 미확정 입금 트랜잭션 목록 반환
      */
     @GetMapping("/pending-deposits")
-    public ResponseEntity<?> getPendingDeposits() {
+    public ResponseEntity<ApiResponse<java.util.List<exchange.admin.service.WalletDaemonService.PendingDeposit>>> getPendingDeposits() {
         // WalletDaemonService의 메모리 큐(CopyOnWriteArrayList)에 보관된 대기열 목록을 조회하여 전달합니다.
-        return ResponseEntity.ok(walletDaemonService.getPendingDeposits());
+        return ApiResponse.ok(walletDaemonService.getPendingDeposits());
     }
 
     /**
@@ -121,9 +123,9 @@ public class CryptoWalletController {
      * @return 200 OK와 함께 현재 블록 높이(blockHeight) 맵 형태로 반환
      */
     @GetMapping("/block-height")
-    public ResponseEntity<?> getBlockHeight() {
+    public ResponseEntity<ApiResponse<Map<String, Long>>> getBlockHeight() {
         // 가상 블록체인 시뮬레이션의 현재 진행 중인 블록 번호를 반환합니다.
-        return ResponseEntity.ok(Map.of("blockHeight", walletDaemonService.getSimulatedBlockHeight()));
+        return ApiResponse.ok(Map.of("blockHeight", walletDaemonService.getSimulatedBlockHeight()));
     }
 
     /**
@@ -147,7 +149,7 @@ public class CryptoWalletController {
      */
     @PostMapping("/withdraw")
     @Transactional
-    public ResponseEntity<?> requestWithdrawal(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<ApiResponse<CryptoWithdrawal>> requestWithdrawal(@RequestBody Map<String, Object> payload) {
         // Payload로부터 필드 추출 및 타입 캐스팅
         Long userId = Long.valueOf(payload.get("userId").toString());
         String currency = payload.get("currency").toString().toUpperCase();
@@ -156,7 +158,8 @@ public class CryptoWalletController {
 
         // 1. 유효성 검사: 출금 신청 금액이 0보다 같거나 작으면 에러 처리
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Amount must be greater than zero"));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "Amount must be greater than zero"));
         }
 
         // 2. 가상 지갑 정보 조회
@@ -165,7 +168,8 @@ public class CryptoWalletController {
 
         // 3. 가상 지갑이 존재하지 않거나, 가용 잔고(Balance)가 출금 요청 금액보다 작은 경우 잔고 부족 에러 처리
         if (wallet == null || wallet.getBalance().compareTo(amount) < 0) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Insufficient virtual balance"));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "Insufficient virtual balance"));
         }
 
         // 4. 유저 가상 잔고 락 (차감 후 Locked에 임시 가산)
@@ -187,7 +191,7 @@ public class CryptoWalletController {
 
         // 6. DB 저장 후 결과 응답
         CryptoWithdrawal saved = cryptoWithdrawalRepository.save(withdrawal);
-        return ResponseEntity.ok(saved);
+        return ApiResponse.ok(saved);
     }
 
     /**
@@ -209,23 +213,26 @@ public class CryptoWalletController {
      */
     @PostMapping("/withdrawals/{id}/approve")
     @Transactional
-    public ResponseEntity<?> approveWithdrawal(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<CryptoWithdrawal>> approveWithdrawal(@PathVariable Long id) {
         // 1. 해당 출금 요청 정보 조회
         CryptoWithdrawal withdrawal = cryptoWithdrawalRepository.findById(id).orElse(null);
         if (withdrawal == null) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(HttpStatus.NOT_FOUND.value(), "Not Found"));
         }
 
         // 2. 대기 상태(PENDING) 검증
         if (!withdrawal.getStatus().equals("PENDING")) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Only PENDING requests can be approved."));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "Only PENDING requests can be approved."));
         }
 
         // 3. 시스템 핫월렛 가용 잔고 사전 검증 (핫월렛 온체인 자금이 모자라면 승인 거부)
         SystemHotWallet hotWallet = systemHotWalletRepository.findByCurrency(withdrawal.getCurrency().toUpperCase())
                 .orElse(null);
         if (hotWallet == null || hotWallet.getBalance().compareTo(withdrawal.getAmount()) < 0) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Insufficient hot wallet on-chain balance."));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "Insufficient hot wallet on-chain balance."));
         }
 
         // 4. 가상 트랜잭션 서명 및 브로드캐스트 모사 (TXID 해시 생성) 또는 실물 JAF 토큰 전송
@@ -235,11 +242,12 @@ public class CryptoWalletController {
                 if (jafTokenService.isInitialized()) {
                     txHash = jafTokenService.transfer(withdrawal.getToAddress(), withdrawal.getAmount());
                 } else {
-                    return ResponseEntity.badRequest().body(Map.of("error", "JAFTokenService is not initialized yet."));
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse
+                            .error(HttpStatus.BAD_REQUEST.value(), "JAFTokenService is not initialized yet."));
                 }
             } catch (Exception e) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error", "JAF On-chain transfer failed: " + e.getMessage()));
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse
+                        .error(HttpStatus.BAD_REQUEST.value(), "JAF On-chain transfer failed: " + e.getMessage()));
             }
         } else {
             txHash = "0x" + UUID.randomUUID().toString().replace("-", "")
@@ -253,7 +261,7 @@ public class CryptoWalletController {
         // 5. 변경 데이터 저장
         CryptoWithdrawal saved = cryptoWithdrawalRepository.save(withdrawal);
         log.info("[출금 승인] 출금 ID: {} 승인 완료. TxHash 생성: {}", id, txHash);
-        return ResponseEntity.ok(saved);
+        return ApiResponse.ok(saved);
     }
 
     /**
@@ -275,16 +283,18 @@ public class CryptoWalletController {
      */
     @PostMapping("/withdrawals/{id}/reject")
     @Transactional
-    public ResponseEntity<?> rejectWithdrawal(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<CryptoWithdrawal>> rejectWithdrawal(@PathVariable Long id) {
         // 1. 해당 출금 요청 정보 조회
         CryptoWithdrawal withdrawal = cryptoWithdrawalRepository.findById(id).orElse(null);
         if (withdrawal == null) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(HttpStatus.NOT_FOUND.value(), "Not Found"));
         }
 
         // 2. 대기 상태(PENDING) 검증
         if (!withdrawal.getStatus().equals("PENDING")) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Only PENDING requests can be rejected."));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "Only PENDING requests can be rejected."));
         }
 
         // 3. 상태를 REJECTED로 갱신
@@ -306,7 +316,7 @@ public class CryptoWalletController {
             walletRepository.save(wallet); // 지갑 복구 상태 반영
         }
 
-        return ResponseEntity.ok(withdrawal);
+        return ApiResponse.ok(withdrawal);
     }
 
     /**
@@ -327,17 +337,20 @@ public class CryptoWalletController {
      */
     @PostMapping("/hot-wallets/{id}/rebalance")
     @Transactional
-    public ResponseEntity<?> rebalanceHotWallet(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+    public ResponseEntity<ApiResponse<SystemHotWallet>> rebalanceHotWallet(@PathVariable Long id,
+            @RequestBody Map<String, Object> payload) {
         // 1. 시스템 핫월렛 정보 조회
         SystemHotWallet hotWallet = systemHotWalletRepository.findById(id).orElse(null);
         if (hotWallet == null) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(HttpStatus.NOT_FOUND.value(), "Not Found"));
         }
 
         // 2. 충전 금액 유효성 검사 (0 또는 음수 방지)
         BigDecimal amount = new BigDecimal(payload.get("amount").toString());
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Rebalance amount must be positive"));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "Rebalance amount must be positive"));
         }
 
         // 3. 핫월렛 잔고 충전 가산 반영
@@ -346,7 +359,7 @@ public class CryptoWalletController {
         SystemHotWallet saved = systemHotWalletRepository.save(hotWallet);
 
         log.info("[핫월렛 충전] {} 핫월렛에 {} 가 충전되었습니다.", hotWallet.getCurrency(), amount);
-        return ResponseEntity.ok(saved);
+        return ApiResponse.ok(saved);
     }
 
     /**
@@ -359,11 +372,11 @@ public class CryptoWalletController {
      * @return 200 OK와 함께 전송 결과(성공 여부, txHash, 수신주소, 금액) 또는 에러 반환
      */
     @PostMapping("/test-jaf-deposit")
-    public ResponseEntity<?> testJafDeposit(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> testJafDeposit(@RequestBody Map<String, Object> payload) {
         try {
             Long userId = Long.valueOf(payload.get("userId").toString());
             BigDecimal amount = new BigDecimal(payload.get("amount").toString());
-            
+
             var userAddr = userCryptoAddressRepository.findByUserId(userId).stream()
                     .filter(a -> a.getCurrency().equalsIgnoreCase("JAF"))
                     .findFirst()
@@ -372,17 +385,18 @@ public class CryptoWalletController {
             if (jafTokenService.isInitialized()) {
                 String txHash = jafTokenService.transfer(userAddr.getCryptoAddress(), amount);
                 log.info("[테스트 입금 API] JAF 온체인 전송 완료. 수신주소: {}, TxHash: {}", userAddr.getCryptoAddress(), txHash);
-                return ResponseEntity.ok(Map.of(
+                return ApiResponse.ok(Map.of(
                         "success", true,
                         "txHash", txHash,
                         "toAddress", userAddr.getCryptoAddress(),
-                        "amount", amount
-                ));
+                        "amount", amount));
             } else {
-                return ResponseEntity.badRequest().body(Map.of("error", "JAFTokenService is not initialized."));
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "JAFTokenService is not initialized."));
             }
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage()));
         }
     }
 }

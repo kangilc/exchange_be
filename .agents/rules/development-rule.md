@@ -22,8 +22,8 @@ trigger: always_on
 * 리소스 및 메모리 누수 방지: 웹소켓(WebSocket) 연결, 이벤트 리스너, setInterval/setTimeout 등은 컴포넌트 언마운트나 상태 변경 시 반드시 명시적으로 정리(cleanup)하십시오.
 * 상태 관리 최적화: Zustand 등 전역 상태를 구독할 때, 실시간 데이터로 인한 불필요한 리렌더링을 방지하기 위해 반드시 개별 셀렉터(Selector)를 사용하여 구독하십시오.
 * admin-api 프로젝트는 JPA, Mybatis를 병용해서 사용이니 일반 적인 CURD는 JPA, 복잡한 쿼리는 Mybatis Dao를 사용하도록.
-* 소스 수정 등의 일을 할 때 반드시 한글 주석을 추가
-* 관련 프로젝트 내의 README.md 파일 현행화
+* 소스 수정 등의 일을 할 때 반드시 한글 주석을 추가(간결하고 수식어 없는 평어체)
+* 관련 프로젝트 내의 README.md 파일 현행화(간결하고 수식어 없는 평어체)
 
 ## 4. 📝 깃 및 변경 관리 제약 (Git & Change Management)
 

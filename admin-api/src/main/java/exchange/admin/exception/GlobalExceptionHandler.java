@@ -1,7 +1,7 @@
 package exchange.admin.exception;
 
-import java.util.Map;
-
+import exchange.admin.dto.ApiResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -15,16 +15,15 @@ public class GlobalExceptionHandler {
 
     /**
      * DTO 유효성 검증 실패(Jakarta Validation API 에러) 시 발생하는 MethodArgumentNotValidException을 가로채어
-     * 에러 필드 중 첫 번째 에러 메시지를 Map 구조로 감싸 400 Bad Request와 함께 반환합니다.
+     * 에러 필드 중 첫 번째 에러 메시지를 ApiResponse 구조로 감싸 400 Bad Request와 함께 반환합니다.
      * 
      * @param ex 유효성 검증 실패 예외
      * @return 에러 메시지를 담은 응답 객체
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<?> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        // 첫 번째 에러 메시지를 가져와 응답으로 반환
+    public ResponseEntity<ApiResponse<Void>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         String errorMessage = ex.getBindingResult().getAllErrors().get(0).getDefaultMessage();
-        return ResponseEntity.badRequest().body(Map.of("message", errorMessage));
+        return ResponseEntity.badRequest().body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), errorMessage));
     }
 
     /**
@@ -34,8 +33,8 @@ public class GlobalExceptionHandler {
      * @return 에러 메시지를 담은 응답 객체
      */
     @ExceptionHandler(AuthException.class)
-    public ResponseEntity<?> handleAuthExceptions(AuthException ex) {
-        return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
-                .body(Map.of("message", ex.getMessage()));
+    public ResponseEntity<ApiResponse<Void>> handleAuthExceptions(AuthException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error(HttpStatus.UNAUTHORIZED.value(), ex.getMessage()));
     }
 }

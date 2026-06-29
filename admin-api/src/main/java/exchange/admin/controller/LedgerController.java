@@ -1,6 +1,8 @@
 package exchange.admin.controller;
 
+import exchange.admin.dto.ApiResponse;
 import exchange.admin.repository.LedgerJournalRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,7 +34,7 @@ public class LedgerController {
      * @return 원장 내역 및 페이징 정보 목록
      */
     @GetMapping
-    public ResponseEntity<org.springframework.data.domain.Page<LedgerJournalRepository.DetailedLedgerProjection>> getAllDetailedLedgers(
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<LedgerJournalRepository.DetailedLedgerProjection>>> getAllDetailedLedgers(
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
@@ -41,7 +43,7 @@ public class LedgerController {
         String searchParam = (search != null && !search.trim().isEmpty()) ? "%" + search.trim() + "%" : null;
 
         // 페이징 요청 객체를 생성하여 DB에서 레코드 정보를 조회 및 반환함
-        return ResponseEntity.ok(ledgerJournalRepository.findAllDetailedLedgers(searchParam,
+        return ApiResponse.ok(ledgerJournalRepository.findAllDetailedLedgers(searchParam,
                 org.springframework.data.domain.PageRequest.of(page, size)));
     }
 }

@@ -1,7 +1,9 @@
 package exchange.admin.controller;
 
+import exchange.admin.dto.ApiResponse;
 import exchange.admin.model.Market;
 import exchange.admin.service.MarketService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,8 +31,8 @@ public class MarketController {
      * 일반 유저/어드민 누구나 조회할 수 있도록 SecurityConfig에서 permitAll 설정합니다.
      */
     @GetMapping
-    public ResponseEntity<List<Market>> getActiveMarkets() {
-        return ResponseEntity.ok(marketService.getActiveMarkets());
+    public ResponseEntity<ApiResponse<List<Market>>> getActiveMarkets() {
+        return ApiResponse.ok(marketService.getActiveMarkets());
     }
 
     /**
@@ -43,13 +45,13 @@ public class MarketController {
      * - status: 마켓의 활성 상태 제어 (ACTIVE, INACTIVE 등)
      */
     @PutMapping("/{symbol}")
-    public ResponseEntity<Market> updateMarket(
+    public ResponseEntity<ApiResponse<Market>> updateMarket(
             @PathVariable("symbol") String symbol,
             @RequestBody Market updateData) {
         Market updated = marketService.updateMarket(symbol, updateData);
         if (updated != null) {
-            return ResponseEntity.ok(updated);
+            return ApiResponse.ok(updated);
         }
-        return ResponseEntity.notFound().build();
+        return ApiResponse.notFound("Market not found");
     }
 }

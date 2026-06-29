@@ -5,7 +5,9 @@ import exchange.admin.dto.AuthResponseDTO;
 import exchange.admin.service.AuthService;
 import jakarta.validation.Valid;
 
+import exchange.admin.dto.ApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,9 +33,9 @@ public class AuthController {
      * @return 인증 토큰 및 사용자 정보
      */
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody LoginRequestIDT request) {
+    public ResponseEntity<ApiResponse<AuthResponseDTO>> login(@Valid @RequestBody LoginRequestIDT request) {
         AuthResponseDTO response = authService.login(request.getEmail(), request.getPassword());
-        return ResponseEntity.ok(response);
+        return ApiResponse.ok(response);
     }
 
     /**
@@ -44,10 +46,10 @@ public class AuthController {
      * @return 신규 발급 토큰
      */
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponseDTO> refresh(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponse<AuthResponseDTO>> refresh(@RequestBody Map<String, String> request) {
         String refreshToken = request.get("refreshToken");
         AuthResponseDTO response = authService.refresh(refreshToken);
-        return ResponseEntity.ok(response);
+        return ApiResponse.ok(response);
     }
 
     /**
@@ -58,9 +60,9 @@ public class AuthController {
      * @return 처리 결과
      */
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponse<Void>> logout(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         authService.logout(email);
-        return ResponseEntity.ok(Map.of("message", "성공적으로 로그아웃되었습니다."));
+        return ApiResponse.ok("성공적으로 로그아웃되었습니다.");
     }
 }

@@ -1,8 +1,10 @@
 package exchange.admin.controller;
 
+import exchange.admin.dto.ApiResponse;
 import exchange.admin.repository.LedgerJournalRepository;
 import exchange.admin.repository.TradeRepository;
 import exchange.admin.service.StatsService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,9 +33,9 @@ public class StatsController {
      * @return 체결 거래 통계 목록
      */
     @GetMapping("/trades")
-    public ResponseEntity<List<TradeRepository.TradeStatsProjection>> getTradeStats(
+    public ResponseEntity<ApiResponse<List<TradeRepository.TradeStatsProjection>>> getTradeStats(
             @RequestParam(value = "resolution", defaultValue = "daily") String resolution) {
-        return ResponseEntity.ok(statsService.getTradeStats(resolution));
+        return ApiResponse.ok(statsService.getTradeStats(resolution));
     }
 
     /**
@@ -43,9 +45,9 @@ public class StatsController {
      * @return 자산 변동 통계 목록
      */
     @GetMapping("/assets")
-    public ResponseEntity<List<LedgerJournalRepository.LedgerStatsProjection>> getLedgerStats(
+    public ResponseEntity<ApiResponse<List<LedgerJournalRepository.LedgerStatsProjection>>> getLedgerStats(
             @RequestParam(value = "resolution", defaultValue = "daily") String resolution) {
-        return ResponseEntity.ok(statsService.getLedgerStats(resolution));
+        return ApiResponse.ok(statsService.getLedgerStats(resolution));
     }
 
     /**
@@ -55,9 +57,9 @@ public class StatsController {
      * @return 회원 지표 통계 목록
      */
     @GetMapping("/users")
-    public ResponseEntity<List<exchange.admin.repository.UserRepository.UserStatsProjection>> getUserStats(
+    public ResponseEntity<ApiResponse<List<exchange.admin.repository.UserRepository.UserStatsProjection>>> getUserStats(
             @RequestParam(value = "resolution", defaultValue = "daily") String resolution) {
-        return ResponseEntity.ok(statsService.getUserStats(resolution));
+        return ApiResponse.ok(statsService.getUserStats(resolution));
     }
 
     /**
@@ -66,8 +68,8 @@ public class StatsController {
      * @return 회원 수, 체결 수, 현재가 등의 종합 요약 정보
      */
     @GetMapping("/summary")
-    public ResponseEntity<java.util.Map<String, Object>> getSummaryStats() {
-        return ResponseEntity.ok(statsService.getSummaryStats());
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getSummaryStats() {
+        return ApiResponse.ok(statsService.getSummaryStats());
     }
 
     /**
@@ -76,8 +78,8 @@ public class StatsController {
      * @return 수수료 수익, DAU/MAU, 거래 회전율 등의 실적 지표 정보
      */
     @GetMapping("/performance")
-    public ResponseEntity<java.util.Map<String, Object>> getPerformanceStats() {
-        return ResponseEntity.ok(statsService.getPerformanceStats());
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getPerformanceStats() {
+        return ApiResponse.ok(statsService.getPerformanceStats());
     }
 
     /**
@@ -87,20 +89,20 @@ public class StatsController {
      * @return 종목 코드, 현재가, 전일종가 정보를 담은 맵
      */
     @GetMapping("/ticker")
-    public ResponseEntity<java.util.Map<String, Object>> getTicker(@RequestParam("symbol") String symbol) {
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getTicker(@RequestParam("symbol") String symbol) {
         java.util.Map<String, Object> response = new java.util.HashMap<>();
         response.put("symbol", symbol);
         response.put("lastPrice", statsService.getLastPrice(symbol));
         response.put("prevClosePrice", statsService.getPrevClosePrice(symbol));
-        return ResponseEntity.ok(response);
+        return ApiResponse.ok(response);
     }
 
     /**
      * 전체 ACTIVE 마켓에 대한 티커 정보 벌크 조회.
      */
     @GetMapping("/tickers")
-    public ResponseEntity<List<java.util.Map<String, Object>>> getTickers() {
-        return ResponseEntity.ok(statsService.getTickers());
+    public ResponseEntity<ApiResponse<List<java.util.Map<String, Object>>>> getTickers() {
+        return ApiResponse.ok(statsService.getTickers());
     }
 
     /**
@@ -113,12 +115,12 @@ public class StatsController {
      * @return OHLCV 캔들 목록
      */
     @GetMapping("/candles")
-    public ResponseEntity<List<java.util.Map<String, Object>>> getCandles(
+    public ResponseEntity<ApiResponse<List<java.util.Map<String, Object>>>> getCandles(
             @RequestParam("symbol") String symbol,
             @RequestParam(value = "resolution", defaultValue = "1m") String resolution,
             @RequestParam(value = "limit", defaultValue = "100") int limit) {
         // StatsService의 온더플라이 캔들 집계 기능을 호출하여 반환함
-        return ResponseEntity.ok(statsService.getCandleStats(symbol, resolution, limit));
+        return ApiResponse.ok(statsService.getCandleStats(symbol, resolution, limit));
     }
 }
 

@@ -1,7 +1,9 @@
 package exchange.admin.controller;
 
+import exchange.admin.dto.ApiResponse;
 import exchange.admin.model.Wallet;
 import exchange.admin.repository.WalletRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,8 +33,8 @@ public class WalletController {
      * @return 지갑 리스트
      */
     @GetMapping
-    public ResponseEntity<List<Wallet>> getAllWallets() {
-        return ResponseEntity.ok(walletRepository.findAll());
+    public ResponseEntity<ApiResponse<List<Wallet>>> getAllWallets() {
+        return ApiResponse.ok(walletRepository.findAll());
     }
 
     /**
@@ -42,8 +44,8 @@ public class WalletController {
      * @return 해당 회원의 지갑 리스트
      */
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Wallet>> getWalletsByUserId(@PathVariable Long userId) {
-        return ResponseEntity.ok(walletRepository.findByUserId(userId));
+    public ResponseEntity<ApiResponse<List<Wallet>>> getWalletsByUserId(@PathVariable Long userId) {
+        return ApiResponse.ok(walletRepository.findByUserId(userId));
     }
 
     /**
@@ -53,11 +55,13 @@ public class WalletController {
      * @return 지갑 리스트 또는 401 Unauthorized
      */
     @GetMapping("/me")
-    public ResponseEntity<?> getMyWallets() {
+    public ResponseEntity<ApiResponse<List<Wallet>>> getMyWallets() {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmail(email)
-                .map(user -> ResponseEntity.ok(walletRepository.findByUserId(user.getUserId())))
-                .orElse(ResponseEntity.status(401).build());
+        java.util.Optional<exchange.admin.model.User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isPresent()) {
+            return ApiResponse.ok(walletRepository.findByUserId(userOpt.get().getUserId()));
+        }
+        return ApiResponse.unauthorized("Unauthorized");
     }
 
     /**
@@ -66,8 +70,8 @@ public class WalletController {
      * @return 통화별 자산 요약 리스트
      */
     @GetMapping("/summary")
-    public ResponseEntity<List<WalletRepository.CurrencySummary>> getWalletSummary() {
-        return ResponseEntity.ok(walletRepository.getCurrencySummary());
+    public ResponseEntity<ApiResponse<List<WalletRepository.CurrencySummary>>> getWalletSummary() {
+        return ApiResponse.ok(walletRepository.getCurrencySummary());
     }
 }
 

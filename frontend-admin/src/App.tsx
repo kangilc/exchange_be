@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useExchangeStore } from './store/useExchangeStore';
-import { 
-    LayoutDashboard, Users, ShieldAlert, MonitorPlay, 
+import {
+    LayoutDashboard, Users, ShieldAlert, MonitorPlay,
     Activity, X, Settings, Coins
 } from 'lucide-react';
 import './App.css';
@@ -149,7 +149,7 @@ export const App: React.FC = () => {
                 const minU = parseInt(config.minUserId) || 1;
                 const maxU = parseInt(config.maxUserId) || 1000;
 
-                const side = config.side === 'RANDOM' 
+                const side = config.side === 'RANDOM'
                     ? (Math.random() < 0.5 ? 'BUY' : 'SELL')
                     : config.side;
 
@@ -173,7 +173,7 @@ export const App: React.FC = () => {
                 const timeStr = new Date().toTimeString().split(' ')[0];
 
                 if (success) {
-                    const logMsg = `[${timeStr}] [${config.symbol}] ${side} 주문 전송: 가격 ${price.toLocaleString(undefined, {minimumFractionDigits: 2})} / 수량 ${scaledQty} (User: ${userId})`;
+                    const logMsg = `[${timeStr}] [${config.symbol}] ${side} 주문 전송: 가격 ${price.toLocaleString(undefined, { minimumFractionDigits: 2 })} / 수량 ${scaledQty} (User: ${userId})`;
                     setWebGenLogs(prev => [logMsg, ...prev].slice(0, 30));
                 } else {
                     const logMsg = `[${timeStr}] [${config.symbol}] 주문 전송 실패 (웹소켓 연결 확인 필요)`;
@@ -248,7 +248,7 @@ export const App: React.FC = () => {
             <div className="min-h-screen text-slate-100 flex items-center justify-center font-sans bg-[#070b15] relative overflow-hidden">
                 <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[#8a2be2]/10 rounded-full blur-[120px] pointer-events-none" />
                 <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-[#00f2fe]/10 rounded-full blur-[120px] pointer-events-none" />
-                
+
                 <div className="relative z-10 w-[420px] bg-slate-900/60 border border-white/5 rounded-3xl p-8 backdrop-blur-2xl shadow-2xl flex flex-col gap-6">
                     <div className="flex flex-col items-center gap-3">
                         <img src="/JavaF_logo_tiny_400.png" alt="JavaF Logo" />
@@ -259,8 +259,8 @@ export const App: React.FC = () => {
                     <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4 text-xs font-semibold">
                         <div className="flex flex-col gap-1.5">
                             <label className="text-slate-400 uppercase text-[10px]">이메일 계정</label>
-                            <input 
-                                type="email" 
+                            <input
+                                type="email"
                                 value={loginEmail}
                                 onChange={(e) => setLoginEmail(e.target.value)}
                                 placeholder="admin@example.com"
@@ -270,8 +270,8 @@ export const App: React.FC = () => {
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="text-slate-400 uppercase text-[10px]">비밀번호</label>
-                            <input 
-                                type="password" 
+                            <input
+                                type="password"
                                 value={loginPassword}
                                 onChange={(e) => setLoginPassword(e.target.value)}
                                 placeholder="••••••••"
@@ -284,21 +284,21 @@ export const App: React.FC = () => {
                         <div className="flex flex-col gap-1.5 mt-1">
                             <label className="text-slate-500 uppercase text-[9px] tracking-wider font-bold">빠른 자격 증명 선택</label>
                             <div className="flex gap-2">
-                                <button 
+                                <button
                                     type="button"
                                     onClick={() => {
                                         setLoginEmail('admin@javaf.net');
-                                        setLoginPassword('admin123');
+                                        setLoginPassword('admin123!@#');
                                     }}
                                     className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[10px] text-slate-300 hover:bg-[#8a2be2]/20 hover:border-[#8a2be2]/40 hover:text-white transition-all font-bold"
                                 >
-                                    🔑 기본 관리자 (admin@javaf.net / admin123)
+                                    🔑 기본 관리자 (admin@javaf.net / admin123!@#)
                                 </button>
                             </div>
                         </div>
 
-                        <button 
-                            type="submit" 
+                        <button
+                            type="submit"
                             className="w-full py-4.5 bg-gradient-to-r from-[#8a2be2] to-[#4b0082] rounded-xl text-white font-extrabold text-xs tracking-wider uppercase shadow-xl hover:brightness-110 active:scale-[0.98] transition-all mt-2"
                         >
                             콘솔 로그인 인증
@@ -334,7 +334,7 @@ export const App: React.FC = () => {
                     {/* 로그인 인증 계정 정보 및 로그아웃 버튼 추가 */}
                     <div className="auth-user-badge flex items-center bg-white/5 border border-white/10 px-4.5 py-1.5 rounded-full gap-3 text-slate-300 font-bold">
                         <span className="text-white text-[11px] font-mono">{authEmail}</span>
-                        <button 
+                        <button
                             onClick={logout}
                             className="text-[#ff4757] hover:text-[#ff6b81] transition-colors border-l border-white/10 pl-3 uppercase tracking-wider text-[9px] font-black"
                         >
@@ -347,126 +347,126 @@ export const App: React.FC = () => {
             <div className="flex-1 flex">
                 <>
                     {/* Sidebar Navigation */}
-                <aside className="w-[280px] bg-[#0a1020]/95 border-r border-white/5 flex flex-col p-6 gap-2 flex-shrink-0">
-                    <button
-                        onClick={() => setActiveTab('dashboard')}
-                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
-                    >
-                        <LayoutDashboard size={18} />
-                        <span>통합 현황 분석</span>
-                    </button>
+                    <aside className="w-[280px] bg-[#0a1020]/95 border-r border-white/5 flex flex-col p-6 gap-2 flex-shrink-0">
+                        <button
+                            onClick={() => setActiveTab('dashboard')}
+                            className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                        >
+                            <LayoutDashboard size={18} />
+                            <span>통합 현황 분석</span>
+                        </button>
 
-                    <button
-                        onClick={() => setActiveTab('market-watch')}
-                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'market-watch' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
-                    >
-                        <MonitorPlay size={18} />
-                        <span>실시간 마켓 감시</span>
-                    </button>
+                        <button
+                            onClick={() => setActiveTab('market-watch')}
+                            className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'market-watch' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                        >
+                            <MonitorPlay size={18} />
+                            <span>실시간 마켓 감시</span>
+                        </button>
 
-                    <button
-                        onClick={() => setActiveTab('users')}
-                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'users' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
-                    >
-                        <Users size={18} />
-                        <span>회원 통합 관리</span>
-                    </button>
+                        <button
+                            onClick={() => setActiveTab('users')}
+                            className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'users' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                        >
+                            <Users size={18} />
+                            <span>회원 통합 관리</span>
+                        </button>
 
-                    <button
-                        onClick={() => setActiveTab('wallets')}
-                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'wallets' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
-                    >
-                        <Coins size={18} />
-                        <span>지갑 및 자산 관리</span>
-                    </button>
+                        <button
+                            onClick={() => setActiveTab('wallets')}
+                            className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'wallets' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                        >
+                            <Coins size={18} />
+                            <span>지갑 및 자산 관리</span>
+                        </button>
 
-                    <button
-                        onClick={() => setActiveTab('ledger')}
-                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'ledger' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
-                    >
-                        <ShieldAlert size={18} />
-                        <span>입출금 통합 관리</span>
-                    </button>
+                        <button
+                            onClick={() => setActiveTab('ledger')}
+                            className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'ledger' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                        >
+                            <ShieldAlert size={18} />
+                            <span>입출금 통합 관리</span>
+                        </button>
 
-                    <button
-                        onClick={() => setActiveTab('custody')}
-                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'custody' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
-                    >
-                        <Coins size={18} className="text-[#8a2be2]" />
-                        <span>온체인 입출금 관리 (Custody)</span>
-                    </button>
+                        <button
+                            onClick={() => setActiveTab('custody')}
+                            className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'custody' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                        >
+                            <Coins size={18} className="text-[#8a2be2]" />
+                            <span>온체인 입출금 관리 (Custody)</span>
+                        </button>
 
-                    <button
-                        onClick={() => setActiveTab('performance')}
-                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'performance' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
-                    >
-                        <Activity size={18} />
-                        <span>거래소 실적 분석</span>
-                    </button>
+                        <button
+                            onClick={() => setActiveTab('performance')}
+                            className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'performance' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                        >
+                            <Activity size={18} />
+                            <span>거래소 실적 분석</span>
+                        </button>
 
-                    <button
-                        onClick={() => setActiveTab('settings')}
-                        className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'settings' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
-                    >
-                        <Settings size={18} />
-                        <span>시스템 환경 설정</span>
-                    </button>
-                </aside>
+                        <button
+                            onClick={() => setActiveTab('settings')}
+                            className={`nav-item flex items-center gap-3 px-5 py-3.5 rounded-xl font-bold text-sm transition-all duration-200 border whitespace-nowrap ${activeTab === 'settings' ? 'bg-[#8a2be2]/12 border-[#8a2be2]/20 text-white shadow-lg' : 'border-transparent text-slate-400 hover:bg-white/2 hover:text-white'}`}
+                        >
+                            <Settings size={18} />
+                            <span>시스템 환경 설정</span>
+                        </button>
+                    </aside>
 
-                {/* Main Workspace */}
-                <main className="flex-1 p-8 overflow-y-auto max-w-[1600px] flex flex-col gap-6">
+                    {/* Main Workspace */}
+                    <main className="flex-1 p-8 overflow-y-auto max-w-[1600px] flex flex-col gap-6">
 
-                    {/* TAB 1: DASHBOARD HOME (통합 현황 분석) */}
-                    {activeTab === 'dashboard' && (
-                        <DashboardTab setActiveTab={(tab: any) => setActiveTab(tab)} />
-                    )}
+                        {/* TAB 1: DASHBOARD HOME (통합 현황 분석) */}
+                        {activeTab === 'dashboard' && (
+                            <DashboardTab setActiveTab={(tab: any) => setActiveTab(tab)} />
+                        )}
 
-                    {/* TAB 2: REAL-TIME MARKET WATCH (실시간 마켓 감시) */}
-                    {activeTab === 'market-watch' && (
-                        <MarketWatchTab 
-                            isStreamingPaused={isStreamingPaused}
-                            setIsStreamingPaused={setIsStreamingPaused}
-                            frozenTradesLog={frozenTradesLog}
-                            marketConfigs={marketConfigs}
-                            setMarketConfigs={setMarketConfigs}
-                            webGenLogs={webGenLogs}
-                            setWebGenLogs={setWebGenLogs}
-                        />
-                    )}
+                        {/* TAB 2: REAL-TIME MARKET WATCH (실시간 마켓 감시) */}
+                        {activeTab === 'market-watch' && (
+                            <MarketWatchTab
+                                isStreamingPaused={isStreamingPaused}
+                                setIsStreamingPaused={setIsStreamingPaused}
+                                frozenTradesLog={frozenTradesLog}
+                                marketConfigs={marketConfigs}
+                                setMarketConfigs={setMarketConfigs}
+                                webGenLogs={webGenLogs}
+                                setWebGenLogs={setWebGenLogs}
+                            />
+                        )}
 
-                    {/* TAB 3: USER MANAGEMENT (회원 통합 관리) */}
-                    {activeTab === 'users' && (
-                        <UserManagementTab />
-                    )}
+                        {/* TAB 3: USER MANAGEMENT (회원 통합 관리) */}
+                        {activeTab === 'users' && (
+                            <UserManagementTab />
+                        )}
 
-                    {/* TAB 4: WALLET MANAGEMENT (지갑 및 자산 관리) */}
-                    {activeTab === 'wallets' && (
-                        <WalletManagementTab />
-                    )}
+                        {/* TAB 4: WALLET MANAGEMENT (지갑 및 자산 관리) */}
+                        {activeTab === 'wallets' && (
+                            <WalletManagementTab />
+                        )}
 
-                    {/* TAB 5: LEDGER HISTORY (입출금 통합 관리) */}
-                    {activeTab === 'ledger' && (
-                        <LedgerHistoryTab />
-                    )}
+                        {/* TAB 5: LEDGER HISTORY (입출금 통합 관리) */}
+                        {activeTab === 'ledger' && (
+                            <LedgerHistoryTab />
+                        )}
 
-                    {/* TAB 6: SYSTEM SETTINGS (시스템 환경 설정) */}
-                    {activeTab === 'settings' && (
-                        <SettingsTab />
-                    )}
+                        {/* TAB 6: SYSTEM SETTINGS (시스템 환경 설정) */}
+                        {activeTab === 'settings' && (
+                            <SettingsTab />
+                        )}
 
-                    {/* TAB 7: CUSTODY MANAGEMENT (온체인 입출금 관리) */}
-                    {activeTab === 'custody' && (
-                        <CustodyManagementTab 
-                            handleViewTx={handleViewTx}
-                        />
-                    )}
+                        {/* TAB 7: CUSTODY MANAGEMENT (온체인 입출금 관리) */}
+                        {activeTab === 'custody' && (
+                            <CustodyManagementTab
+                                handleViewTx={handleViewTx}
+                            />
+                        )}
 
-                    {/* TAB 8: PERFORMANCE ANALYTICS (거래소 실적 분석) */}
-                    {activeTab === 'performance' && (
-                        <PerformanceTab />
-                    )}
-                </main>
-            </>
+                        {/* TAB 8: PERFORMANCE ANALYTICS (거래소 실적 분석) */}
+                        {activeTab === 'performance' && (
+                            <PerformanceTab />
+                        )}
+                    </main>
+                </>
             </div>
 
             {/* Footer */}
@@ -525,7 +525,7 @@ export const App: React.FC = () => {
                                         <div className="flex flex-col gap-1.5">
                                             <span className="text-slate-500 font-bold uppercase">전송 금액 (Value)</span>
                                             <span className="text-white font-extrabold">
-                                                {parseInt(selectedTxDetails.value, 16) === 0 ? '0 ETH' : `${parseInt(selectedTxDetails.value, 16) / 10**18} ETH`}
+                                                {parseInt(selectedTxDetails.value, 16) === 0 ? '0 ETH' : `${parseInt(selectedTxDetails.value, 16) / 10 ** 18} ETH`}
                                             </span>
                                         </div>
                                         <div className="flex flex-col gap-1.5">

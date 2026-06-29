@@ -1,7 +1,9 @@
 package exchange.admin.controller;
 
 import exchange.admin.config.AdminSettings;
+import exchange.admin.dto.ApiResponse;
 import exchange.admin.service.MarketService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,8 +33,8 @@ public class SettingsController {
      * @return 200 OK와 함께 현재 설정값 맵 반환
      */
     @GetMapping
-    public ResponseEntity<?> getSettings() {
-        return ResponseEntity.ok(Map.of(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getSettings() {
+        return ApiResponse.ok(Map.of(
             "duplicateLoginBlockEnabled", AdminSettings.isDuplicateLoginBlockEnabled(),
             "onChainDepositMonitoringEnabled", AdminSettings.isOnChainDepositMonitoringEnabled(),
             "walletSimulationEnabled", AdminSettings.isWalletSimulationEnabled(),
@@ -51,7 +53,7 @@ public class SettingsController {
      * @return 200 OK와 함께 최종 변경이 적용된 설정값 맵 반환
      */
     @PostMapping
-    public ResponseEntity<?> updateSettings(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> updateSettings(@RequestBody Map<String, Object> request) {
         if (request.containsKey("duplicateLoginBlockEnabled")) {
             Object val = request.get("duplicateLoginBlockEnabled");
             if (val instanceof Boolean) {
@@ -102,7 +104,7 @@ public class SettingsController {
                 }
             }
         }
-        return ResponseEntity.ok(Map.of(
+        return ApiResponse.ok(Map.of(
             "duplicateLoginBlockEnabled", AdminSettings.isDuplicateLoginBlockEnabled(),
             "onChainDepositMonitoringEnabled", AdminSettings.isOnChainDepositMonitoringEnabled(),
             "walletSimulationEnabled", AdminSettings.isWalletSimulationEnabled(),

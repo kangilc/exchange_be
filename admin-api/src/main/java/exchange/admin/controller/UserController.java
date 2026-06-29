@@ -1,8 +1,10 @@
 package exchange.admin.controller;
 
+import exchange.admin.dto.ApiResponse;
 import exchange.admin.model.User;
 import exchange.admin.model.Wallet;
 import exchange.admin.service.UserService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -39,8 +41,8 @@ public class UserController {
      * @return 전체 회원 리스트
      */
     @GetMapping
-    public ResponseEntity<List<User>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
+    public ResponseEntity<ApiResponse<List<User>>> getAllUsers() {
+        return ApiResponse.ok(userService.getAllUsers());
     }
 
     /**
@@ -50,10 +52,10 @@ public class UserController {
      * @return 회원 정보 데이터
      */
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUserById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<User>> getUserById(@PathVariable Long id) {
         return userService.getUserById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .map(user -> ApiResponse.ok(user))
+                .orElse(ApiResponse.notFound("User not found"));
     }
 
     /**
@@ -64,17 +66,17 @@ public class UserController {
      * @return 가입 완료된 회원 정보
      */
     @PostMapping
-    public ResponseEntity<User> registerUser(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponse<User>> registerUser(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         String password = request.get("password");
         String grade = request.get("grade");
         
         if (email == null || password == null) {
-            return ResponseEntity.badRequest().build();
+            return ApiResponse.badRequest("Email and password are required");
         }
         
         User registeredUser = userService.registerUser(email, password, grade);
-        return ResponseEntity.ok(registeredUser);
+        return ApiResponse.ok(registeredUser);
     }
 
     /**
@@ -85,14 +87,14 @@ public class UserController {
      * @return 수정된 회원 정보
      */
     @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponse<User>> updateUser(@PathVariable Long id, @RequestBody Map<String, String> request) {
         String email = request.get("email");
         String status = request.get("status");
         String grade = request.get("grade");
         
         return userService.updateUser(id, email, status, grade)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .map(user -> ApiResponse.ok(user))
+                .orElse(ApiResponse.notFound("User not found"));
     }
 
     /**
@@ -103,28 +105,28 @@ public class UserController {
      * @return 갱신된 회원 지갑 정보
      */
     @PostMapping("/{id}/assets/adjust")
-    public ResponseEntity<?> adjustAsset(@PathVariable Long id, @RequestBody Map<String, Object> request) {
+    public ResponseEntity<ApiResponse<Wallet>> adjustAsset(@PathVariable Long id, @RequestBody Map<String, Object> request) {
         String currency = (String) request.get("currency");
         Object amountObj = request.get("amount");
         
         if (currency == null || amountObj == null) {
-            return ResponseEntity.badRequest().body("Required fields: 'currency' and 'amount'");
+            return ApiResponse.badRequest("Required fields: 'currency' and 'amount'");
         }
 
         BigDecimal amount;
         try {
             amount = new BigDecimal(amountObj.toString());
         } catch (NumberFormatException e) {
-            return ResponseEntity.badRequest().body("Invalid amount format");
+            return ApiResponse.badRequest("Invalid amount format");
         }
 
         try {
             Wallet updatedWallet = userService.adjustAsset(id, currency, amount);
-            return ResponseEntity.ok(updatedWallet);
+            return ApiResponse.ok(updatedWallet);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ApiResponse.badRequest(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
+            return ApiResponse.internalServerError("Error: " + e.getMessage());
         }
     }
 
@@ -137,11 +139,11 @@ public class UserController {
      * @return 체결 정보 페이징 객체
      */
     @GetMapping("/{id}/trades")
-    public ResponseEntity<org.springframework.data.domain.Page<exchange.admin.repository.TradeRepository.UserTradeProjection>> getUserTrades(
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.repository.TradeRepository.UserTradeProjection>>> getUserTrades(
             @PathVariable Long id,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(tradeRepository.findUserTrades(id, org.springframework.data.domain.PageRequest.of(page, size)));
+        return ApiResponse.ok(tradeRepository.findUserTrades(id, org.springframework.data.domain.PageRequest.of(page, size)));
     }
 
     /**
@@ -153,11 +155,11 @@ public class UserController {
      * @return 자산 변동 상세 내역 페이징 객체
      */
     @GetMapping("/{id}/ledgers")
-    public ResponseEntity<org.springframework.data.domain.Page<exchange.admin.repository.LedgerJournalRepository.DetailedLedgerProjection>> getUserLedgers(
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.repository.LedgerJournalRepository.DetailedLedgerProjection>>> getUserLedgers(
             @PathVariable Long id,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(ledgerJournalRepository.findDetailedLedgersByUserId(id, org.springframework.data.domain.PageRequest.of(page, size)));
+        return ApiResponse.ok(ledgerJournalRepository.findDetailedLedgersByUserId(id, org.springframework.data.domain.PageRequest.of(page, size)));
     }
 
     /**
@@ -169,13 +171,15 @@ public class UserController {
      * @return 체결 정보 페이징 객체 또는 401 Unauthorized
      */
     @GetMapping("/me/trades")
-    public ResponseEntity<?> getMyTrades(
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.repository.TradeRepository.UserTradeProjection>>> getMyTrades(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
-        return userService.getUserByEmail(email)
-                 .map(user -> ResponseEntity.ok(tradeRepository.findUserTrades(user.getUserId(), org.springframework.data.domain.PageRequest.of(page, size))))
-                 .orElse(ResponseEntity.status(401).build());
+        java.util.Optional<exchange.admin.model.User> userOpt = userService.getUserByEmail(email);
+        if (userOpt.isPresent()) {
+            return ApiResponse.ok(tradeRepository.findUserTrades(userOpt.get().getUserId(), org.springframework.data.domain.PageRequest.of(page, size)));
+        }
+        return ApiResponse.unauthorized("Unauthorized");
     }
 
     /**
@@ -187,13 +191,15 @@ public class UserController {
      * @return 원장 정보 페이징 객체 또는 401 Unauthorized
      */
     @GetMapping("/me/ledgers")
-    public ResponseEntity<?> getMyLedgers(
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.repository.LedgerJournalRepository.DetailedLedgerProjection>>> getMyLedgers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
-        return userService.getUserByEmail(email)
-                 .map(user -> ResponseEntity.ok(ledgerJournalRepository.findDetailedLedgersByUserId(user.getUserId(), org.springframework.data.domain.PageRequest.of(page, size))))
-                 .orElse(ResponseEntity.status(401).build());
+        java.util.Optional<exchange.admin.model.User> userOpt = userService.getUserByEmail(email);
+        if (userOpt.isPresent()) {
+            return ApiResponse.ok(ledgerJournalRepository.findDetailedLedgersByUserId(userOpt.get().getUserId(), org.springframework.data.domain.PageRequest.of(page, size)));
+        }
+        return ApiResponse.unauthorized("Unauthorized");
     }
 }
 

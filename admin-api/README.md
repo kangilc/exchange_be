@@ -67,7 +67,7 @@ sequenceDiagram
     Note over App, DB: Default Admin Account Seeding
     App->>DB: Find default admin user ('admin@javaf.net')
     alt Admin Not Found
-        App->>DB: Register default admin account ('admin123')
+        App->>DB: Register default admin account ('admin123!@#')
     else Admin Exists
         App-->>App: Skip Account Seeding
     end
