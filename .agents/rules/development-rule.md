@@ -21,10 +21,12 @@ trigger: always_on
 * 에러 핸들링: 모든 비동기 처리(Async/Await)와 API 호출에는 반드시 명시적인 예외 처리(try-catch)와 사용자 친화적인 에러 로그를 포함하십시오. [4, 5] 
 * 리소스 및 메모리 누수 방지: 웹소켓(WebSocket) 연결, 이벤트 리스너, setInterval/setTimeout 등은 컴포넌트 언마운트나 상태 변경 시 반드시 명시적으로 정리(cleanup)하십시오.
 * 상태 관리 최적화: Zustand 등 전역 상태를 구독할 때, 실시간 데이터로 인한 불필요한 리렌더링을 방지하기 위해 반드시 개별 셀렉터(Selector)를 사용하여 구독하십시오.
-* admin-api 프로젝트는 JPA, Mybatis를 병용해서 사용이니 일반 적인 CURD는 JPA, 복잡한 쿼리는 Mybatis Dao를 사용하도록.
-* 소스 수정 등의 일을 할 때 반드시 한글 주석을 추가(간결하고 수식어 없는 평어체)
+* admin-api 프로젝트는 JPA와 MyBatis를 병용하는 CQRS 변형 패턴을 사용합니다.
+  - **데이터 상태 변경(INSERT/UPDATE/DELETE)** 및 단순 조회는 반드시 **JPA Entity**를 통해서만 수행하여 1차 캐시 불일치(Dirty Read)를 방지하십시오.
+  - 통계(GROUP BY), 복잡한 다중 조인, 쿼리 튜닝이 필요한 대량 목록 조회 등 **읽기 전용(SELECT)** 쿼리만 **MyBatis Mapper**를 사용하도록 완벽히 분리하십시오.
+* 소스(java,xml,js,tsx 기타 등등) 수정 등의 일을 할 때 반드시 한글 주석을 추가(간결하고 수식어 없는 평어체)
 * 관련 프로젝트 내의 README.md 파일 현행화(간결하고 수식어 없는 평어체)
-* xml에 SQL작성 시 (컬럼 옆에 한글 comments 필수)
+* xml에 SQL작성 시 (컬럼 옆에 한글 comments 필수, 주석 정렬기준 기본적으로 화면(140컬럼)내에 볼 수 있어야 하고 가급적 세로 정렬되어서 읽기 편하게))
 * xml내의 SQL은 대문자(키워드, 항목, 테이블명, alias 등)를 원칙으로 한다.
 * @Autowired 금지
 

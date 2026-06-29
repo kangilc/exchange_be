@@ -131,7 +131,10 @@ export const MarketWatchTab: React.FC<MarketWatchTabProps> = ({
                 <div className="xl:col-span-3 flex flex-col gap-2">
                     <div className="flex items-center justify-between border-b border-white/5 pb-2">
                         <span className="text-sm font-bold text-white">{activeSymbol} 실시간 시세 차트</span>
-                        <span className="text-[10px] text-slate-400">MA7, MA25 및 볼륨 지표 오버레이</span>
+                        <div className="flex flex-col text-right">
+                            <span className="text-[10px] text-slate-400">MA7, MA25 및 볼륨 지표 오버레이</span>
+                            <span className="text-[10px] text-[#00f2fe] font-bold">💡 차트 성능 보호를 위해 가장 최신 거래 5만 건 내에서 캔들을 생성합니다.</span>
+                        </div>
                     </div>
                     <TradingViewChart />
                 </div>

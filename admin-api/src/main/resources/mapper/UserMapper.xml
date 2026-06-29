@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="exchange.admin.mapper.UserMapper">
+
+    <!-- 회원 가입 통계 (시간 해상도별) 조회 -->
+    <select id="selectUserStats" resultType="exchange.admin.dto.UserStatsDto">
+        SELECT 
+            TO_CHAR(DATE_TRUNC(#{timeBucket}, U.CREATED_AT), 'YYYY-MM-DD HH24:MI:SS') AS BUCKET,		<!-- 통계 시간대 -->
+            COUNT(U.USER_ID) AS USERCOUNT		<!-- 회원 가입 수 -->
+        FROM USERS U
+        WHERE U.CREATED_AT &gt;= #{startDate} AND U.CREATED_AT &lt;= #{endDate}
+        GROUP BY 1
+        ORDER BY 1 DESC
+    </select>
+
+</mapper>

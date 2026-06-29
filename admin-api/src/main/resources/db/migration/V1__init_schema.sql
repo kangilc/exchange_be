@@ -303,3 +303,10 @@ CREATE INDEX IF NOT EXISTS idx_market_histories_symbol ON market_histories(symbo
 -- 공통 코드 그룹별 정렬 조회 최적화 (그룹 내 정렬 순서 보장)
 CREATE INDEX IF NOT EXISTS idx_common_codes_group_display ON common_codes(group_code, display_order);
 
+
+-- Admin API 통계 및 대시보드 전수조사 방지를 위한 최적화 인덱스 추가
+CREATE INDEX IF NOT EXISTS idx_trades_created_at_symbol ON trades(created_at DESC, symbol);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ledger_journal_created_at ON ledger_journal(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_wallets_currency ON wallets(currency);
+CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC);
