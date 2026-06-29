@@ -27,38 +27,45 @@ export const PerformanceTab: React.FC = () => {
                 <Activity size={20} className="text-[#8a2be2]" />
                 <span>거래소 실적 분석 콘솔 (Performance Console)</span>
             </div>
+            
+            <div className="text-xs text-slate-400 bg-[#8a2be2]/10 p-3 rounded-lg border border-[#8a2be2]/20 flex items-center gap-2">
+                <span className="font-black text-[#c084fc]">💡 데이터 집계 기준 안내:</span> 
+                <span>본 대시보드의 모든 실적 지표(수익, 활성 유저, 순입금 흐름, 체결률 등)는 시스템 부하 방지를 위해 <b>최근 30일(Rolling 30 Days) 데이터</b>를 기준으로 고정 집계됩니다.</span>
+            </div>
 
-            {/* Row 1: Fee Revenue Summary Cards */}
+            {/* Row 1: Dynamic Market Fee Revenue Cards & General KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                <div className="card-custom p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl flex flex-col justify-between min-h-[140px]">
-                    <div>
-                        <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">누적 수수료 수익 (Cumulative Fee)</div>
-                        <div className="text-lg xl:text-xl tracking-tight font-black font-mono text-emerald-400 mt-2">
-                            ${(performanceStats?.feeRevenue?.btcUsdFeesUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {/* 1-1. 마켓별 수수료 실적 카드 (배열 기반 동적 렌더링) */}
+                {(performanceStats?.feeRevenues || []).map((market: any) => (
+                    <div key={market.symbol} className="card-custom p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl flex flex-col justify-between min-h-[140px] shadow-[0_0_15px_rgba(138,43,226,0.05)] hover:shadow-[0_0_20px_rgba(138,43,226,0.15)] transition-shadow">
+                        <div>
+                            <div className="flex justify-between items-center">
+                                <div className="text-xs text-slate-400 uppercase tracking-wider font-extrabold">{market.symbol} 수수료 수익</div>
+                                <div className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                                    FEE: {market.currentFeeRate}%
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 mt-3">
+                                <div>
+                                    <div className="text-[10px] text-slate-500 font-bold uppercase">24H 수익</div>
+                                    <div className="text-base xl:text-lg tracking-tight font-black font-mono text-emerald-400 mt-0.5">
+                                        {market.quoteCurrency === 'USD' ? '$' : '₩'}{(market.fees24h || 0).toLocaleString(undefined, { minimumFractionDigits: market.quoteCurrency === 'USD' ? 2 : 0, maximumFractionDigits: market.quoteCurrency === 'USD' ? 2 : 0 })}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="text-[10px] text-slate-500 font-bold uppercase">누적 수익</div>
+                                    <div className="text-base xl:text-lg tracking-tight font-black font-mono text-amber-500 mt-0.5">
+                                        {market.quoteCurrency === 'USD' ? '$' : '₩'}{(market.totalFees || 0).toLocaleString(undefined, { minimumFractionDigits: market.quoteCurrency === 'USD' ? 2 : 0, maximumFractionDigits: market.quoteCurrency === 'USD' ? 2 : 0 })}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div className="text-base xl:text-lg tracking-tight font-black font-mono text-amber-500 mt-1">
-                            ₩{(performanceStats?.feeRevenue?.adaKrwFeesKrw || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        <div className="text-[10px] text-slate-400 border-t border-white/5 pt-2 mt-3 flex justify-between">
+                            <span>24H 거래량: {market.quoteCurrency === 'USD' ? '$' : '₩'}{(market.volume24h || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                            <span className="text-slate-500">누적: {(market.totalVolume || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                         </div>
                     </div>
-                    <div className="text-[10px] text-slate-400 border-t border-white/5 pt-1.5 mt-2">
-                        BTC-USD 및 ADA-KRW 마켓 누적 합산
-                    </div>
-                </div>
-
-                <div className="card-custom p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl flex flex-col justify-between min-h-[140px]">
-                    <div>
-                        <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">24H 수수료 수익 (24H Fee)</div>
-                        <div className="text-lg xl:text-xl tracking-tight font-black font-mono text-emerald-400 mt-2">
-                            ${(performanceStats?.feeRevenue?.btcUsdFees24hUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </div>
-                        <div className="text-base xl:text-lg tracking-tight font-black font-mono text-amber-500 mt-1">
-                            ₩{(performanceStats?.feeRevenue?.adaKrwFees24hKrw || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                        </div>
-                    </div>
-                    <div className="text-[10px] text-slate-400 border-t border-white/5 pt-1.5 mt-2">
-                        최근 24시간 동안 수수료율 기반 누적액
-                    </div>
-                </div>
+                ))}
 
                 <div className="card-custom p-5 bg-slate-900/40 border border-[#8a2be2]/20 rounded-2xl flex flex-col justify-between min-h-[140px]">
                     <div>

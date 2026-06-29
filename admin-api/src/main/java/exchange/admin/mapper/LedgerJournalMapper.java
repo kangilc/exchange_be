@@ -66,4 +66,17 @@ public interface LedgerJournalMapper {
      * @return 총 데이터 개수
      */
     long countDetailedLedgersByUserId(@Param("userId") Long userId);
+    
+    /**
+     * 자산 원장 변동 통계 (시간 해상도별) 조회.
+     *
+     * @param timeBucket 시간 해상도
+     * @param startDate 조회 시작일
+     * @param endDate 조회 종료일
+     * @return 자산 변동 통계 목록
+     */
+    List<exchange.admin.dto.LedgerStatsDto> selectLedgerStats(
+            @Param("timeBucket") String timeBucket,
+            @Param("startDate") java.time.LocalDateTime startDate,
+            @Param("endDate") java.time.LocalDateTime endDate);
 }

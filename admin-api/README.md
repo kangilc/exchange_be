@@ -87,17 +87,19 @@ sequenceDiagram
 
 ---
 
-## 📈 4. 실시간 거래 통계 및 동적 소수점 정밀도 (Dynamic Decimals)
+## 📈 4. 실시간 거래 통계 및 동적 마켓 연동 아키텍처
  
 `StatsController` 및 `StatsService`에서는 데이터베이스의 거래(Trades), 주문(Orders), 지갑(Wallets), 원장(LedgerJournal) 내역을 바탕으로 관리자 대시보드 및 지표 분석용 핵심 KPI를 동적으로 집계합니다.
  
-특히, 모든 암호화폐 거래 가격 및 대금 통계 연산은 마켓 테이블(`markets`)의 **`price_decimals`** 속성을 기반으로 하는 **동적 소수점 스케일링(Dynamic Decimal Scaling)**이 적용되어 작동합니다.
-* **동적 가격 변환**: 기존의 하드코딩된 `/ 100.0` 또는 `* 100` 스케일 계수를 제거하고, `POWER(10, COALESCE(price_decimals, 2))` SQL 함수 또는 `Math.pow(10, priceDecimals)` Java 로직을 통하여 마켓별로 상이한 자릿수 제한(BTC 2자리, ADA 4자리 등)에 맞춰 가치 및 거래 대금을 유연하고 오차 없이 산출합니다.
+특히, 모든 암호화폐 거래 가격 및 대금 통계 연산은 마켓 테이블(`markets`)의 속성을 기반으로 하는 **동적 마켓 연동 및 소수점 스케일링**이 적용되어 작동합니다.
+* **마켓 동적 연동**: 기존의 특정 종목 하드코딩(`BTC-USD`, `ADA-KRW` 등)을 완전히 배제하고, `markets` 테이블에서 활성화(`is_active=true`)된 전체 마켓 목록을 기준으로 수익 및 거래량을 자동 합산합니다. 이를 통해 새로운 종목이 상장되어도 코드 수정 없이 통계 대시보드에 즉시 반영됩니다.
+* **동적 가격 변환**: `POWER(10, COALESCE(price_decimals, 2))` SQL 함수 또는 `Math.pow(10, priceDecimals)` Java 로직을 통하여 마켓별로 상이한 자릿수 제한(BTC 2자리, ADA 4자리 등)에 맞춰 가치 및 거래 대금을 유연하고 오차 없이 산출합니다.
 * **자산 회전 강도 (Trading Velocity)**: 사용자 전체 자산의 KRW 환산 총액 대비 최근 30일간의 총 거래 대금 비율을 계측하여 자산 대비 거래 활성도를 퍼센티지(%)로 도출합니다.
 * **주문 체결 및 효율성 (Order Fill Rate)**: 최근 30일간 접수 및 종료된 전체 주문 중 체결 완료(FILLED)된 주문의 비중을 계산하여 매칭 엔진 효율을 측정합니다.
 * **사용자 활동 밀도 (DAU/MAU Ratio)**: 24시간 동안 주문 또는 자산 원장 변동이 발생한 고유 사용자 수(DAU)와 30일 동안 발생한 고유 사용자 수(MAU)의 비율을 연산하여 사용자 유지력과 고착도를 모니터링합니다.
 * **경쟁사 벤치마크 (Competitor Benchmark)**: 우리 거래소와 해외/국내 주요 거래소(Binance, Coinbase, Upbit 등)의 수수료율, 평균 체결 지연 시간(Latency), 처리량(TPS), 안정성 지표를 모의 대조 분석 지표로 제공합니다.
-
+* **대용량 집계 쿼리 최적화 (CTE 적용)**: `TRADES` 테이블 풀 스캔 및 조인 부하를 방지하기 위해, 시간대 및 심볼 기준으로 1차 단독 합산을 수행하는 CTE(WITH 구문)를 적용하여 통계 추출 성능을 극대화함.
+* **통계 전용 인덱스 설계**: 대시보드 조회 시점의 병목을 제거하기 위해 `TRADES`, `ORDERS`, `LEDGER_JOURNAL`, `USERS` 테이블에 날짜(CREATED_AT) 기준 검색 및 그룹핑 전용 B-Tree 인덱스를 구축함.
 ---
 
 ## 💾 5. 인메모리 캐싱 전략 (In-Memory Caching Strategy)

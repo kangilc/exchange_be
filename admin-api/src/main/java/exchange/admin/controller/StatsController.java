@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * 어드민 종합 통계 및 지표 관리 컨트롤러.
- * 거래소 요약 지표, 회원 가입 추이, 마켓 체결 통계 및 차트용 캔들 데이터 조회를 제공한다.
+ * 거래소 요약 지표, 회원 가입 추이, 마켓 체결 통계 및 차트용 캔들 데이터 조회를 제공함.
  */
 @RestController
 @RequestMapping("/admin/stats")
@@ -49,26 +49,44 @@ public class StatsController {
 
     /**
      * 시간 해상도별 자산 원장 변동 통계 조회.
+     * 기간 필터링(startDate, endDate)을 지원하며 파라미터 누락 시 최근 30일 데이터를 기본으로 조회함.
      * 
      * @param resolution 시간 해상도 (daily 등)
+     * @param startDate 조회 시작일
+     * @param endDate 조회 종료일
      * @return 자산 변동 통계 목록
      */
     @GetMapping("/assets")
-    public ResponseEntity<ApiResponse<List<LedgerJournalRepository.LedgerStatsProjection>>> getLedgerStats(
-            @RequestParam(value = "resolution", defaultValue = "daily") String resolution) {
-        return ApiResponse.ok(statsService.getLedgerStats(resolution));
+    public ResponseEntity<ApiResponse<List<exchange.admin.dto.LedgerStatsDto>>> getLedgerStats(
+            @RequestParam(value = "resolution", defaultValue = "daily") String resolution,
+            @RequestParam(value = "startDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
+            @RequestParam(value = "endDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate) {
+        
+        java.time.LocalDateTime finalEndDate = endDate != null ? endDate : java.time.LocalDateTime.now();
+        java.time.LocalDateTime finalStartDate = startDate != null ? startDate : finalEndDate.minusDays(30);
+        
+        return ApiResponse.ok(statsService.getLedgerStats(resolution, finalStartDate, finalEndDate));
     }
 
     /**
      * 시간 해상도별 회원 가입 및 활성화 추이 통계 조회.
+     * 기간 필터링(startDate, endDate)을 지원하며 파라미터 누락 시 최근 30일 데이터를 기본으로 조회함.
      * 
      * @param resolution 시간 해상도 (daily 등)
+     * @param startDate 조회 시작일
+     * @param endDate 조회 종료일
      * @return 회원 지표 통계 목록
      */
     @GetMapping("/users")
-    public ResponseEntity<ApiResponse<List<exchange.admin.repository.UserRepository.UserStatsProjection>>> getUserStats(
-            @RequestParam(value = "resolution", defaultValue = "daily") String resolution) {
-        return ApiResponse.ok(statsService.getUserStats(resolution));
+    public ResponseEntity<ApiResponse<List<exchange.admin.dto.UserStatsDto>>> getUserStats(
+            @RequestParam(value = "resolution", defaultValue = "daily") String resolution,
+            @RequestParam(value = "startDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
+            @RequestParam(value = "endDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate) {
+            
+        java.time.LocalDateTime finalEndDate = endDate != null ? endDate : java.time.LocalDateTime.now();
+        java.time.LocalDateTime finalStartDate = startDate != null ? startDate : finalEndDate.minusDays(30);
+        
+        return ApiResponse.ok(statsService.getUserStats(resolution, finalStartDate, finalEndDate));
     }
 
     /**
@@ -116,7 +134,7 @@ public class StatsController {
 
     /**
      * 특정 종목의 차트용 OHLCV 캔들 목록 조회.
-     * TradingView 차트 연동을 위한 과거 분/시간봉 데이터를 반환한다.
+     * TradingView 차트 연동을 위한 과거 분/시간봉 데이터를 반환함.
      * 
      * @param symbol     종목 심볼
      * @param resolution 시간 해상도 (기본값 1m)

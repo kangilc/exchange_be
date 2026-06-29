@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="exchange.admin.mapper.StatsMapper">
+
+    <!-- 특정 기간 이후의 수수료 수익 및 거래량 조회 (조인 최소화 및 마켓 동적 튜닝 적용) -->
+    <select id="selectFeeRevenue" resultType="java.util.Map">
+        WITH RAW_SUMS AS (		<!-- 거래 테이블 스캔 시 조인 부하를 방지하기 위해 단독으로 먼저 합산함 -->
+            SELECT
+                SYMBOL,		<!-- 마켓 종목 심볼 -->
+                SUM(PRICE * QTY) AS RAW_VOL,		<!-- 소수점 보정 전 가격 기준 총 거래 대금 합계 -->
+                SUM(FEE_AMOUNT) AS RAW_FEE		<!-- 총 수수료 합계 -->
+            FROM TRADES		<!-- 체결 내역 테이블 -->
+            WHERE CREATED_AT &gt;= #{since}		<!-- 파라미터로 전달된 기준 시간(since) 이후 체결된 거래만 필터링함 -->
+            GROUP BY SYMBOL		<!-- 종목 심볼별로 합산함 -->
+        )
+        SELECT 
+            M.SYMBOL AS SYMBOL,		<!-- 마켓 종목 심볼 (동적 할당용) -->
+            M.QUOTE_CURRENCY AS QUOTE_CURRENCY,		<!-- 마켓 결제 통화 (USD, KRW 등 동적 표시용) -->
+            M.FEE_RATE AS CURRENT_FEE_RATE,		<!-- 마켓별 실시간 현재 수수료율 -->
+            COALESCE(R.RAW_VOL / POWER(10, COALESCE(M.PRICE_DECIMALS, 2)), 0.0) AS VOLUME,		<!-- 결제 통화 기준으로 소수점이 보정된 실 거래 대금 -->
+            COALESCE(R.RAW_FEE, 0.0) AS FEES		<!-- 수수료 총액 (기간 내 누적 합계) -->
+        FROM MARKETS M		<!-- 활성화된 모든 마켓을 기준으로 잡음 -->
+        LEFT JOIN RAW_SUMS R ON M.SYMBOL = R.SYMBOL		<!-- 마켓 기준에서 거래 데이터 합계를 조인하여 연결함 -->
+        WHERE M.IS_ACTIVE = TRUE		<!-- 운영 중인 활성화 마켓만 조회 대상으로 포함함 -->
+    </select>
+
+    <!-- 전체 누적 수수료 수익 및 거래량 조회 (조인 최소화 및 마켓 동적 튜닝 적용) -->
+    <select id="selectTotalFeeRevenue" resultType="java.util.Map">
+        WITH RAW_SUMS AS (		<!-- 데이터 전체 스캔 시 조인 부하를 없애기 위해 TRADES 단독 합산을 수행함 -->
+            SELECT
+                SYMBOL,		<!-- 마켓 종목 심볼 -->
+                SUM(PRICE * QTY) AS RAW_VOL,		<!-- 소수점 보정 전 가격 기준 총 거래 대금 합계 -->
+                SUM(FEE_AMOUNT) AS RAW_FEE		<!-- 총 수수료 합계 -->
+            FROM TRADES		<!-- 체결 내역 테이블 -->
+            GROUP BY SYMBOL		<!-- 종목 심볼별로 합산함 -->
+        )
+        SELECT 
+            M.SYMBOL AS SYMBOL,		<!-- 마켓 종목 심볼 (동적 할당용) -->
+            M.QUOTE_CURRENCY AS QUOTE_CURRENCY,		<!-- 마켓 결제 통화 (USD, KRW 등 동적 표시용) -->
+            M.FEE_RATE AS CURRENT_FEE_RATE,		<!-- 마켓별 실시간 현재 수수료율 -->
+            COALESCE(R.RAW_VOL / POWER(10, COALESCE(M.PRICE_DECIMALS, 2)), 0.0) AS VOLUME,		<!-- 전체 누적 거래 대금 (소수점 보정 완료) -->
+            COALESCE(R.RAW_FEE, 0.0) AS FEES		<!-- 전체 누적 수수료 총액 -->
+        FROM MARKETS M		<!-- 활성화된 모든 마켓을 기준으로 잡음 -->
+        LEFT JOIN RAW_SUMS R ON M.SYMBOL = R.SYMBOL		<!-- 거래가 없었던 신규 마켓이라도 0원으로 노출시키기 위해 OUTER JOIN 적용 -->
+        WHERE M.IS_ACTIVE = TRUE		<!-- 운영 중인 마켓만 통계 패널에 노출함 -->
+    </select>
+
+    <!-- 특정 기간 이후의 고유 활성 사용자 수(DAU/MAU) 집계 -->
+    <select id="selectActiveUsersCount" resultType="long">
+        SELECT 
+            COUNT(DISTINCT USER_ID)		<!-- 고유 사용자 수(중복 제거) 카운트 -->
+        FROM (		<!-- 주문 및 원장 변동 내역 서브쿼리 -->
+            SELECT
+                USER_ID		<!-- 유저 식별자 -->
+            FROM ORDERS		<!-- 주문 내역 테이블 -->
+            WHERE CREATED_AT &gt;= #{since}		<!-- 기준 시간 이후 주문을 제출한 유저 추출 -->
+            UNION		<!-- 주문자 집합과 입출금자 집합을 중복 없이 합침 -->
+            SELECT
+                USER_ID		<!-- 유저 식별자 -->
+            FROM LEDGER_JOURNAL		<!-- 원장 변동 내역 테이블 -->
+            WHERE CREATED_AT &gt;= #{since}		<!-- 기준 시간 이후 원장 변동이 발생한 유저 추출 -->
+        ) AS ACTIVE_USERS		<!-- 활성 유저 서브쿼리 별칭 -->
+    </select>
+
+    <!-- 특정 기간 이후의 통화별 순 입출금 흐름(Net Flow) 조회 -->
+    <select id="selectNetDepositFlow" resultType="java.util.Map">
+        SELECT 
+            CURRENCY AS CURRENCY,		<!-- 대상 통화 코드 (KRW, USD, BTC 등) -->
+            COALESCE(SUM(AMOUNT), 0.0) AS NETFLOW		<!-- 입금(+)과 출금(-) 금액을 모두 합산한 자산의 순 유입/유출액 -->
+        FROM LEDGER_JOURNAL		<!-- 원장 내역 테이블 조회 -->
+        WHERE TYPE IN ('DEPOSIT', 'WITHDRAWAL')		<!-- 거래(TRADE) 등의 변동은 제외하고 오직 입금과 출금 내역만 필터링 -->
+          AND CREATED_AT &gt;= #{since}		<!-- 특정 기간(최근 30일 등) 내에 발생한 원장 변동만 포함 -->
+        GROUP BY CURRENCY		<!-- 통화(CURRENCY) 종류별로 데이터를 그룹핑 -->
+    </select>
+
+    <!-- 통화별 지갑 총 자산 잔액 조회 -->
+    <select id="selectTotalBalances" resultType="java.util.Map">
+        SELECT 
+            CURRENCY AS CURRENCY,		<!-- 대상 통화 코드 -->
+            SUM(BALANCE + LOCKED_BALANCE) AS TOTALBALANCE		<!-- 사용 가능한 잔고(BALANCE)와 주문 등으로 묶인 락업 잔고(LOCKED_BALANCE)의 총합 -->
+        FROM WALLETS		<!-- 전체 유저의 지갑(Wallets) 테이블 조회 -->
+        GROUP BY CURRENCY		<!-- 통화 종류별로 그룹핑하여 거래소 내 총 보관 자산 계산 -->
+    </select>
+
+    <!-- 30일 누적 거래량 조회 (티커별 회전율 산출용 마켓 동적 연동) -->
+    <select id="selectVolume30d" resultType="java.util.Map">
+        WITH RAW_SUMS AS (		<!-- 30일치 데이터 전체 스캔 시 조인 부하를 없애기 위해 단독 합산 수행 -->
+            SELECT
+                SYMBOL,		<!-- 마켓 종목 심볼 -->
+                SUM(PRICE * QTY) AS RAW_VOL		<!-- 소수점 보정 전 가격 기준 총 거래 대금 합계 -->
+            FROM TRADES		<!-- 체결 내역 테이블 -->
+            WHERE CREATED_AT &gt;= NOW() - INTERVAL '30 days'		<!-- 최근 30일 데이터만 필터링 -->
+            GROUP BY SYMBOL		<!-- 종목 심볼별로 그룹핑 -->
+        )
+        SELECT 
+            M.SYMBOL AS SYMBOL,		<!-- 마켓 종목 심볼 -->
+            M.QUOTE_CURRENCY AS QUOTE_CURRENCY,		<!-- 마켓 결제 통화 (USD, KRW 등) -->
+            COALESCE(R.RAW_VOL / POWER(10, COALESCE(M.PRICE_DECIMALS, 2)), 0.0) AS VOLUME		<!-- 최근 30일간의 해당 마켓 거래 대금 총합 -->
+        FROM MARKETS M		<!-- 운영 중인 마켓 기준 -->
+        LEFT JOIN RAW_SUMS R ON M.SYMBOL = R.SYMBOL		<!-- 최소 횟수로 조인하여 소수점을 보정 -->
+        WHERE M.IS_ACTIVE = TRUE		<!-- 활성 마켓만 추출 -->
+    </select>
+
+    <!-- 특정 기간 이후의 주문 상태별 분포 및 체결 효율성 개수 조회 -->
+    <select id="selectOrderFillRate" resultType="java.util.Map">
+        SELECT 
+            COALESCE(SUM(CASE WHEN STATUS = 'FILLED' THEN 1 ELSE 0 END), 0) AS FILLED,		<!-- 주문이 100% 매칭되어 완전히 체결된(FILLED) 건수 합계 -->
+            COALESCE(SUM(CASE WHEN STATUS = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS CANCELLED,		<!-- 사용자 취소 또는 시스템에 의해 취소된(CANCELLED) 건수 합계 -->
+            COALESCE(SUM(CASE WHEN STATUS IN ('NEW', 'PARTIALLY_FILLED') THEN 1 ELSE 0 END), 0) AS ACTIVE		<!-- 현재 호가창에 등록되어 대기 중이거나 일부만 체결된(ACTIVE) 건수 합계 -->
+        FROM ORDERS		<!-- 주문 테이블 조회 -->
+        WHERE CREATED_AT &gt;= #{since}		<!-- 특정 기간(예: 최근 30일) 동안 생성된 주문만 대상 -->
+    </select>
+
+    <!-- 지정된 시간 해상도별 OHLCV 캔들 집계 쿼리 (TradingView 차트용 서브쿼리 최적화) -->
+    <select id="selectCandleStats" resultType="java.util.Map">
+        WITH RECENT_TRADES AS (		<!-- 전체 테이블 스캔을 방지하기 위해 최신 거래 내역만 미리 인덱스로 추출하는 서브쿼리 -->
+            SELECT
+                TRADE_ID,		<!-- 체결 고유 식별자 -->
+                SYMBOL,		<!-- 마켓 종목 심볼 -->
+                PRICE,		<!-- 체결 단가 -->
+                QTY,		<!-- 체결 수량 -->
+                CREATED_AT		<!-- 체결 발생 시간 -->
+            FROM TRADES		<!-- 체결 내역 테이블 -->
+            WHERE SYMBOL = #{symbol}		<!-- 요청받은 특정 종목만 추출함 -->
+            ORDER BY CREATED_AT DESC		<!-- 최신 거래 순으로 정렬함 -->
+            LIMIT #{tradeLimit}		<!-- 최대 지정된 건수의 원천 데이터만 안전선으로 잘라서 제공함 -->
+        )
+        SELECT
+            (CAST(EXTRACT(EPOCH FROM T.CREATED_AT) AS BIGINT) / #{bucketSizeSeconds}) * #{bucketSizeSeconds} AS TIME,		<!-- 체결 시간을 Unix 초로 변환 후 버킷 단위로 계산하여 캔들 시작 타임스탬프를 구함 -->
+            (ARRAY_AGG(T.PRICE ORDER BY T.TRADE_ID ASC))[1] / POWER(10, COALESCE(MAX(M.PRICE_DECIMALS), 2)) AS OPEN,		<!-- 해당 시간대(버킷) 최초 체결 가격을 시가(Open)로 추출함 -->
+            MAX(T.PRICE) / POWER(10, COALESCE(MAX(M.PRICE_DECIMALS), 2)) AS HIGH,		<!-- 해당 시간대 최고 체결 가격을 고가(High)로 추출함 -->
+            MIN(T.PRICE) / POWER(10, COALESCE(MAX(M.PRICE_DECIMALS), 2)) AS LOW,		<!-- 해당 시간대 최저 체결 가격을 저가(Low)로 추출함 -->
+            (ARRAY_AGG(T.PRICE ORDER BY T.TRADE_ID DESC))[1] / POWER(10, COALESCE(MAX(M.PRICE_DECIMALS), 2)) AS CLOSE,		<!-- 해당 시간대 마지막 체결 가격을 종가(Close)로 추출함 -->
+            SUM(T.QTY) AS VOLUME		<!-- 해당 시간대 전체 체결 코인 수량을 합산하여 거래량(Volume)으로 제공함 -->
+        FROM RECENT_TRADES T		<!-- 거대한 원본 테이블이 아닌, 5만 건으로 경량화된 최신 내역(CTE)을 기준으로 집계함 -->
+        LEFT JOIN MARKETS M ON T.SYMBOL = M.SYMBOL		<!-- 시장별 가격 소수점 표기 단위를 보정하기 위한 조인을 수행함 -->
+        GROUP BY TIME		<!-- 타임스탬프(TIME)를 기준으로 데이터를 그룹핑(Group By)함 -->
+        ORDER BY TIME DESC		<!-- 가장 최근 캔들 데이터가 상단에 오도록 시간 내림차순 정렬함 -->
+        LIMIT #{limit}		<!-- 클라이언트가 요청한 최종 캔들 노출 개수(limit)만큼만 결과를 반환함 -->
+    </select>
+
+</mapper>

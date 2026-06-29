@@ -19,6 +19,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     interface UserStatsProjection {
         String getBucket();
+
         Long getUserCount();
     }
 
@@ -30,5 +31,3 @@ public interface UserRepository extends JpaRepository<User, Long> {
             "ORDER BY 1 DESC", nativeQuery = true)
     List<UserStatsProjection> getUserStats(@Param("timeBucket") String timeBucket);
 }
-
-

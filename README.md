@@ -21,6 +21,10 @@
 - 500 전역 예외 처리 및 호환성 강화 적용.
   - `GlobalExceptionHandler`를 통한 `ApiResponse` 규격 반환으로 스택 트레이스 노출 차단.
   - 컴파일러 호환성 문제 방지를 위해 `@RequestParam` 명시적 이름 할당.
+- 대용량 통계 집계 쿼리 최적화 및 전용 인덱스 구축 (`admin-api`).
+  - `StatsMapper` 및 `TradeMapper`의 조인 병목 구간을 CTE(WITH 구문)를 활용한 선 그룹핑 후 조인 방식으로 구조 전면 개편.
+  - `TRADES`, `ORDERS`, `LEDGER_JOURNAL`, `USERS` 테이블에 날짜(CREATED_AT) 기준 통계 조회 전용 B-Tree 복합 인덱스 설계 및 적용.
+  - XML 매퍼 내 모든 한글 주석을 코드 끝 기준 탭 2번 띄움 정렬 규칙으로 일괄 규격화.
 
 ---
 
