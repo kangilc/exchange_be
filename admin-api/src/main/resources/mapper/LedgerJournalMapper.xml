@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="exchange.admin.mapper.LedgerJournalMapper">
+
+    <!-- 전체/검색 원장 목록 조회를 위한 동적 검색 조건 -->
+    <sql id="LedgerSearchCondition">
+        <where>
+            L.CREATED_AT &gt;= #{startDate} AND L.CREATED_AT &lt;= #{endDate}
+            <if test="search != null and search != ''">
+                AND (U.EMAIL LIKE '%' || #{search} || '%' 
+                  OR L.CURRENCY LIKE '%' || #{search} || '%')
+            </if>
+        </where>
+    </sql>
+    
+    <!-- 유저 전용 검색 조건 -->
+    <sql id="LedgerUserSearchCondition">
+        <where>
+            L.USER_ID = #{userId}
+            AND L.CREATED_AT &gt;= #{startDate} AND L.CREATED_AT &lt;= #{endDate}
+        </where>
+    </sql>
+
+    <!-- 전체/검색 원장 목록 조회 -->
+    <select id="selectDetailedLedgers" resultType="exchange.admin.dto.DetailedLedgerDto">
+        SELECT 
+            L.JOURNAL_ID AS JOURNALID,     <!-- 원장 고유 식별자 -->
+            L.USER_ID AS USERID,           <!-- 사용자 고유 식별자 -->
+            U.EMAIL AS EMAIL,              <!-- 사용자 이메일 계정 -->
+            L.CURRENCY AS CURRENCY,        <!-- 대상 자산/통화 코드 -->
+            L.AMOUNT AS AMOUNT,            <!-- 변동 수량 및 금액 -->
+            L.TYPE AS TYPE,                <!-- 원장 변동 타입 -->
+            L.REFERENCE_ID AS REFERENCEID, <!-- 참조 거래/입출금 ID -->
+            L.CREATED_AT AS CREATEDAT      <!-- 생성 일시 -->
+        FROM LEDGER_JOURNAL L
+        JOIN USERS U ON L.USER_ID = U.USER_ID
+        <include refid="LedgerSearchCondition"/>
+        ORDER BY L.CREATED_AT DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- 전체/검색 원장 개수 조회 -->
+    <select id="countDetailedLedgers" resultType="long">
+        SELECT COUNT(*)
+        FROM LEDGER_JOURNAL L
+        JOIN USERS U ON L.USER_ID = U.USER_ID
+        <include refid="LedgerSearchCondition"/>
+    </select>
+    
+    <!-- 특정 유저 원장 목록 조회 -->
+    <select id="selectDetailedLedgersByUserId" resultType="exchange.admin.dto.DetailedLedgerDto">
+        SELECT 
+            L.JOURNAL_ID AS JOURNALID,     <!-- 원장 고유 식별자 -->
+            L.USER_ID AS USERID,           <!-- 사용자 고유 식별자 -->
+            U.EMAIL AS EMAIL,              <!-- 사용자 이메일 계정 -->
+            L.CURRENCY AS CURRENCY,        <!-- 대상 자산/통화 코드 -->
+            L.AMOUNT AS AMOUNT,            <!-- 변동 수량 및 금액 -->
+            L.TYPE AS TYPE,                <!-- 원장 변동 타입 -->
+            L.REFERENCE_ID AS REFERENCEID, <!-- 참조 거래/입출금 ID -->
+            L.CREATED_AT AS CREATEDAT      <!-- 생성 일시 -->
+        FROM LEDGER_JOURNAL L
+        JOIN USERS U ON L.USER_ID = U.USER_ID
+        <include refid="LedgerUserSearchCondition"/>
+        ORDER BY L.CREATED_AT DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- 특정 유저 원장 개수 조회 -->
+    <select id="countDetailedLedgersByUserId" resultType="long">
+        SELECT COUNT(*)
+        FROM ledger_journal l
+        <include refid="LedgerUserSearchCondition"/>
+    </select>
+
+</mapper>

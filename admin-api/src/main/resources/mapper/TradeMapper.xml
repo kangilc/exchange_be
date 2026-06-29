@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="exchange.admin.mapper.TradeMapper">
+
+    <!-- 체결 내역 통계 (시간 해상도별) 조회 -->
+    <select id="selectTradeStats" resultType="exchange.admin.dto.TradeStatsDto">
+        SELECT 
+            TO_CHAR(DATE_TRUNC(#{timeBucket}, T.CREATED_AT), 'YYYY-MM-DD HH24:MI:SS') AS BUCKET, <!-- 통계 시간대 -->
+            COUNT(T.TRADE_ID) AS TRADECOUNT,                                                     <!-- 체결 건수 -->
+            SUM(T.QTY) AS TOTALQTY,                                                              <!-- 체결 총 수량 -->
+            CAST(AVG(T.PRICE) AS DOUBLE PRECISION) AS AVGPRICE,                                  <!-- 평균 체결 가격 -->
+            CAST(SUM(T.QTY * (T.PRICE / POWER(10, COALESCE(M.PRICE_DECIMALS, 2)))) AS DOUBLE PRECISION) AS TOTALVOLUME <!-- 총 거래 대금 (볼륨) -->
+        FROM TRADES T
+        LEFT JOIN MARKETS M ON T.SYMBOL = M.SYMBOL
+        WHERE T.CREATED_AT &gt;= #{startDate} AND T.CREATED_AT &lt;= #{endDate}
+        GROUP BY 1
+        ORDER BY 1 DESC
+    </select>
+
+    <!-- 특정 유저의 체결 내역 목록 조회 (UNION ALL 사용으로 성능 최적화) -->
+    <select id="selectUserTrades" resultType="exchange.admin.dto.UserTradeDto">
+        SELECT 
+            T.TRADE_ID AS TRADEID,         <!-- 체결 고유 식별자 -->
+            T.SYMBOL AS SYMBOL,            <!-- 대상 자산 심볼 -->
+            T.BUY_ORDER_ID AS BUYORDERID,  <!-- 매수 주문 ID -->
+            T.SELL_ORDER_ID AS SELLORDERID,<!-- 매도 주문 ID -->
+            T.PRICE AS PRICE,              <!-- 체결 가격 -->
+            T.QTY AS QTY,                  <!-- 체결 수량 -->
+            T.CREATED_AT AS EXECUTEDAT,    <!-- 체결 일시 -->
+            U_TRADES.SIDE AS SIDE          <!-- 포지션 (매수/매도) -->
+        FROM (
+            SELECT 
+                TR.TRADE_ID, TR.SYMBOL, TR.BUY_ORDER_ID, TR.SELL_ORDER_ID, TR.PRICE, TR.QTY, TR.CREATED_AT, 'BUY' AS SIDE
+            FROM TRADES TR
+            JOIN ORDERS O_BUY ON TR.BUY_ORDER_ID = O_BUY.ORDER_ID
+            WHERE O_BUY.USER_ID = #{userId}
+            
+            UNION ALL
+            
+            SELECT 
+                TR.TRADE_ID, TR.SYMBOL, TR.BUY_ORDER_ID, TR.SELL_ORDER_ID, TR.PRICE, TR.QTY, TR.CREATED_AT, 'SELL' AS SIDE
+            FROM TRADES TR
+            JOIN ORDERS O_SELL ON TR.SELL_ORDER_ID = O_SELL.ORDER_ID
+            WHERE O_SELL.USER_ID = #{userId}
+        ) U_TRADES
+        JOIN TRADES T ON U_TRADES.TRADE_ID = T.TRADE_ID
+        ORDER BY T.CREATED_AT DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- 특정 유저의 체결 내역 총 개수 조회 (UNION ALL 사용) -->
+    <select id="countUserTrades" resultType="long">
+        SELECT SUM(CNT) FROM (
+            SELECT COUNT(*) AS CNT
+            FROM TRADES T
+            JOIN ORDERS O_BUY ON T.BUY_ORDER_ID = O_BUY.ORDER_ID
+            WHERE O_BUY.USER_ID = #{userId}
+            
+            UNION ALL
+            
+            SELECT COUNT(*) AS CNT
+            FROM TRADES T
+            JOIN ORDERS O_SELL ON T.SELL_ORDER_ID = O_SELL.ORDER_ID
+            WHERE O_SELL.USER_ID = #{userId}
+        ) TOTALS
+    </select>
+
+    <!-- 전체 누적 거래 볼륨 조회 -->
+    <select id="selectTotalTradeVolume" resultType="double">
+        SELECT 
+            COALESCE(SUM(T.QTY * (T.PRICE / POWER(10, COALESCE(M.PRICE_DECIMALS, 2)))), 0.0) <!-- 총 누적 거래 대금 -->
+        FROM TRADES T 
+        LEFT JOIN MARKETS M ON T.SYMBOL = M.SYMBOL
+    </select>
+
+    <!-- 특정 시간 이전의 마지막 체결 단건 조회 -->
+    <select id="selectLatestTradeBeforeCutoff" resultType="exchange.admin.model.Trade">
+        SELECT 
+            * <!-- 전체 체결 컬럼 -->
+        FROM TRADES 
+        WHERE SYMBOL = #{symbol} 
+          AND CREATED_AT &lt; #{cutoff} 
+        ORDER BY CREATED_AT DESC 
+        LIMIT 1
+    </select>
+
+    <!-- 첫 번째 체결 내역 단건 조회 -->
+    <select id="selectFirstTrade" resultType="exchange.admin.model.Trade">
+        SELECT 
+            * <!-- 전체 체결 컬럼 -->
+        FROM TRADES 
+        WHERE SYMBOL = #{symbol} 
+        ORDER BY CREATED_AT ASC 
+        LIMIT 1
+    </select>
+
+</mapper>

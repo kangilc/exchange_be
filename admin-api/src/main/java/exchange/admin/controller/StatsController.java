@@ -28,14 +28,23 @@ public class StatsController {
 
     /**
      * 시간 해상도별 체결 거래 통계 조회.
+     * 기간 필터링(startDate, endDate)을 지원하며 파라미터 누락 시 최근 30일 데이터를 기본으로 조회함.
      * 
      * @param resolution 시간 해상도 (daily 등)
+     * @param startDate 조회 시작일 (yyyy-MM-dd'T'HH:mm:ss 형식)
+     * @param endDate 조회 종료일 (yyyy-MM-dd'T'HH:mm:ss 형식)
      * @return 체결 거래 통계 목록
      */
     @GetMapping("/trades")
-    public ResponseEntity<ApiResponse<List<TradeRepository.TradeStatsProjection>>> getTradeStats(
-            @RequestParam(value = "resolution", defaultValue = "daily") String resolution) {
-        return ApiResponse.ok(statsService.getTradeStats(resolution));
+    public ResponseEntity<ApiResponse<List<exchange.admin.dto.TradeStatsDto>>> getTradeStats(
+            @RequestParam(value = "resolution", defaultValue = "daily") String resolution,
+            @RequestParam(value = "startDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
+            @RequestParam(value = "endDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate) {
+        
+        java.time.LocalDateTime finalEndDate = endDate != null ? endDate : java.time.LocalDateTime.now();
+        java.time.LocalDateTime finalStartDate = startDate != null ? startDate : finalEndDate.minusDays(30);
+        
+        return ApiResponse.ok(statsService.getTradeStats(resolution, finalStartDate, finalEndDate));
     }
 
     /**

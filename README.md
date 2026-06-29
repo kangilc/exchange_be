@@ -7,13 +7,20 @@
 ---
 
 ## 🆕 최근 업데이트 (Recent Updates)
-- VS Code 환경 컴파일러 호환성 문제 해결 (`-parameters` 누락으로 인한 500 에러).
-  - `@RequestParam` 및 `@PathVariable` 파라미터 이름 명시 처리.
-  - `StatsService` 캐시 키 자동 생성 로직 롤백 및 안정화.
-- PostgreSQL 네이티브 쿼리 타입 추론 오류 해결 (`PSQLException`).
-  - `LedgerJournalRepository`의 `IS NULL` 파라미터에 명시적 `CAST(... AS text)` 추가.
-- `GlobalExceptionHandler` 전역 500 예외 처리 추가.
-  - 보안을 위해 스택 트레이스 노출 차단, `ApiResponse` 규격화 메시지로 클라이언트 응답.
+- MyBatis 프레임워크 전면 도입 완료 (`admin-api`).
+  - `LedgerJournalRepository`에 이어 `TradeRepository`의 복잡한 네이티브 쿼리를 `TradeMapper`로 모두 이관.
+  - OR 조건으로 인한 풀 스캔 성능 저하를 `UNION ALL`로 분리하여 인덱스 효율성 극대화.
+- 전체 SQL 대문자 작성 룰(Rule) 적용.
+  - `TradeMapper.xml` 및 `LedgerJournalMapper.xml` 내의 테이블명, 컬럼명, 별칭을 포함한 모든 SQL 구문을 100% 대문자로 변환 적용.
+- 통계 쿼리 성능 최적화 및 풀스택 연동.
+  - `StatsController`, `LedgerController` 등 주요 통계 조회 API에 기간(`startDate`, `endDate`) 파라미터 필수 도입.
+  - 파라미터 누락 시 서버 단에서 '최근 30일'을 기본값으로 할당하여 안정성 확보.
+  - `frontend-admin` Zustand 스토어(`useExchangeStore.ts`)에서 API 호출 시 동적으로 날짜 쿼리를 생성 및 주입하도록 연계.
+- 런타임 의존성 주입 규격 통일.
+  - `UserController`, `StatsService` 등 모든 `@Autowired` 어노테이션 제거 후 안전한 생성자 주입 방식으로 리팩토링.
+- 500 전역 예외 처리 및 호환성 강화 적용.
+  - `GlobalExceptionHandler`를 통한 `ApiResponse` 규격 반환으로 스택 트레이스 노출 차단.
+  - 컴파일러 호환성 문제 방지를 위해 `@RequestParam` 명시적 이름 할당.
 
 ---
 

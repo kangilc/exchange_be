@@ -742,8 +742,13 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         fetchLedgerList: async (page, size, email) => {
             try {
-                const searchParam = email ? `&email=${encodeURIComponent(email)}` : '';
-                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/ledgers?page=${page}&size=${size}${searchParam}`);
+                const searchParam = email ? `&search=${encodeURIComponent(email)}` : '';
+                const now = new Date();
+                const past = new Date();
+                past.setDate(now.getDate() - 30);
+                const dateParams = `&startDate=${past.toISOString().split('.')[0]}&endDate=${now.toISOString().split('.')[0]}`;
+                
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/ledgers?page=${page}&size=${size}${searchParam}${dateParams}`);
                 if (res.ok) {
                     const data = await res.json();
                     set({
@@ -759,7 +764,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         fetchUserLedgers: async (userId) => {
             try {
-                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/${userId}/ledgers?page=0&size=50`);
+                const now = new Date();
+                const past = new Date();
+                past.setDate(now.getDate() - 30);
+                const dateParams = `&startDate=${past.toISOString().split('.')[0]}&endDate=${now.toISOString().split('.')[0]}`;
+                
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/${userId}/ledgers?page=0&size=50${dateParams}`);
                 if (res.ok) {
                     const data = await res.json();
                     return data.content || [];

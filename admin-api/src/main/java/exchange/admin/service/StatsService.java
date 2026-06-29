@@ -16,30 +16,38 @@ import java.util.List;
 @Service
 public class StatsService {
 
-    @Autowired
-    private TradeRepository tradeRepository;
+    private final TradeRepository tradeRepository;
+    private final exchange.admin.mapper.TradeMapper tradeMapper;
+    private final LedgerJournalRepository ledgerJournalRepository;
+    private final exchange.admin.repository.UserRepository userRepository;
+    private final exchange.admin.repository.WalletRepository walletRepository;
+    private final exchange.admin.repository.MarketRepository marketRepository;
 
-    @Autowired
-    private LedgerJournalRepository ledgerJournalRepository;
-
-    @Autowired
-    private exchange.admin.repository.UserRepository userRepository;
-
-    @Autowired
-    private exchange.admin.repository.WalletRepository walletRepository;
-
-    @Autowired
-    private exchange.admin.repository.MarketRepository marketRepository;
+    public StatsService(TradeRepository tradeRepository,
+                        exchange.admin.mapper.TradeMapper tradeMapper,
+                        LedgerJournalRepository ledgerJournalRepository,
+                        exchange.admin.repository.UserRepository userRepository,
+                        exchange.admin.repository.WalletRepository walletRepository,
+                        exchange.admin.repository.MarketRepository marketRepository) {
+        this.tradeRepository = tradeRepository;
+        this.tradeMapper = tradeMapper;
+        this.ledgerJournalRepository = ledgerJournalRepository;
+        this.userRepository = userRepository;
+        this.walletRepository = walletRepository;
+        this.marketRepository = marketRepository;
+    }
 
     /**
      * 지정된 해상도(resolution) 단위로 그룹핑된 거래 통계 목록을 조회합니다.
      * 
      * @param resolution 시간 해상도 (예: daily, weekly 등)
+     * @param startDate 조회 시작일
+     * @param endDate 조회 종료일
      * @return 거래 통계 목록
      */
-    public List<TradeRepository.TradeStatsProjection> getTradeStats(String resolution) {
+    public List<exchange.admin.dto.TradeStatsDto> getTradeStats(String resolution, java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
         String timeBucket = mapResolutionToBucket(resolution);
-        return tradeRepository.getTradeStats(timeBucket);
+        return tradeMapper.selectTradeStats(timeBucket, startDate, endDate);
     }
 
     /**
@@ -73,7 +81,7 @@ public class StatsService {
         java.util.Map<String, Object> summary = new java.util.HashMap<>();
         summary.put("totalUsers", userRepository.count());
         summary.put("totalTrades", tradeRepository.getTotalTradeCount());
-        summary.put("totalVolume", tradeRepository.getTotalTradeVolume());
+        summary.put("totalVolume", tradeMapper.selectTotalTradeVolume());
         summary.put("totalWallets", walletRepository.count());
         return summary;
     }
@@ -107,16 +115,15 @@ public class StatsService {
         }
 
         // 1. Cutoff 시점 이전의 마지막 거래
-        java.util.Optional<exchange.admin.model.Trade> latestTrade = tradeRepository.findLatestTradeBeforeCutoff(symbol,
-                cutoff);
-        if (latestTrade.isPresent()) {
-            return latestTrade.get().getPrice();
+        exchange.admin.model.Trade latestTrade = tradeMapper.selectLatestTradeBeforeCutoff(symbol, cutoff);
+        if (latestTrade != null) {
+            return latestTrade.getPrice();
         }
 
         // 2. 없으면 전체 거래 중 최초 거래
-        java.util.Optional<exchange.admin.model.Trade> firstTrade = tradeRepository.findFirstTrade(symbol);
-        if (firstTrade.isPresent()) {
-            return firstTrade.get().getPrice();
+        exchange.admin.model.Trade firstTrade = tradeMapper.selectFirstTrade(symbol);
+        if (firstTrade != null) {
+            return firstTrade.getPrice();
         }
 
         // 3. 그것도 없으면 DB markets 테이블의 listing_price 설정

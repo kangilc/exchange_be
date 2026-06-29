@@ -1,10 +1,15 @@
 package exchange.admin.controller;
 
 import exchange.admin.dto.ApiResponse;
-import exchange.admin.repository.LedgerJournalRepository;
-import org.springframework.http.HttpStatus;
+import exchange.admin.dto.DetailedLedgerDto;
+import exchange.admin.mapper.LedgerJournalMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 어드민 자산 변경 이력(원장 분개장) 관리 컨트롤러.
@@ -17,33 +22,40 @@ import org.springframework.web.bind.annotation.*;
 @CrossOrigin(origins = "*")
 public class LedgerController {
 
-    private final LedgerJournalRepository ledgerJournalRepository;
+    private final LedgerJournalMapper ledgerJournalMapper;
 
-    // 생성자 주입 (Spring 4.3+ 단일 생성자는 @Autowired 생략 가능)
-    public LedgerController(LedgerJournalRepository ledgerJournalRepository) {
-        this.ledgerJournalRepository = ledgerJournalRepository;
+    // 생성자 주입
+    public LedgerController(LedgerJournalMapper ledgerJournalMapper) {
+        this.ledgerJournalMapper = ledgerJournalMapper;
     }
 
     /**
      * 입출금 및 자산 변경 원장 상세 내역 조회 API.
-     * 검색 키워드(이메일, 자산 코드 등)와 페이지네이션을 지원한다.
+     * 검색 키워드(이메일, 자산 코드 등), 날짜 필터링, 페이지네이션을 지원한다.
      *
      * @param search 검색어 (이메일 주소, 통화 단위 등, 선택 사항)
+     * @param startDate 조회 시작일
+     * @param endDate 조회 종료일
      * @param page   조회할 페이지 번호 (0부터 시작, 기본값 0)
      * @param size   한 페이지당 데이터 개수 (기본값 50)
      * @return 원장 내역 및 페이징 정보 목록
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<LedgerJournalRepository.DetailedLedgerProjection>>> getAllDetailedLedgers(
+    public ResponseEntity<ApiResponse<Page<DetailedLedgerDto>>> getAllDetailedLedgers(
             @RequestParam(name = "search", required = false) String search,
+            @RequestParam(value = "startDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
+            @RequestParam(value = "endDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "50") int size) {
-
-        // 검색 키워드가 있는 경우 앞뒤 공백을 제거하고 SQL LIKE 검색 패턴(%검색어%)을 빌드함
-        String searchParam = (search != null && !search.trim().isEmpty()) ? "%" + search.trim() + "%" : null;
-
-        // 페이징 요청 객체를 생성하여 DB에서 레코드 정보를 조회 및 반환함
-        return ApiResponse.ok(ledgerJournalRepository.findAllDetailedLedgers(searchParam,
-                org.springframework.data.domain.PageRequest.of(page, size)));
+            
+        java.time.LocalDateTime finalEndDate = endDate != null ? endDate : java.time.LocalDateTime.now();
+        java.time.LocalDateTime finalStartDate = startDate != null ? startDate : finalEndDate.minusDays(30);
+        
+        int offset = page * size;
+        List<DetailedLedgerDto> list = ledgerJournalMapper.selectDetailedLedgers(search, finalStartDate, finalEndDate, offset, size);
+        long total = ledgerJournalMapper.countDetailedLedgers(search, finalStartDate, finalEndDate);
+        
+        Page<DetailedLedgerDto> pageResult = new PageImpl<>(list, PageRequest.of(page, size), total);
+        return ApiResponse.ok(pageResult);
     }
 }

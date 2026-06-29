@@ -24,6 +24,9 @@ trigger: always_on
 * admin-api 프로젝트는 JPA, Mybatis를 병용해서 사용이니 일반 적인 CURD는 JPA, 복잡한 쿼리는 Mybatis Dao를 사용하도록.
 * 소스 수정 등의 일을 할 때 반드시 한글 주석을 추가(간결하고 수식어 없는 평어체)
 * 관련 프로젝트 내의 README.md 파일 현행화(간결하고 수식어 없는 평어체)
+* xml에 SQL작성 시 (컬럼 옆에 한글 comments 필수)
+* xml내의 SQL은 대문자(키워드, 항목, 테이블명, alias 등)를 원칙으로 한다.
+* @Autowired 금지
 
 ## 4. 📝 깃 및 변경 관리 제약 (Git & Change Management)
 
