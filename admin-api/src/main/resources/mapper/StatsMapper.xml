@@ -9,8 +9,7 @@
         WITH RAW_SUMS AS (		<!-- 거래 테이블 스캔 시 조인 부하를 방지하기 위해 단독으로 먼저 합산함 -->
             SELECT
                 SYMBOL,		<!-- 마켓 종목 심볼 -->
-                SUM(PRICE * QTY) AS RAW_VOL,		<!-- 소수점 보정 전 가격 기준 총 거래 대금 합계 -->
-                SUM(FEE_AMOUNT) AS RAW_FEE		<!-- 총 수수료 합계 -->
+                SUM(PRICE * QTY) AS RAW_VOL		<!-- 소수점 보정 전 가격 기준 총 거래 대금 합계 -->
             FROM TRADES		<!-- 체결 내역 테이블 -->
             WHERE CREATED_AT &gt;= #{since}		<!-- 파라미터로 전달된 기준 시간(since) 이후 체결된 거래만 필터링함 -->
             GROUP BY SYMBOL		<!-- 종목 심볼별로 합산함 -->
@@ -20,10 +19,10 @@
             M.QUOTE_CURRENCY AS QUOTE_CURRENCY,		<!-- 마켓 결제 통화 (USD, KRW 등 동적 표시용) -->
             M.FEE_RATE AS CURRENT_FEE_RATE,		<!-- 마켓별 실시간 현재 수수료율 -->
             COALESCE(R.RAW_VOL / POWER(10, COALESCE(M.PRICE_DECIMALS, 2)), 0.0) AS VOLUME,		<!-- 결제 통화 기준으로 소수점이 보정된 실 거래 대금 -->
-            COALESCE(R.RAW_FEE, 0.0) AS FEES		<!-- 수수료 총액 (기간 내 누적 합계) -->
+            COALESCE((R.RAW_VOL * M.FEE_RATE) / POWER(10, COALESCE(M.PRICE_DECIMALS, 2)), 0.0) AS FEES		<!-- 수수료 총액 (기간 내 누적 합계) -->
         FROM MARKETS M		<!-- 활성화된 모든 마켓을 기준으로 잡음 -->
         LEFT JOIN RAW_SUMS R ON M.SYMBOL = R.SYMBOL		<!-- 마켓 기준에서 거래 데이터 합계를 조인하여 연결함 -->
-        WHERE M.IS_ACTIVE = TRUE		<!-- 운영 중인 활성화 마켓만 조회 대상으로 포함함 -->
+        WHERE M.STATUS = 'ACTIVE'		<!-- 운영 중인 활성화 마켓만 조회 대상으로 포함함 -->
     </select>
 
     <!-- 전체 누적 수수료 수익 및 거래량 조회 (조인 최소화 및 마켓 동적 튜닝 적용) -->
@@ -31,8 +30,7 @@
         WITH RAW_SUMS AS (		<!-- 데이터 전체 스캔 시 조인 부하를 없애기 위해 TRADES 단독 합산을 수행함 -->
             SELECT
                 SYMBOL,		<!-- 마켓 종목 심볼 -->
-                SUM(PRICE * QTY) AS RAW_VOL,		<!-- 소수점 보정 전 가격 기준 총 거래 대금 합계 -->
-                SUM(FEE_AMOUNT) AS RAW_FEE		<!-- 총 수수료 합계 -->
+                SUM(PRICE * QTY) AS RAW_VOL		<!-- 소수점 보정 전 가격 기준 총 거래 대금 합계 -->
             FROM TRADES		<!-- 체결 내역 테이블 -->
             GROUP BY SYMBOL		<!-- 종목 심볼별로 합산함 -->
         )
@@ -41,10 +39,10 @@
             M.QUOTE_CURRENCY AS QUOTE_CURRENCY,		<!-- 마켓 결제 통화 (USD, KRW 등 동적 표시용) -->
             M.FEE_RATE AS CURRENT_FEE_RATE,		<!-- 마켓별 실시간 현재 수수료율 -->
             COALESCE(R.RAW_VOL / POWER(10, COALESCE(M.PRICE_DECIMALS, 2)), 0.0) AS VOLUME,		<!-- 전체 누적 거래 대금 (소수점 보정 완료) -->
-            COALESCE(R.RAW_FEE, 0.0) AS FEES		<!-- 전체 누적 수수료 총액 -->
+            COALESCE((R.RAW_VOL * M.FEE_RATE) / POWER(10, COALESCE(M.PRICE_DECIMALS, 2)), 0.0) AS FEES		<!-- 전체 누적 수수료 총액 -->
         FROM MARKETS M		<!-- 활성화된 모든 마켓을 기준으로 잡음 -->
         LEFT JOIN RAW_SUMS R ON M.SYMBOL = R.SYMBOL		<!-- 거래가 없었던 신규 마켓이라도 0원으로 노출시키기 위해 OUTER JOIN 적용 -->
-        WHERE M.IS_ACTIVE = TRUE		<!-- 운영 중인 마켓만 통계 패널에 노출함 -->
+        WHERE M.STATUS = 'ACTIVE'		<!-- 운영 중인 마켓만 통계 패널에 노출함 -->
     </select>
 
     <!-- 특정 기간 이후의 고유 활성 사용자 수(DAU/MAU) 집계 -->
@@ -100,7 +98,7 @@
             COALESCE(R.RAW_VOL / POWER(10, COALESCE(M.PRICE_DECIMALS, 2)), 0.0) AS VOLUME		<!-- 최근 30일간의 해당 마켓 거래 대금 총합 -->
         FROM MARKETS M		<!-- 운영 중인 마켓 기준 -->
         LEFT JOIN RAW_SUMS R ON M.SYMBOL = R.SYMBOL		<!-- 최소 횟수로 조인하여 소수점을 보정 -->
-        WHERE M.IS_ACTIVE = TRUE		<!-- 활성 마켓만 추출 -->
+        WHERE M.STATUS = 'ACTIVE'		<!-- 활성 마켓만 추출 -->
     </select>
 
     <!-- 특정 기간 이후의 주문 상태별 분포 및 체결 효율성 개수 조회 -->
