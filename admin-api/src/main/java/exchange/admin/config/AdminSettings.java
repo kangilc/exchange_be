@@ -1,9 +1,12 @@
 package exchange.admin.config;
 
+import org.springframework.lang.NonNull;
+
 /**
  * 어드민 서비스 설정을 보관하는 인메모리 홀더 클래스.
  * 중복 로그인 제한, 온체인 입금 모니터링 활성화 여부, 코인별 입금 컨펌 수 설정, 지갑 시뮬레이션 상태 등을
- * 전역 static 변수로 관리하며, Spring Cache(marketFeeRates)를 활용해 마켓별 수수료율 정보를 인메모리에 캐싱 및 제공합니다.
+ * 전역 static 변수로 관리하며, Spring Cache(marketFeeRates)를 활용해 마켓별 수수료율 정보를 인메모리에 캐싱 및
+ * 제공합니다.
  */
 public class AdminSettings {
     /** 중복 로그인 차단 활성화 여부 */
@@ -34,6 +37,7 @@ public class AdminSettings {
 
     /**
      * marketFeeRates 캐시 영역을 획득하는 내부 static 메서드.
+     * 
      * @return Cache 인스턴스 또는 null
      */
     private static org.springframework.cache.Cache getCache() {
@@ -42,24 +46,27 @@ public class AdminSettings {
 
     /**
      * 특정 종목(symbol)의 수수료율을 조회합니다. 캐시에 없을 경우 기본값(0.001 = 0.1%)을 반환합니다.
+     * 
      * @param symbol 종목 심볼 (예: BTC-USD)
      * @return 수수료율 (double)
      */
-    public static double getFeeRate(String symbol) {
+    public static double getFeeRate(@NonNull String symbol) {
         org.springframework.cache.Cache cache = getCache();
         if (cache != null) {
             Double fee = cache.get(symbol, Double.class);
-            if (fee != null) return fee;
+            if (fee != null)
+                return fee;
         }
         return 0.001000;
     }
 
     /**
      * 특정 종목(symbol)의 수수료율을 캐시에 저장하거나 업데이트합니다.
-     * @param symbol 종목 심볼 (예: BTC-USD)
+     * 
+     * @param symbol  종목 심볼 (예: BTC-USD)
      * @param feeRate 설정할 수수료율
      */
-    public static void setFeeRate(String symbol, double feeRate) {
+    public static void setFeeRate(@NonNull String symbol, double feeRate) {
         org.springframework.cache.Cache cache = getCache();
         if (cache != null) {
             cache.put(symbol, feeRate);
@@ -68,6 +75,7 @@ public class AdminSettings {
 
     /**
      * 현재 캐싱된 모든 마켓의 수수료율을 Map 형태로 일괄 반환합니다.
+     * 
      * @return 마켓 심볼과 수수료율 맵
      */
     @SuppressWarnings("unchecked")
@@ -87,6 +95,7 @@ public class AdminSettings {
 
     /**
      * 지갑 시뮬레이션 모드 활성화 여부를 조회합니다.
+     * 
      * @return 시뮬레이션 활성화 여부
      */
     public static boolean isWalletSimulationEnabled() {
@@ -95,6 +104,7 @@ public class AdminSettings {
 
     /**
      * 지갑 시뮬레이션 모드 활성화 여부를 설정합니다.
+     * 
      * @param enabled 활성화 여부
      */
     public static void setWalletSimulationEnabled(boolean enabled) {
@@ -103,6 +113,7 @@ public class AdminSettings {
 
     /**
      * 동일 계정의 중복 로그인 차단 활성화 여부를 조회합니다.
+     * 
      * @return 중복 로그인 차단 활성화 여부
      */
     public static boolean isDuplicateLoginBlockEnabled() {
@@ -111,6 +122,7 @@ public class AdminSettings {
 
     /**
      * 동일 계정의 중복 로그인 차단 활성화 여부를 설정합니다.
+     * 
      * @param enabled 활성화 여부
      */
     public static void setDuplicateLoginBlockEnabled(boolean enabled) {
@@ -126,6 +138,7 @@ public class AdminSettings {
 
     /**
      * 실시간 온체인 입금 모니터링의 활성화 상태를 업데이트합니다.
+     * 
      * @param enabled 활성화 여부
      */
     public static void setOnChainDepositMonitoringEnabled(boolean enabled) {
@@ -134,6 +147,7 @@ public class AdminSettings {
 
     /**
      * BTC 입금에 필요한 컨펌 수를 가져옵니다.
+     * 
      * @return BTC 컨펌 수
      */
     public static int getBtcConfirmations() {
@@ -142,6 +156,7 @@ public class AdminSettings {
 
     /**
      * BTC 입금에 필요한 컨펌 수를 설정합니다.
+     * 
      * @param confirmations 설정할 컨펌 수
      */
     public static void setBtcConfirmations(int confirmations) {
@@ -150,6 +165,7 @@ public class AdminSettings {
 
     /**
      * ETH 입금에 필요한 컨펌 수를 가져옵니다.
+     * 
      * @return ETH 컨펌 수
      */
     public static int getEthConfirmations() {
@@ -158,6 +174,7 @@ public class AdminSettings {
 
     /**
      * ETH 입금에 필요한 컨펌 수를 설정합니다.
+     * 
      * @param confirmations 설정할 컨펌 수
      */
     public static void setEthConfirmations(int confirmations) {
@@ -166,6 +183,7 @@ public class AdminSettings {
 
     /**
      * ADA 입금에 필요한 컨펌 수를 가져옵니다.
+     * 
      * @return ADA 컨펌 수
      */
     public static int getAdaConfirmations() {
@@ -174,6 +192,7 @@ public class AdminSettings {
 
     /**
      * ADA 입금에 필요한 컨펌 수를 설정합니다.
+     * 
      * @param confirmations 설정할 컨펌 수
      */
     public static void setAdaConfirmations(int confirmations) {

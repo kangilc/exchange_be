@@ -26,4 +26,16 @@ public class GlobalExceptionHandler {
         String errorMessage = ex.getBindingResult().getAllErrors().get(0).getDefaultMessage();
         return ResponseEntity.badRequest().body(Map.of("message", errorMessage));
     }
+
+    /**
+     * 인증 과정에서 발생하는 비즈니스 예외를 401 Unauthorized로 반환함.
+     * 
+     * @param ex 인증 관련 예외
+     * @return 에러 메시지를 담은 응답 객체
+     */
+    @ExceptionHandler(AuthException.class)
+    public ResponseEntity<?> handleAuthExceptions(AuthException ex) {
+        return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                .body(Map.of("message", ex.getMessage()));
+    }
 }
