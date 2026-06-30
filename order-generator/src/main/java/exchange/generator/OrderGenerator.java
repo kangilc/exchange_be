@@ -13,10 +13,11 @@ import java.util.Random;
  */
 public final class OrderGenerator {
     // 멀티스레드 환경에서 안전하게 전체 누적 주문 수를 측정하기 위한 원자적 정수형 카운터
-    private static final java.util.concurrent.atomic.AtomicInteger totalOrderCount = new java.util.concurrent.atomic.AtomicInteger(0);
+    private static final java.util.concurrent.atomic.AtomicInteger totalOrderCount = new java.util.concurrent.atomic.AtomicInteger(
+            0);
     // 환경변수 또는 프로필 설정(MAX_ORDERS)으로부터 수신하며, 없을 시 무한 생성을 위해 정수형 최대치(약 21억 건)로 설정
     private static final int MAX_ORDERS = ConfigLoader.getInt("MAX_ORDERS", Integer.MAX_VALUE);
-    
+
     // 주문 간격 속도 제어용 환경변수 (기본값: 최소 50ms, 최대 250ms)
     private static final int ENV_SLEEP_MIN_MS = ConfigLoader.getInt("GENERATOR_SLEEP_MIN", 50);
     private static final int ENV_SLEEP_MAX_MS = ConfigLoader.getInt("GENERATOR_SLEEP_MAX", 250);
@@ -24,7 +25,7 @@ public final class OrderGenerator {
     public static void main(String[] args) {
         int sleepMin = ENV_SLEEP_MIN_MS;
         int sleepMax = ENV_SLEEP_MAX_MS;
-        
+
         // 사용자가 커맨드라인 아규먼트(변수)로 명시적 값을 넘겼을 경우 이를 최우선으로 적용
         if (args.length >= 2) {
             try {
@@ -38,7 +39,7 @@ public final class OrderGenerator {
         // 환경 변수 및 config 파일로부터 대상 매칭 엔진의 IP 호스트와 포트를 바인딩
         String btcHost = ConfigLoader.get("ENGINE_HOST", "localhost");
         String adaHost = ConfigLoader.get("ADA_ENGINE_HOST", btcHost);
-        
+
         // BTC-USD(비트코인) 주문 수신용 TCP 포트 (기본값: 9999)
         int btcPort = ConfigLoader.getInt("COMMAND_PORT", 9999);
         // ADA-KRW(에이다) 주문 수신용 TCP 포트 (기본값: 9997)
@@ -48,14 +49,19 @@ public final class OrderGenerator {
         System.out.println("Target Matching Engines:");
         System.out.println(" - BTC-USD command port: " + btcHost + ":" + btcPort);
         System.out.println(" - ADA-KRW command port: " + adaHost + ":" + adaPort);
-        System.out.println(" - Max orders limit: " + (MAX_ORDERS == Integer.MAX_VALUE ? "UNLIMITED" : MAX_ORDERS + " orders"));
+        System.out.println(
+                " - Max orders limit: " + (MAX_ORDERS == Integer.MAX_VALUE ? "UNLIMITED" : MAX_ORDERS + " orders"));
 
         // 1. 비트코인(BTC-USD) 가상 주문 주입을 담당하는 스레드 생성 (BTC 소수점 8자리 스케일 100,000,000)
         long btcScale = 100000000L;
-        Thread btcThread = new Thread(new GeneratorTask(btcHost, btcPort, 65000L * btcScale, "BTC-USD", btcScale, sleepMin, sleepMax), "generator-btc");
+        Thread btcThread = new Thread(
+                new GeneratorTask(btcHost, btcPort, 65000L * btcScale, "BTC-USD", btcScale, sleepMin, sleepMax),
+                "generator-btc");
         // 2. 에이다(ADA-KRW) 가상 주문 주입을 담당하는 스레드 생성 (ADA 소수점 4자리 스케일 10,000)
         long adaScale = 10000L;
-        Thread adaThread = new Thread(new GeneratorTask(adaHost, adaPort, 500L * adaScale, "ADA-KRW", adaScale, sleepMin, sleepMax), "generator-ada");
+        Thread adaThread = new Thread(
+                new GeneratorTask(adaHost, adaPort, 500L * adaScale, "ADA-KRW", adaScale, sleepMin, sleepMax),
+                "generator-ada");
 
         // 각 마켓별 주문 인젝터 스레드 동시 구동 (병렬 처리 구조)
         btcThread.start();
@@ -75,15 +81,16 @@ public final class OrderGenerator {
      * 지정된 매칭 엔진 command 포트로 소켓을 연결하고 실시간 랜덤 호가 주문을 주입합니다.
      */
     private static class GeneratorTask implements Runnable {
-        private final String host;            // 매칭 엔진 IP/호스트 주소
-        private final int port;               // 매칭 엔진 TCP 커맨드 수신 포트
-        private long referencePrice;         // 변동성의 기준이 되는 실시간 시세 기준값
-        private final String symbol;          // 대상 마켓 심볼명 (BTC-USD, ADA-KRW 등)
-        private final long scale;             // 마켓 소수점 스케일 팩터
-        private final int sleepMin;           // 딜레이 최소값
-        private final int sleepMax;           // 딜레이 최대값
+        private final String host; // 매칭 엔진 IP/호스트 주소
+        private final int port; // 매칭 엔진 TCP 커맨드 수신 포트
+        private long referencePrice; // 변동성의 기준이 되는 실시간 시세 기준값
+        private final String symbol; // 대상 마켓 심볼명 (BTC-USD, ADA-KRW 등)
+        private final long scale; // 마켓 소수점 스케일 팩터
+        private final int sleepMin; // 딜레이 최소값
+        private final int sleepMax; // 딜레이 최대값
 
-        public GeneratorTask(String host, int port, long referencePrice, String symbol, long scale, int sleepMin, int sleepMax) {
+        public GeneratorTask(String host, int port, long referencePrice, String symbol, long scale, int sleepMin,
+                int sleepMax) {
             this.host = host;
             this.port = port;
             this.referencePrice = referencePrice;
@@ -97,24 +104,27 @@ public final class OrderGenerator {
         public void run() {
             Random rand = new Random();
             long retryDelay = 1000; // 네트워크 통신 장애 시 재연결 간격 기본값 (1초)
-            
+
             while (totalOrderCount.get() < MAX_ORDERS) {
                 // 매칭 엔진의 TCP 소켓 서버에 커넥션 수립
                 try (Socket socket = new Socket(host, port);
-                     PrintWriter writer = new PrintWriter(socket.getOutputStream(), true)) {
+                        PrintWriter writer = new PrintWriter(socket.getOutputStream(), true)) {
 
-                    System.out.println("[" + symbol + "] Connected to matching engine command port! Generating trades...");
+                    System.out.println(
+                            "[" + symbol + "] Connected to matching engine command port! Generating trades...");
                     retryDelay = 1000; // 연결 성공 시 재연결 대기 시간 1초로 재초기화
 
-                    // [커넥션 성공 즉시 수행] 호가창을 촘촘하고 두껍게 형성하기 위해 50개(매도 25레벨, 매수 25레벨)의 대용량 초기 시드북 데이터 강제 주입
+                    // [커넥션 성공 즉시 수행] 호가창을 촘촘하고 두껍게 형성하기 위해 50개(매도 25레벨, 매수 25레벨)의 대용량 초기 시드북 데이터 강제
+                    // 주입
                     generateInitialSeedBook(writer);
 
                     // 지속적으로 실시간 호가/체결 주문을 주입하는 핵심 트레이딩 루프
                     while (totalOrderCount.get() < MAX_ORDERS) {
                         // 1. 주문 유형 결정: 매수(BUY)와 매도(SELL) 확률을 정확히 50% 반반으로 나눔
                         String side = rand.nextBoolean() ? "BUY" : "SELL";
-                        
-                        // 2. 호가 격차(Price Offset) 산정: 호가창(OrderBook)의 물량 그룹핑을 위해 가격은 특정 틱 단위로 제한 (BTC는 1달러 단위, ADA는 1원 단위)
+
+                        // 2. 호가 격차(Price Offset) 산정: 호가창(OrderBook)의 물량 그룹핑을 위해 가격은 특정 틱 단위로 제한 (BTC는
+                        // 1달러 단위, ADA는 1원 단위)
                         long priceOffset;
                         if (symbol.equalsIgnoreCase("BTC-USD")) {
                             // BTC: -15 ~ +14 달러 (정수 단위)
@@ -124,28 +134,29 @@ public final class OrderGenerator {
                             priceOffset = (rand.nextInt(6) - 3) * scale;
                         }
                         long price = referencePrice + priceOffset;
-                        
+
                         // 3. 최저 호가 한계선(보호 가드) 산정: 비트코인은 $10,000.00, 에이다는 ₩10.00 미만으로 하락할 수 없도록 제한
                         long minPrice = symbol.equalsIgnoreCase("BTC-USD") ? 10000L * scale : 10L * scale;
                         if (price < minPrice) {
                             price = minPrice;
                         }
-                        
+
                         // 4. 주문 수량(Qty) 산정: 종목에 맞는 현실적인 소수점 수량 생성 후 스케일업
                         long qty;
                         if (symbol.equalsIgnoreCase("BTC-USD")) {
                             // BTC: 0.001 ~ 0.5 BTC
                             qty = (long) (scale * (0.001 + rand.nextDouble() * 0.499));
                         } else {
-                            // ADA: 10 ~ 1000 ADA
-                            qty = (long) (scale * (10 + rand.nextDouble() * 990));
+                            // ADA: 0.01 ~ 1000 ADA
+                            qty = (long) (scale * (0.01 + rand.nextDouble() * 99.99));
                         }
                         // 5. 가상 유저 UID 할당: 1~1000번 사이의 1000명 랜덤 회원으로 할당하여 골고루 트랜잭션이 일어나도록 설계
                         long userId = rand.nextInt(1000) + 1;
 
                         // 누적 주문 수가 한계치를 넘었는지 확인 및 원자적 값 1 증가
                         if (totalOrderCount.incrementAndGet() > MAX_ORDERS) {
-                            System.out.println("[" + symbol + "] Target order limit of " + MAX_ORDERS + " reached. Exiting generator loop.");
+                            System.out.println("[" + symbol + "] Target order limit of " + MAX_ORDERS
+                                    + " reached. Exiting generator loop.");
                             break;
                         }
 
@@ -159,7 +170,7 @@ public final class OrderGenerator {
                             if (symbol.equalsIgnoreCase("BTC-USD")) {
                                 referencePrice += (rand.nextInt(10) - 5) * scale; // -5 ~ +4 달러
                             } else {
-                                referencePrice += (rand.nextInt(4) - 2) * scale;  // -2 ~ +1 원
+                                referencePrice += (rand.nextInt(4) - 2) * scale; // -2 ~ +1 원
                             }
                             if (referencePrice < minPrice) {
                                 referencePrice = minPrice;
@@ -198,7 +209,7 @@ public final class OrderGenerator {
         private void generateInitialSeedBook(PrintWriter writer) {
             System.out.println("[" + symbol + "] Generating initial 25-level thick seed book...");
             Random r = new Random();
-            
+
             // 1. 매도(SELL) 대기열 25단계 생성: 기준가 위쪽으로 대량 물량 주입
             for (int i = 1; i <= 25; i++) {
                 long price = referencePrice + i * scale; // 정수 1틱(달러/원) 단위 깊이
@@ -211,7 +222,7 @@ public final class OrderGenerator {
                 long userId = r.nextInt(1000) + 1;
                 writer.println(String.format("NEW,SELL,%d,%d,%d", price, qty, userId));
             }
-            
+
             // 매수 25단계 깊이 주입 (현재가보다 낮게)
             for (int i = 1; i <= 25; i++) {
                 long price = referencePrice - i * scale;
