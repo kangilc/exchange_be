@@ -466,8 +466,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
             // 2. 음수 잔량일 경우 매칭(체결) 발생에 해당하므로 체결 내역에도 적재
             if (qtyNum < 0) {
-                const actualQty = Math.abs(qtyNum);
                 const scale = get().getScaleFactor(msgSymbol);
+                const actualQty = Math.abs(qtyNum) / scale;
                 const actualPrice = priceNum / scale;
 
                 // ⚡ 임시 버퍼에 누적 (즉시 리렌더링 방지)

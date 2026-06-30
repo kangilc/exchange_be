@@ -1,5 +1,6 @@
 import React from 'react';
 import { Layers } from 'lucide-react';
+import { useExchangeStore } from '../store/useExchangeStore';
 
 interface OrderConsoleProps {
     /** 입력 폼에 바인딩된 지정가 주문 가격 */
@@ -63,6 +64,8 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
     mobileTab,
     minAmt = 0
 }) => {
+    const scale = useExchangeStore(state => state.getScaleFactor());
+
     return (
         /* 모바일 탭 상태 분기에 따라 노출 여부 스위칭 */
         <div className={`${mobileTab === 'order' ? 'flex' : 'hidden'} lg:flex bg-[#0a1020]/45 border border-white/5 rounded-2xl p-5 flex-col gap-4 order-2 lg:order-none`}>
@@ -170,6 +173,7 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
                         <div className="relative flex items-center">
                             <input
                                 type="number"
+                                step={1 / scale}
                                 value={orderQty}
                                 onChange={(e) => setOrderQty(e.target.value)}
                                 className="w-full p-2.5 bg-black/30 border border-white/10 rounded-lg text-white font-mono font-bold outline-none focus:border-[#8a2be2]"

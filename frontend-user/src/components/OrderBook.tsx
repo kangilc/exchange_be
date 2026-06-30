@@ -63,10 +63,10 @@ const OrderBookRow: React.FC<{
                 <div className={`absolute inset-0 pointer-events-none transition-all ${flashClass}`} />
             )}
             <div className={`text-[10px] font-bold z-10 ${side === 'ask' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {realPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {realPrice.toLocaleString(undefined, { minimumFractionDigits: Math.log10(scale) })}
             </div>
-            <div className="text-right text-slate-100 z-10 font-bold">{qty.toLocaleString()}</div>
-            <div className="text-right text-slate-400 z-10">{cumVal.toLocaleString()}</div>
+            <div className="text-right text-slate-100 z-10 font-bold">{(qty / scale).toLocaleString(undefined, { minimumFractionDigits: Math.log10(scale), maximumFractionDigits: Math.log10(scale) })}</div>
+            <div className="text-right text-slate-400 z-10">{(cumVal / scale).toLocaleString(undefined, { minimumFractionDigits: Math.log10(scale), maximumFractionDigits: Math.log10(scale) })}</div>
         </div>
     );
 });
@@ -222,7 +222,7 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
                     <div className="flex flex-col items-center">
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-white font-black tracking-tight">
-                                {midPrice > 0 ? (midPrice / scale).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '--'}
+                                {midPrice > 0 ? (midPrice / scale).toLocaleString(undefined, { minimumFractionDigits: Math.log10(scale) }) : '--'}
                             </span>
                             {midPrice > 0 && (
                                 <span className={`text-[10px] font-black ${midPrice / scale - basePrice >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -230,7 +230,7 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
                                 </span>
                             )}
                         </div>
-                        <span className="text-[9px] text-[#00f2fe] font-bold mt-0.5">갭: {(spread / scale).toLocaleString(undefined, { minimumFractionDigits: 2 })} {fiat}</span>
+                        <span className="text-[9px] text-[#00f2fe] font-bold mt-0.5">갭: {(spread / scale).toLocaleString(undefined, { minimumFractionDigits: Math.log10(scale) })} {fiat}</span>
                     </div>
                     <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider">Bid Spread</span>
                 </div>

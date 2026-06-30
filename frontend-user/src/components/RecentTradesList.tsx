@@ -15,9 +15,10 @@ interface RecentTradesListProps {
  * - Zustand 스토어의 tradesLog, activeSymbol만 직접 구독하여 부모의 리렌더링 오버헤드를 원천 차단함.
  */
 export const RecentTradesList: React.FC<RecentTradesListProps> = React.memo(({ mobileTab }) => {
-    // 실시간 종목 정보와 체결 로그 리스트 구독 (Zustand Selector 적용)
+    // 실시간 종목 정보, 체결 로그 리스트, 스케일 구독 (Zustand Selector 적용)
     const activeSymbol = useExchangeStore(state => state.activeSymbol);
     const tradesLog = useExchangeStore(state => state.tradesLog);
+    const scale = useExchangeStore(state => state.getScaleFactor(state.activeSymbol));
 
     // 실시간 체결 데이터 가공 및 날짜 파싱 예외 처리 (방어 코드)
     const recentTrades = useMemo(() => {
@@ -68,9 +69,11 @@ export const RecentTradesList: React.FC<RecentTradesListProps> = React.memo(({ m
                                     <td className="px-3 py-2 text-slate-400">{t.time}</td>
                                     {/* BUY/SELL 체결 구분에 따른 시각적 텍스트 색상 분기 */}
                                     <td className={`px-3 py-2 text-right ${t.side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {t.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        {t.price.toLocaleString(undefined, { minimumFractionDigits: Math.log10(scale) })}
                                     </td>
-                                    <td className="px-3 py-2 text-right text-slate-300">{t.qty.toLocaleString()}</td>
+                                    <td className="px-3 py-2 text-right text-slate-300">
+                                        {t.qty.toLocaleString(undefined, { minimumFractionDigits: Math.log10(scale), maximumFractionDigits: Math.log10(scale) })}
+                                    </td>
                                 </tr>
                             ))
                         )}

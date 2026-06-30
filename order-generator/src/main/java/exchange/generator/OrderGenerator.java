@@ -33,10 +33,12 @@ public final class OrderGenerator {
         System.out.println(" - ADA-KRW command port: " + adaHost + ":" + adaPort);
         System.out.println(" - Max orders limit: " + (MAX_ORDERS == Integer.MAX_VALUE ? "UNLIMITED" : MAX_ORDERS + " orders"));
 
-        // 1. 비트코인(BTC-USD) 가상 주문 주입을 담당하는 스레드 생성 (기준 가격 $65,000.00 -> 소수점 2자리 스케일링으로 6,500,000 지정)
-        Thread btcThread = new Thread(new GeneratorTask(btcHost, btcPort, 6500000, "BTC-USD"), "generator-btc");
-        // 2. 에이다(ADA-KRW) 가상 주문 주입을 담당하는 스레드 생성 (기준 가격 ₩500.00 -> 소수점 2자리 스케일링으로 50,000 지정)
-        Thread adaThread = new Thread(new GeneratorTask(adaHost, adaPort, 50000, "ADA-KRW"), "generator-ada");
+        // 1. 비트코인(BTC-USD) 가상 주문 주입을 담당하는 스레드 생성 (BTC 소수점 8자리 스케일 100,000,000)
+        long btcScale = 100000000L;
+        Thread btcThread = new Thread(new GeneratorTask(btcHost, btcPort, 65000L * btcScale, "BTC-USD", btcScale), "generator-btc");
+        // 2. 에이다(ADA-KRW) 가상 주문 주입을 담당하는 스레드 생성 (ADA 소수점 4자리 스케일 10,000)
+        long adaScale = 10000L;
+        Thread adaThread = new Thread(new GeneratorTask(adaHost, adaPort, 500L * adaScale, "ADA-KRW", adaScale), "generator-ada");
 
         // 각 마켓별 주문 인젝터 스레드 동시 구동 (병렬 처리 구조)
         btcThread.start();
@@ -58,14 +60,16 @@ public final class OrderGenerator {
     private static class GeneratorTask implements Runnable {
         private final String host;            // 매칭 엔진 IP/호스트 주소
         private final int port;               // 매칭 엔진 TCP 커맨드 수신 포트
-        private long referencePrice;         // 변동성의 기준이 되는 실시간 시세 기준값 (소수점 2자리 스케일)
+        private long referencePrice;         // 변동성의 기준이 되는 실시간 시세 기준값
         private final String symbol;          // 대상 마켓 심볼명 (BTC-USD, ADA-KRW 등)
+        private final long scale;             // 마켓 소수점 스케일 팩터
 
-        public GeneratorTask(String host, int port, long referencePrice, String symbol) {
+        public GeneratorTask(String host, int port, long referencePrice, String symbol, long scale) {
             this.host = host;
             this.port = port;
             this.referencePrice = referencePrice;
             this.symbol = symbol;
+            this.scale = scale;
         }
 
         @Override
@@ -89,18 +93,18 @@ public final class OrderGenerator {
                         // 1. 주문 유형 결정: 매수(BUY)와 매도(SELL) 확률을 정확히 50% 반반으로 나눔
                         String side = rand.nextBoolean() ? "BUY" : "SELL";
                         
-                        // 2. 호가 격차(Price Offset) 산정: 현재 기준가격 대비 -15.00 ~ +14.00 단위의 격차를 실시간으로 발생시킴
-                        long priceOffset = (rand.nextInt(30) - 15) * 100;
+                        // 2. 호가 격차(Price Offset) 산정: 현재 기준가격 대비 -15 ~ +14 단위의 격차를 실시간으로 발생시킴
+                        long priceOffset = (rand.nextInt(30) - 15) * scale;
                         long price = referencePrice + priceOffset;
                         
-                        // 3. 최저 호가 한계선(보호 가드) 산정: 비트코인은 $10,000.00(100만), 에이다는 ₩10.00(1000) 미만으로 하락할 수 없도록 제한
-                        long minPrice = symbol.equalsIgnoreCase("BTC-USD") ? 1000000L : 1000L;
+                        // 3. 최저 호가 한계선(보호 가드) 산정: 비트코인은 $10,000.00, 에이다는 ₩10.00 미만으로 하락할 수 없도록 제한
+                        long minPrice = symbol.equalsIgnoreCase("BTC-USD") ? 10000L * scale : 10L * scale;
                         if (price < minPrice) {
                             price = minPrice;
                         }
                         
-                        // 4. 주문 수량(Qty) 산정: 1 ~ 15개 사이의 수량을 임의 지정
-                        long qty = rand.nextInt(15) + 1;
+                        // 4. 주문 수량(Qty) 산정: 1 ~ 15개 사이의 수량을 임의 지정 후 스케일업
+                        long qty = (rand.nextInt(15) + 1) * scale;
                         // 5. 가상 유저 UID 할당: 1~1000번 사이의 1000명 랜덤 회원으로 할당하여 골고루 트랜잭션이 일어나도록 설계
                         long userId = rand.nextInt(1000) + 1;
 
@@ -115,9 +119,9 @@ public final class OrderGenerator {
                         writer.println(String.format("NEW,%s,%d,%d,%d", side, price, qty, userId));
                         writer.flush(); // 즉시 소켓 버퍼 비우기(실시간 스트리밍 지연 방지)
 
-                        // 7. 기준값 트렌드 변동: 5% 확률로 시장의 대세 흐름 가격(Reference Price) 자체를 상하방 -3.0 ~ +2.0 단위로 동적 이동시켜 차트 우상향/우하향 연출
+                        // 7. 기준값 트렌드 변동: 5% 확률로 시장의 대세 흐름 가격(Reference Price) 자체를 상하방 -3 ~ +2 단위로 동적 이동시켜 차트 우상향/우하향 연출
                         if (rand.nextInt(100) < 5) {
-                            referencePrice += (rand.nextInt(6) - 3) * 100;
+                            referencePrice += (rand.nextInt(6) - 3) * scale;
                             if (referencePrice < minPrice) {
                                 referencePrice = minPrice;
                             }
@@ -157,16 +161,16 @@ public final class OrderGenerator {
             
             // 1. 매도(SELL) 대기열 25단계 생성: 기준가 위쪽으로 i * 1.0 간격마다 대량 물량 주입 (수량: 20 ~ 69개 랜덤)
             for (int i = 1; i <= 25; i++) {
-                long price = referencePrice + i * 100;
-                long qty = 20 + r.nextInt(50);
+                long price = referencePrice + i * scale;
+                long qty = (20 + r.nextInt(50)) * scale;
                 long userId = r.nextInt(1000) + 1;
                 writer.println(String.format("NEW,SELL,%d,%d,%d", price, qty, userId));
             }
             
-            // 2. 매수(BUY) 대기열 25단계 생성: 기준가 아래쪽으로 i * 1.0 간격마다 대량 물량 주입 (수량: 20 ~ 69개 랜덤)
+            // 매수 25단계 깊이 주입 (현재가보다 낮게)
             for (int i = 1; i <= 25; i++) {
-                long price = referencePrice - i * 100;
-                long qty = 20 + r.nextInt(50);
+                long price = referencePrice - i * scale;
+                long qty = (20 + r.nextInt(50)) * scale;
                 long userId = r.nextInt(1000) + 1;
                 writer.println(String.format("NEW,BUY,%d,%d,%d", price, qty, userId));
             }
