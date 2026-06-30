@@ -26,5 +26,7 @@ subprojects {
 
     test {
         useJUnitPlatform()
+        // 최신 Docker Engine API 호환성을 위해 버전 고정
+        environment "DOCKER_API_VERSION", "1.44"
     }
 }

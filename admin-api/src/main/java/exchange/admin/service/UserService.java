@@ -105,6 +105,7 @@ public class UserService {
 
     /**
      * 회원의 특정 통화 자산 지갑을 조회하며, 없을 경우 잔고 0원의 지갑을 동적(Lazy)으로 생성하여 반환하는 공통 메서드입니다.
+     * 물리 외래키가 없는 테이블 구조이므로, 존재하지 않는 회원의 유령 지갑 생성을 방지하기 위해 사용자 존재 여부를 사전에 검증함.
      * 
      * @param userId 회원 ID
      * @param currency 대상 통화 코드
@@ -112,6 +113,10 @@ public class UserService {
      */
     @Transactional
     public Wallet getOrCreateWallet(Long userId, String currency) {
+        // 회원이 실제로 존재하는지 사전 검증하여 데이터 정합성 보장
+        if (!userRepository.existsById(userId)) {
+            throw new IllegalArgumentException("User not found with ID: " + userId);
+        }
         return walletRepository.findByUserIdAndCurrency(userId, currency)
                 .orElseGet(() -> {
                     Wallet w = new Wallet();

@@ -18,14 +18,20 @@ import java.util.Optional;
 @Service
 public class AuthService {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final JwtTokenProvider tokenProvider;
+    private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private JwtTokenProvider tokenProvider;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    /**
+     * AuthService 생성자 주입.
+     */
+    public AuthService(UserRepository userRepository,
+                       JwtTokenProvider tokenProvider,
+                       PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.tokenProvider = tokenProvider;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     /**
      * 로그인 검증 및 토큰 발급 로직.

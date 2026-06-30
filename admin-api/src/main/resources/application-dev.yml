@@ -11,6 +11,8 @@ spring:
       max-lifetime: 1800000
   jpa:
     open-in-view: false
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed
 
 ethereum:
   rpc-url: ${EVM_RPC_URL:http://localhost:8545}

@@ -15,3 +15,10 @@ logging:
   level:
     org.springframework.test.context.transaction: TRACE
     org.testcontainers: INFO
+
+# 테스트 컨텍스트 로드용 이더리움 더미 설정
+ethereum:
+  rpc-url: http://localhost:8545
+  rpc-url-docker: http://localhost:8545
+  private-key: 0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d
+

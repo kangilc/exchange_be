@@ -103,6 +103,7 @@ public class JwtTokenProvider {
         return Jwts.builder()
                 .subject(email)
                 .claim("type", "refresh")
+                .claim("uuid", java.util.UUID.randomUUID().toString()) // 동일한 시간대(초 단위)에 토큰이 재생성될 때 토큰 문자열이 중복 발급되는 현상을 방어하기 위해 고유 UUID를 추가 클레임으로 주입함.
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(jwtSecretKey, Jwts.SIG.HS256)
