@@ -60,7 +60,7 @@ public class UserController {
 
     /**
      * 신규 회원 가입 및 계정 개설.
-     * 가입 처리 완료 후 기본 거래 자산 지갑이 자동으로 생성된다.
+     * 지갑은 불필요한 초기 생성을 방지하기 위해 입금/거래 시점에 지연 생성(Lazy Initialization)됩니다.
      * 
      * @param request 가입 요청 데이터 (email, password, grade)
      * @return 가입 완료된 회원 정보

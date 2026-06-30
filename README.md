@@ -27,7 +27,11 @@
   - 파라미터 누락 시 서버 단에서 '최근 30일'을 기본값으로 할당하여 안정성 확보.
   - `frontend-admin` Zustand 스토어(`useExchangeStore.ts`)에서 API 호출 시 동적으로 날짜 쿼리를 생성 및 주입하도록 연계.
 - 런타임 의존성 주입 규격 통일.
-  - `UserController`, `StatsService` 등 모든 `@Autowired` 어노테이션 제거 후 안전한 생성자 주입 방식으로 리팩토링.
+  - `UserController`, `UserService`, `StatsService` 등 모든 `@Autowired` 어노테이션 제거 후 안전한 생성자 주입 방식으로 리팩토링함.
+- 지갑 지연 생성(Lazy Initialization) 아키텍처 확립.
+  - 신규 가입 시 하드코딩된 빈 지갑 생성 로직을 삭제함.
+  - `UserService.getOrCreateWallet` 공통 메서드를 신설하여 입금 등 실제 자산 변동 시점에만 지갑을 지연 생성하도록 최적화함.
+  - 매칭 정산 데몬(`adapter-kafka`)은 DB 계층의 원자적 UPSERT(`ON CONFLICT DO NOTHING`)를 통해 거래 시점 지연 생성을 이미 완벽히 지원함.
 - 500 전역 예외 처리 및 호환성 강화 적용.
   - `GlobalExceptionHandler`를 통한 `ApiResponse` 규격 반환으로 스택 트레이스 노출 차단.
   - 컴파일러 호환성 문제 방지를 위해 `@RequestParam` 명시적 이름 할당.

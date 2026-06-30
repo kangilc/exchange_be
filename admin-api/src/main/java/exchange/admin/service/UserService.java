@@ -29,29 +29,21 @@ import java.util.Optional;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import lombok.RequiredArgsConstructor;
+
 /**
  * 회원 가입, 계정 정보 수정, 회원의 가상 지갑 자산 조정 및 분개장 원장 기록 등을 담당하는 서비스 클래스입니다.
  */
 @Service
+@RequiredArgsConstructor
 public class UserService {
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private WalletRepository walletRepository;
-
-    @Autowired
-    private LedgerJournalRepository ledgerJournalRepository;
-
-    @Autowired
-    private LedgerJournalMapper ledgerJournalMapper;
-
-    @Autowired
-    private TradeMapper tradeMapper;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final WalletRepository walletRepository;
+    private final LedgerJournalRepository ledgerJournalRepository;
+    private final LedgerJournalMapper ledgerJournalMapper;
+    private final TradeMapper tradeMapper;
 
     public List<User> getAllUsers() {
         return userRepository.findAll();
@@ -66,7 +58,9 @@ public class UserService {
     }
 
     /**
-     * 신규 회원을 등록하고 해당 회원의 기초 지갑 자산(KRW, BTC, ADA, USD)을 초기화합니다.
+     * 신규 회원을 등록합니다.
+     * 지갑(Wallet)은 불필요한 데이터베이스 확장을 방지하기 위해 가입 시점에는 생성하지 않으며,
+     * 실제 자산 입금이나 거래가 발생하는 시점에 지연 생성(Lazy Initialization)됩니다.
      * 
      * @param email 가입 이메일
      * @param password 비밀번호 (인코딩하여 해싱 저장됨)
@@ -84,10 +78,7 @@ public class UserService {
         
         User savedUser = userRepository.save(user);
 
-        initializeWallet(savedUser.getUserId(), "KRW");
-        initializeWallet(savedUser.getUserId(), "BTC");
-        initializeWallet(savedUser.getUserId(), "ADA");
-        initializeWallet(savedUser.getUserId(), "USD");
+
 
         return savedUser;
     }
@@ -113,6 +104,27 @@ public class UserService {
     }
 
     /**
+     * 회원의 특정 통화 자산 지갑을 조회하며, 없을 경우 잔고 0원의 지갑을 동적(Lazy)으로 생성하여 반환하는 공통 메서드입니다.
+     * 
+     * @param userId 회원 ID
+     * @param currency 대상 통화 코드
+     * @return 기존에 존재하거나 새로 생성된 Wallet 객체
+     */
+    @Transactional
+    public Wallet getOrCreateWallet(Long userId, String currency) {
+        return walletRepository.findByUserIdAndCurrency(userId, currency)
+                .orElseGet(() -> {
+                    Wallet w = new Wallet();
+                    w.setUserId(userId);
+                    w.setCurrency(currency.toUpperCase());
+                    w.setBalance(BigDecimal.ZERO);
+                    w.setLockedBalance(BigDecimal.ZERO);
+                    w.setUpdatedAt(LocalDateTime.now());
+                    return walletRepository.save(w); // 동적 생성 즉시 DB 영속화
+                });
+    }
+
+    /**
      * 회원의 특정 통화 자산 잔고를 수동으로 조정(가산/감산)하고, 원장 분개장(LedgerJournal)에 변경 이력을 기록합니다.
      * 
      * @param userId 회원 ID
@@ -123,16 +135,7 @@ public class UserService {
      */
     @Transactional
     public Wallet adjustAsset(Long userId, String currency, BigDecimal amount) {
-        Wallet wallet = walletRepository.findByUserIdAndCurrency(userId, currency)
-                .orElseGet(() -> {
-                    Wallet w = new Wallet();
-                    w.setUserId(userId);
-                    w.setCurrency(currency.toUpperCase());
-                    w.setBalance(BigDecimal.ZERO);
-                    w.setLockedBalance(BigDecimal.ZERO);
-                    w.setUpdatedAt(LocalDateTime.now());
-                    return w;
-                });
+        Wallet wallet = getOrCreateWallet(userId, currency);
 
         BigDecimal newBalance = wallet.getBalance().add(amount);
         if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
@@ -179,15 +182,7 @@ public class UserService {
         return new PageImpl<>(list, PageRequest.of(idt.getPage(), idt.getSize()), total);
     }
 
-    private void initializeWallet(Long userId, String currency) {
-        Wallet w = new Wallet();
-        w.setUserId(userId);
-        w.setCurrency(currency);
-        w.setBalance(BigDecimal.ZERO);
-        w.setLockedBalance(BigDecimal.ZERO);
-        w.setUpdatedAt(LocalDateTime.now());
-        walletRepository.save(w);
-    }
+
 
     private String hashPassword(String password) {
         try {
