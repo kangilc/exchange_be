@@ -1,4 +1,4 @@
-package exchange.admin.dto;
+package exchange.admin.dto.response;
 
 import lombok.Data;
 
@@ -7,7 +7,7 @@ import lombok.Data;
  * MyBatis 쿼리 결과를 매핑함.
  */
 @Data
-public class TradeStatsDto {
+public class TradeStatsODT {
     // 통계 시간대 (버킷)
     private String bucket;
     

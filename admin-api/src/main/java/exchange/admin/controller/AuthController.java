@@ -1,7 +1,7 @@
 package exchange.admin.controller;
 
-import exchange.admin.dto.LoginRequestIDT;
-import exchange.admin.dto.AuthResponseDTO;
+import exchange.admin.dto.request.LoginIDT;
+import exchange.admin.dto.response.AuthResponseODT;
 import exchange.admin.service.AuthService;
 import jakarta.validation.Valid;
 
@@ -33,8 +33,8 @@ public class AuthController {
      * @return 인증 토큰 및 사용자 정보
      */
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponseDTO>> login(@Valid @RequestBody LoginRequestIDT request) {
-        AuthResponseDTO response = authService.login(request.getEmail(), request.getPassword());
+    public ResponseEntity<ApiResponse<AuthResponseODT>> login(@Valid @RequestBody LoginIDT request) {
+        AuthResponseODT response = authService.login(request.getEmail(), request.getPassword());
         return ApiResponse.ok(response);
     }
 
@@ -46,9 +46,9 @@ public class AuthController {
      * @return 신규 발급 토큰
      */
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<AuthResponseDTO>> refresh(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponse<AuthResponseODT>> refresh(@RequestBody Map<String, String> request) {
         String refreshToken = request.get("refreshToken");
-        AuthResponseDTO response = authService.refresh(refreshToken);
+        AuthResponseODT response = authService.refresh(refreshToken);
         return ApiResponse.ok(response);
     }
 

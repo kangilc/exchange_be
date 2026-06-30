@@ -141,7 +141,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
         try {
             const res = await fetch(`${apiBaseUrl}/admin/wallets/user/1`); // 기본 1번 유저 바인딩
             if (res.ok) {
-                const _json_data = await res.json();
+                const _json__json_data = await res.json();
+                const _json_data = _json__json_data.data !== undefined ? _json__json_data.data : _json__json_data;
                 const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                 const balMap: any = {};
                 data.forEach((w: any) => {

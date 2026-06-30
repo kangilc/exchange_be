@@ -1,7 +1,7 @@
 package exchange.admin.mapper;
 
-import exchange.admin.dto.TradeStatsDto;
-import exchange.admin.dto.UserTradeDto;
+import exchange.admin.dto.response.TradeStatsODT;
+import exchange.admin.dto.response.UserTradeODT;
 import exchange.admin.model.Trade;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -24,7 +24,7 @@ public interface TradeMapper {
      * @param endDate 조회 종료일
      * @return 체결 통계 목록
      */
-    List<TradeStatsDto> selectTradeStats(
+    List<TradeStatsODT> selectTradeStats(
             @Param("timeBucket") String timeBucket,
             @Param("startDate") java.time.LocalDateTime startDate,
             @Param("endDate") java.time.LocalDateTime endDate);
@@ -37,7 +37,7 @@ public interface TradeMapper {
      * @param limit 조회할 개수
      * @return 유저 체결 내역 목록
      */
-    List<UserTradeDto> selectUserTrades(
+    List<UserTradeODT> selectUserTrades(
             @Param("userId") Long userId, 
             @Param("offset") int offset, 
             @Param("limit") int limit);

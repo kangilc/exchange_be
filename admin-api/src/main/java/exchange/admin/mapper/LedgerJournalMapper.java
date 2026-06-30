@@ -1,6 +1,6 @@
 package exchange.admin.mapper;
 
-import exchange.admin.dto.DetailedLedgerDto;
+import exchange.admin.dto.response.DetailedLedgerODT;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -22,7 +22,7 @@ public interface LedgerJournalMapper {
      * @param limit 조회할 개수
      * @return 원장 내역 목록
      */
-    List<DetailedLedgerDto> selectDetailedLedgers(
+    List<DetailedLedgerODT> selectDetailedLedgers(
             @Param("search") String search,
             @Param("startDate") java.time.LocalDateTime startDate,
             @Param("endDate") java.time.LocalDateTime endDate,
@@ -52,7 +52,7 @@ public interface LedgerJournalMapper {
      * @param limit 조회할 개수
      * @return 특정 유저의 원장 내역 목록
      */
-    List<DetailedLedgerDto> selectDetailedLedgersByUserId(
+    List<DetailedLedgerODT> selectDetailedLedgersByUserId(
             @Param("userId") Long userId, 
             @Param("startDate") java.time.LocalDateTime startDate,
             @Param("endDate") java.time.LocalDateTime endDate,
@@ -75,7 +75,7 @@ public interface LedgerJournalMapper {
      * @param endDate 조회 종료일
      * @return 자산 변동 통계 목록
      */
-    List<exchange.admin.dto.LedgerStatsDto> selectLedgerStats(
+    List<exchange.admin.dto.response.LedgerStatsODT> selectLedgerStats(
             @Param("timeBucket") String timeBucket,
             @Param("startDate") java.time.LocalDateTime startDate,
             @Param("endDate") java.time.LocalDateTime endDate);

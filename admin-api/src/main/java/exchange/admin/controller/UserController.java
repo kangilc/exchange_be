@@ -146,16 +146,16 @@ public class UserController {
      * @return 체결 정보 페이징 객체
      */
     @GetMapping("/{id}/trades")
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.dto.UserTradeDto>>> getUserTrades(
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.dto.response.UserTradeODT>>> getUserTrades(
             @PathVariable Long id,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         
         int offset = page * size;
-        java.util.List<exchange.admin.dto.UserTradeDto> list = tradeMapper.selectUserTrades(id, offset, size);
+        java.util.List<exchange.admin.dto.response.UserTradeODT> list = tradeMapper.selectUserTrades(id, offset, size);
         long total = tradeMapper.countUserTrades(id);
         
-        org.springframework.data.domain.Page<exchange.admin.dto.UserTradeDto> pageResult = 
+        org.springframework.data.domain.Page<exchange.admin.dto.response.UserTradeODT> pageResult = 
                 new org.springframework.data.domain.PageImpl<>(list, org.springframework.data.domain.PageRequest.of(page, size), total);
                 
         return ApiResponse.ok(pageResult);
@@ -170,7 +170,7 @@ public class UserController {
      * @return 자산 변동 상세 내역 페이징 객체
      */
     @GetMapping("/{id}/ledgers")
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.dto.DetailedLedgerDto>>> getUserLedgers(
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.dto.response.DetailedLedgerODT>>> getUserLedgers(
             @PathVariable Long id,
             @RequestParam(value = "startDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
             @RequestParam(value = "endDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate,
@@ -181,10 +181,10 @@ public class UserController {
         java.time.LocalDateTime finalStartDate = startDate != null ? startDate : finalEndDate.minusDays(30);
         
         int offset = page * size;
-        java.util.List<exchange.admin.dto.DetailedLedgerDto> list = ledgerJournalMapper.selectDetailedLedgersByUserId(id, finalStartDate, finalEndDate, offset, size);
+        java.util.List<exchange.admin.dto.response.DetailedLedgerODT> list = ledgerJournalMapper.selectDetailedLedgersByUserId(id, finalStartDate, finalEndDate, offset, size);
         long total = ledgerJournalMapper.countDetailedLedgers(String.valueOf(id), finalStartDate, finalEndDate); // userId as search string if count method doesn't have userId overload, wait count method takes search. Actually I should probably just return a page. Let's just use the length or write a new count method.
         
-        org.springframework.data.domain.Page<exchange.admin.dto.DetailedLedgerDto> pageResult = 
+        org.springframework.data.domain.Page<exchange.admin.dto.response.DetailedLedgerODT> pageResult = 
                 new org.springframework.data.domain.PageImpl<>(list, org.springframework.data.domain.PageRequest.of(page, size), total);
                 
         return ApiResponse.ok(pageResult);
@@ -199,7 +199,7 @@ public class UserController {
      * @return 체결 정보 페이징 객체 또는 401 Unauthorized
      */
     @GetMapping("/me/trades")
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.dto.UserTradeDto>>> getMyTrades(
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.dto.response.UserTradeODT>>> getMyTrades(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
@@ -207,10 +207,10 @@ public class UserController {
         if (userOpt.isPresent()) {
             Long userId = userOpt.get().getUserId();
             int offset = page * size;
-            java.util.List<exchange.admin.dto.UserTradeDto> list = tradeMapper.selectUserTrades(userId, offset, size);
+            java.util.List<exchange.admin.dto.response.UserTradeODT> list = tradeMapper.selectUserTrades(userId, offset, size);
             long total = tradeMapper.countUserTrades(userId);
             
-            org.springframework.data.domain.Page<exchange.admin.dto.UserTradeDto> pageResult = 
+            org.springframework.data.domain.Page<exchange.admin.dto.response.UserTradeODT> pageResult = 
                     new org.springframework.data.domain.PageImpl<>(list, org.springframework.data.domain.PageRequest.of(page, size), total);
                     
             return ApiResponse.ok(pageResult);
@@ -227,7 +227,7 @@ public class UserController {
      * @return 원장 정보 페이징 객체 또는 401 Unauthorized
      */
     @GetMapping("/me/ledgers")
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.dto.DetailedLedgerDto>>> getMyLedgers(
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.dto.response.DetailedLedgerODT>>> getMyLedgers(
             @RequestParam(value = "startDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
             @RequestParam(value = "endDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate,
             @RequestParam(defaultValue = "0") int page,
@@ -242,10 +242,10 @@ public class UserController {
             java.time.LocalDateTime finalStartDate = startDate != null ? startDate : finalEndDate.minusDays(30);
             
             int offset = page * size;
-            java.util.List<exchange.admin.dto.DetailedLedgerDto> list = ledgerJournalMapper.selectDetailedLedgersByUserId(userId, finalStartDate, finalEndDate, offset, size);
+            java.util.List<exchange.admin.dto.response.DetailedLedgerODT> list = ledgerJournalMapper.selectDetailedLedgersByUserId(userId, finalStartDate, finalEndDate, offset, size);
             long total = ledgerJournalMapper.countDetailedLedgers(String.valueOf(userId), finalStartDate, finalEndDate); // using count method
             
-            org.springframework.data.domain.Page<exchange.admin.dto.DetailedLedgerDto> pageResult = 
+            org.springframework.data.domain.Page<exchange.admin.dto.response.DetailedLedgerODT> pageResult = 
                     new org.springframework.data.domain.PageImpl<>(list, org.springframework.data.domain.PageRequest.of(page, size), total);
             return ApiResponse.ok(pageResult);
         }

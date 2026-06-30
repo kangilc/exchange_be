@@ -48,7 +48,7 @@ public class StatsService {
     /**
      * 지정된 해상도(resolution) 단위로 그룹핑된 거래 통계 목록을 조회함.
      */
-    public List<exchange.admin.dto.TradeStatsDto> getTradeStats(String resolution, java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
+    public List<exchange.admin.dto.response.TradeStatsODT> getTradeStats(String resolution, java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
         String timeBucket = mapResolutionToBucket(resolution);
         return tradeMapper.selectTradeStats(timeBucket, startDate, endDate);
     }
@@ -56,7 +56,7 @@ public class StatsService {
     /**
      * 지정된 해상도 단위로 그룹핑된 원장 변경 통계 목록을 조회함.
      */
-    public List<exchange.admin.dto.LedgerStatsDto> getLedgerStats(String resolution, java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
+    public List<exchange.admin.dto.response.LedgerStatsODT> getLedgerStats(String resolution, java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
         String timeBucket = mapResolutionToBucket(resolution);
         return ledgerJournalMapper.selectLedgerStats(timeBucket, startDate, endDate);
     }
@@ -64,7 +64,7 @@ public class StatsService {
     /**
      * 지정된 해상도 단위로 그룹핑된 유저 가입 통계 목록을 조회함.
      */
-    public List<exchange.admin.dto.UserStatsDto> getUserStats(String resolution, java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
+    public List<exchange.admin.dto.response.UserStatsODT> getUserStats(String resolution, java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
         String timeBucket = mapResolutionToBucket(resolution);
         return userMapper.selectUserStats(timeBucket, startDate, endDate);
     }
@@ -87,13 +87,13 @@ public class StatsService {
     /**
      * 거래소 전반의 요약 통계를 집계함.
      */
-    public java.util.Map<String, Object> getSummaryStats() {
-        java.util.Map<String, Object> summary = new java.util.HashMap<>();
-        summary.put("totalUsers", userRepository.count());
-        summary.put("totalTrades", tradeRepository.getTotalTradeCount());
-        summary.put("totalVolume", tradeMapper.selectTotalTradeVolume());
-        summary.put("totalWallets", walletRepository.count());
-        return summary;
+    public exchange.admin.dto.response.SummaryODT getSummaryStats() {
+        return exchange.admin.dto.response.SummaryODT.builder()
+                .totalUsers(userRepository.count())
+                .totalTrades(tradeRepository.getTotalTradeCount())
+                .totalVolume(tradeMapper.selectTotalTradeVolume() != null ? tradeMapper.selectTotalTradeVolume() : 0.0)
+                .totalWallets(walletRepository.count())
+                .build();
     }
 
     /**
@@ -139,16 +139,16 @@ public class StatsService {
     /**
      * 전체 ACTIVE 마켓에 대한 티커 정보 벌크 조회.
      */
-    public List<java.util.Map<String, Object>> getTickers() {
+    public List<exchange.admin.dto.response.TickerODT> getTickers() {
         List<exchange.admin.model.Market> activeMarkets = marketRepository.findByStatus("ACTIVE");
-        List<java.util.Map<String, Object>> tickers = new java.util.ArrayList<>();
+        List<exchange.admin.dto.response.TickerODT> tickers = new java.util.ArrayList<>();
         for (exchange.admin.model.Market market : activeMarkets) {
             String symbol = market.getSymbol();
-            java.util.Map<String, Object> ticker = new java.util.HashMap<>();
-            ticker.put("symbol", symbol);
-            ticker.put("lastPrice", getLastPrice(symbol));
-            ticker.put("prevClosePrice", getPrevClosePrice(symbol));
-            tickers.add(ticker);
+            tickers.add(exchange.admin.dto.response.TickerODT.builder()
+                    .symbol(symbol)
+                    .lastPrice(getLastPrice(symbol))
+                    .prevClosePrice(getPrevClosePrice(symbol))
+                    .build());
         }
         return tickers;
     }
@@ -156,7 +156,7 @@ public class StatsService {
     /**
      * 특정 종목의 체결 내역(trades)을 기반으로 시계열 봉 데이터를 집계하여 반환함.
      */
-    public List<java.util.Map<String, Object>> getCandleStats(String symbol, String resolution, int limit) {
+    public List<exchange.admin.dto.response.CandleODT> getCandleStats(String symbol, String resolution, int limit) {
         long bucketSizeSeconds = 60; // 기본값은 1분 (60초)
         if (resolution != null) {
             switch (resolution.toLowerCase()) {
@@ -174,10 +174,21 @@ public class StatsService {
         // MyBatis Mapper에 캔들(OHLCV) 집계 쿼리를 위임하여 결과를 조회함.
         // 캔들 생성 시 데이터가 방대해지는 것을 방지하기 위해 5만건 원천 데이터 제한을 파라미터로 주입함.
         int tradeLimit = 50000;
-        List<java.util.Map<String, Object>> candles = statsMapper.selectCandleStats(symbol, bucketSizeSeconds, limit, tradeLimit);
+        List<java.util.Map<String, Object>> candlesRaw = statsMapper.selectCandleStats(symbol, bucketSizeSeconds, limit, tradeLimit);
         
-        // 캔들은 최신부터 과거 순으로 조회되므로, 차트 렌더링(과거->최신)을 위해 순서를 역순으로 정렬함.
-        if (candles != null) {
+        List<exchange.admin.dto.response.CandleODT> candles = new java.util.ArrayList<>();
+        if (candlesRaw != null) {
+            for (java.util.Map<String, Object> map : candlesRaw) {
+                candles.add(exchange.admin.dto.response.CandleODT.builder()
+                        .time(((Number) map.get("time")).longValue())
+                        .open(convertDouble(map.get("open")))
+                        .high(convertDouble(map.get("high")))
+                        .low(convertDouble(map.get("low")))
+                        .close(convertDouble(map.get("close")))
+                        .volume(convertDouble(map.get("volume")))
+                        .build());
+            }
+            // 캔들은 최신부터 과거 순으로 조회되므로, 차트 렌더링(과거->최신)을 위해 순서를 역순으로 정렬함.
             java.util.Collections.reverse(candles);
         }
         
@@ -187,8 +198,8 @@ public class StatsService {
     /**
      * 어드민 대시보드에서 활용하는 거래소 핵심 성능 및 재무 지표를 집계하여 산출함.
      */
-    public java.util.Map<String, Object> getPerformanceStats() {
-        java.util.Map<String, Object> perf = new java.util.HashMap<>();
+    public exchange.admin.dto.response.PerformanceODT getPerformanceStats() {
+        exchange.admin.dto.response.PerformanceODT.PerformanceODTBuilder perf = exchange.admin.dto.response.PerformanceODT.builder();
 
         // 1. 수수료 수익 (누적 및 24시간)
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
@@ -198,7 +209,6 @@ public class StatsService {
         List<java.util.Map<String, Object>> totalFeesList = statsMapper.selectTotalFeeRevenue();
         List<java.util.Map<String, Object>> fees24hList = statsMapper.selectFeeRevenue(dayAgo);
 
-        // 빠른 24H 데이터 조회를 위한 해시맵 생성
         java.util.Map<String, java.util.Map<String, Object>> fees24hMap = new java.util.HashMap<>();
         if (fees24hList != null) {
             for (java.util.Map<String, Object> f24 : fees24hList) {
@@ -206,54 +216,48 @@ public class StatsService {
             }
         }
 
-        List<java.util.Map<String, Object>> feeRevenues = new java.util.ArrayList<>();
+        List<exchange.admin.dto.response.PerformanceODT.FeeRevenueODT> feeRevenues = new java.util.ArrayList<>();
         if (totalFeesList != null) {
             for (java.util.Map<String, Object> totalRow : totalFeesList) {
-                java.util.Map<String, Object> marketStat = new java.util.HashMap<>();
                 String symbol = (String) totalRow.get("symbol");
-                
-                marketStat.put("symbol", symbol);
-                marketStat.put("quoteCurrency", totalRow.get("quote_currency"));
-                
-                // DB의 수수료율보다 우선하는 AdminSettings 메모리의 실시간 수수료율 조회 적용
                 double currentFeeRate = AdminSettings.getFeeRate(symbol);
-                marketStat.put("currentFeeRate", currentFeeRate);
-                
-                marketStat.put("totalVolume", convertDouble(totalRow.get("volume")));
-                marketStat.put("totalFees", convertDouble(totalRow.get("fees")));
-                
                 java.util.Map<String, Object> row24h = fees24hMap.get(symbol);
-                marketStat.put("volume24h", row24h != null ? convertDouble(row24h.get("volume")) : 0.0);
-                marketStat.put("fees24h", row24h != null ? convertDouble(row24h.get("fees")) : 0.0);
                 
-                feeRevenues.add(marketStat);
+                feeRevenues.add(exchange.admin.dto.response.PerformanceODT.FeeRevenueODT.builder()
+                        .symbol(symbol)
+                        .quoteCurrency((String) totalRow.get("quote_currency"))
+                        .currentFeeRate(currentFeeRate)
+                        .totalVolume(convertDouble(totalRow.get("volume")))
+                        .totalFees(convertDouble(totalRow.get("fees")))
+                        .volume24h(row24h != null ? convertDouble(row24h.get("volume")) : 0.0)
+                        .fees24h(row24h != null ? convertDouble(row24h.get("fees")) : 0.0)
+                        .build());
             }
         }
-        perf.put("feeRevenues", feeRevenues);
+        perf.feeRevenues(feeRevenues);
 
         // 2. 활성 사용자 (DAU 24H / MAU 30D)
         long dau24h = statsMapper.selectActiveUsersCount(dayAgo);
         long mau30d = statsMapper.selectActiveUsersCount(thirtyDaysAgo);
-
-        java.util.Map<String, Object> activeUsers = new java.util.HashMap<>();
-        activeUsers.put("dau24h", dau24h);
-        activeUsers.put("mau30d", mau30d);
         double dauMauRatio = mau30d > 0 ? (dau24h * 100.0 / mau30d) : 0.0;
-        activeUsers.put("dauMauRatioPercent", Math.round(dauMauRatio * 100.0) / 100.0);
-        perf.put("activeUsers", activeUsers);
+        perf.activeUsers(exchange.admin.dto.response.PerformanceODT.ActiveUsersODT.builder()
+                .dau24h(dau24h)
+                .mau30d(mau30d)
+                .dauMauRatioPercent(Math.round(dauMauRatio * 100.0) / 100.0)
+                .build());
 
         // 3. 순 입출금 흐름 (최근 30일)
         List<java.util.Map<String, Object>> netFlowsRaw = statsMapper.selectNetDepositFlow(thirtyDaysAgo);
-        List<java.util.Map<String, Object>> netFlows = new java.util.ArrayList<>();
+        List<exchange.admin.dto.response.PerformanceODT.NetFlowODT> netFlows = new java.util.ArrayList<>();
         if (netFlowsRaw != null) {
             for (java.util.Map<String, Object> map : netFlowsRaw) {
-                java.util.Map<String, Object> flow = new java.util.HashMap<>();
-                flow.put("currency", map.get("currency"));
-                flow.put("netFlow", convertDouble(map.get("netflow")));
-                netFlows.add(flow);
+                netFlows.add(exchange.admin.dto.response.PerformanceODT.NetFlowODT.builder()
+                        .currency((String) map.get("currency"))
+                        .netFlow(convertDouble(map.get("netflow")))
+                        .build());
             }
         }
-        perf.put("netDepositFlow30d", netFlows);
+        perf.netDepositFlow30d(netFlows);
 
         // 4. 거래 회전율 (자산 총액 대비 30일 거래량)
         double totalBalanceKrw = 0;
@@ -278,71 +282,41 @@ public class StatsService {
                 String qCurrency = (String) map.get("quote_currency");
                 double vol = convertDouble(map.get("volume"));
                 double rate = 1.0;
-                if ("USD".equals(qCurrency)) rate = 1350.0; // 하드코딩 환율(임시)
+                if ("USD".equals(qCurrency)) rate = 1350.0;
                 totalVolume30dKrw += (vol * rate);
             }
         }
         double velocityPercent = totalBalanceKrw > 0 ? (totalVolume30dKrw * 100.0 / totalBalanceKrw) : 0.0;
-
-        java.util.Map<String, Object> tradingVelocity = new java.util.HashMap<>();
-        tradingVelocity.put("totalUserAssetsKrwEquivalent", totalBalanceKrw);
-        tradingVelocity.put("totalVolume30dKrwEquivalent", totalVolume30dKrw);
-        tradingVelocity.put("velocityPercent", Math.round(velocityPercent * 100.0) / 100.0);
-        perf.put("tradingVelocity", tradingVelocity);
+        perf.tradingVelocity(exchange.admin.dto.response.PerformanceODT.TradeTurnoverODT.builder()
+                .totalUserAssetsKrwEquivalent(totalBalanceKrw)
+                .totalVolume30dKrwEquivalent(totalVolume30dKrw)
+                .velocityPercent(Math.round(velocityPercent * 100.0) / 100.0)
+                .build());
 
         // 5. 주문 체결률 (최근 30일 체결 효율성)
         java.util.Map<String, Object> fillRate = statsMapper.selectOrderFillRate(thirtyDaysAgo);
         long filledCount = fillRate != null ? convertLong(fillRate.get("filled")) : 0L;
         long cancelledCount = fillRate != null ? convertLong(fillRate.get("cancelled")) : 0L;
         long activeCount = fillRate != null ? convertLong(fillRate.get("active")) : 0L;
-
         long totalOrders = filledCount + cancelledCount + activeCount;
         double fillRatePercent = totalOrders > 0 ? (filledCount * 100.0 / totalOrders) : 0.0;
-
-        java.util.Map<String, Object> orderEfficiency = new java.util.HashMap<>();
-        orderEfficiency.put("filledCount", filledCount);
-        orderEfficiency.put("cancelledCount", cancelledCount);
-        orderEfficiency.put("activeCount", activeCount);
-        orderEfficiency.put("fillRatePercent", Math.round(fillRatePercent * 100.0) / 100.0);
-        perf.put("orderEfficiency", orderEfficiency);
+        
+        perf.orderEfficiency(exchange.admin.dto.response.PerformanceODT.OrderEfficiencyODT.builder()
+                .filledCount(filledCount)
+                .cancelledCount(cancelledCount)
+                .activeCount(activeCount)
+                .fillRatePercent(Math.round(fillRatePercent * 100.0) / 100.0)
+                .build());
 
         // 6. 경쟁사 벤치마크 (핵심 경쟁 거래소 대비 모의 데이터 구성)
-        java.util.List<java.util.Map<String, Object>> competitors = new java.util.ArrayList<>();
-        competitors.add(java.util.Map.of(
-                "exchange", "HFX (우리 거래소)",
-                "btcUsdFeeRatePercent", AdminSettings.getFeeRate("BTC-USD") * 100.0,
-                "adaKrwFeeRatePercent", AdminSettings.getFeeRate("ADA-KRW") * 100.0,
-                "avgLatencyMs", 0.05,
-                "tps", 100000,
-                "uptimePercent", 99.999
-        ));
-        competitors.add(java.util.Map.of(
-                "exchange", "Binance",
-                "btcUsdFeeRatePercent", 0.1,
-                "adaKrwFeeRatePercent", 0.1,
-                "avgLatencyMs", 0.15,
-                "tps", 1400000,
-                "uptimePercent", 99.99
-        ));
-        competitors.add(java.util.Map.of(
-                "exchange", "Upbit",
-                "btcUsdFeeRatePercent", 0.05,
-                "adaKrwFeeRatePercent", 0.05,
-                "avgLatencyMs", 0.20,
-                "tps", 50000,
-                "uptimePercent", 99.95
-        ));
-        competitors.add(java.util.Map.of(
-                "exchange", "Coinbase",
-                "btcUsdFeeRatePercent", 0.60,
-                "adaKrwFeeRatePercent", 0.60,
-                "avgLatencyMs", 0.18,
-                "tps", 30000,
-                "uptimePercent", 99.99
-        ));
-        perf.put("competitors", competitors);
+        java.util.List<exchange.admin.dto.response.PerformanceODT.CompetitorODT> competitors = new java.util.ArrayList<>();
+        competitors.add(exchange.admin.dto.response.PerformanceODT.CompetitorODT.builder().exchange("HFX (우리 거래소)").btcUsdFeeRatePercent(AdminSettings.getFeeRate("BTC-USD") * 100.0).adaKrwFeeRatePercent(AdminSettings.getFeeRate("ADA-KRW") * 100.0).avgLatencyMs(0.05).tps(100000).uptimePercent(99.999).build());
+        competitors.add(exchange.admin.dto.response.PerformanceODT.CompetitorODT.builder().exchange("Binance").btcUsdFeeRatePercent(0.1).adaKrwFeeRatePercent(0.1).avgLatencyMs(0.15).tps(1400000).uptimePercent(99.99).build());
+        competitors.add(exchange.admin.dto.response.PerformanceODT.CompetitorODT.builder().exchange("Upbit").btcUsdFeeRatePercent(0.05).adaKrwFeeRatePercent(0.05).avgLatencyMs(0.20).tps(50000).uptimePercent(99.95).build());
+        competitors.add(exchange.admin.dto.response.PerformanceODT.CompetitorODT.builder().exchange("Coinbase").btcUsdFeeRatePercent(0.60).adaKrwFeeRatePercent(0.60).avgLatencyMs(0.18).tps(30000).uptimePercent(99.99).build());
+        perf.competitors(competitors);
 
-        return perf;
+        return perf.build();
     }
 
     private double convertDouble(Object value) {

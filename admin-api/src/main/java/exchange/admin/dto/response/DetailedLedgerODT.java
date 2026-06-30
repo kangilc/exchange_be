@@ -1,4 +1,4 @@
-package exchange.admin.dto;
+package exchange.admin.dto.response;
 
 import lombok.Data;
 import java.math.BigDecimal;
@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
  * MyBatis 쿼리 결과를 매핑함.
  */
 @Data
-public class DetailedLedgerDto {
+public class DetailedLedgerODT {
     // 원장 고유 식별자
     private Long journalId;
     

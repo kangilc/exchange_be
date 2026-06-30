@@ -1,4 +1,4 @@
-package exchange.admin.dto;
+package exchange.admin.dto.response;
 
 import exchange.admin.model.constant.UserGrade;
 import lombok.Builder;
@@ -9,7 +9,7 @@ import lombok.Getter;
  */
 @Getter
 @Builder
-public class AuthResponseDTO {
+public class AuthResponseODT {
     private String accessToken;
     private String refreshToken;
     private String email;

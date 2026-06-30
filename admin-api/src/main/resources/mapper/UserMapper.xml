@@ -5,7 +5,7 @@
 <mapper namespace="exchange.admin.mapper.UserMapper">
 
     <!-- 회원 가입 통계 (시간 해상도별) 조회 -->
-    <select id="selectUserStats" resultType="exchange.admin.dto.UserStatsDto">
+    <select id="selectUserStats" resultType="exchange.admin.dto.response.UserStatsODT">
         SELECT 
             TO_CHAR(DATE_TRUNC(#{timeBucket}, U.CREATED_AT), 'YYYY-MM-DD HH24:MI:SS') AS BUCKET,		<!-- 통계 시간대 -->
             COUNT(U.USER_ID) AS USERCOUNT		<!-- 회원 가입 수 -->

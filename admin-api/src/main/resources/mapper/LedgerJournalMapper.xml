@@ -24,7 +24,7 @@
     </sql>
 
     <!-- 전체/검색 원장 목록 조회 -->
-    <select id="selectDetailedLedgers" resultType="exchange.admin.dto.DetailedLedgerDto">
+    <select id="selectDetailedLedgers" resultType="exchange.admin.dto.response.DetailedLedgerODT">
         SELECT 
             L.JOURNAL_ID AS JOURNALID,     <!-- 원장 고유 식별자 -->
             L.USER_ID AS USERID,           <!-- 사용자 고유 식별자 -->
@@ -50,7 +50,7 @@
     </select>
     
     <!-- 특정 유저 원장 목록 조회 -->
-    <select id="selectDetailedLedgersByUserId" resultType="exchange.admin.dto.DetailedLedgerDto">
+    <select id="selectDetailedLedgersByUserId" resultType="exchange.admin.dto.response.DetailedLedgerODT">
         SELECT 
             L.JOURNAL_ID AS JOURNALID,     <!-- 원장 고유 식별자 -->
             L.USER_ID AS USERID,           <!-- 사용자 고유 식별자 -->

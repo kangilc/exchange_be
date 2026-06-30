@@ -7,6 +7,10 @@
 ---
 
 ## 🆕 최근 업데이트 (Recent Updates)
+- 백엔드 응답 규격 통합 및 DTO 분리 아키텍처 적용 (`admin-api`).
+  - 모든 API 응답을 `ApiResponse<T>` 래퍼로 통합하여 에러 코드 및 메시지 규격화.
+  - 요청 DTO는 `*IDT` (Input Data Transfer), 응답 DTO는 `*ODT` (Output Data Transfer) 네이밍 컨벤션으로 완전 분리 적용.
+  - 컨트롤러 및 서비스 레이어에서 Map 반환을 명시적 타입 객체(ODT) 반환으로 전환하여 타입 안전성 확보.
 - MyBatis 프레임워크 전면 도입 완료 (`admin-api`).
   - `LedgerJournalRepository`에 이어 `TradeRepository`의 복잡한 네이티브 쿼리를 `TradeMapper`로 모두 이관.
   - OR 조건으로 인한 풀 스캔 성능 저하를 `UNION ALL`로 분리하여 인덱스 효율성 극대화.

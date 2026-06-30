@@ -1,7 +1,7 @@
 package exchange.admin.controller;
 
 import exchange.admin.dto.ApiResponse;
-import exchange.admin.dto.DetailedLedgerDto;
+import exchange.admin.dto.response.DetailedLedgerODT;
 import exchange.admin.mapper.LedgerJournalMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -41,7 +41,7 @@ public class LedgerController {
      * @return 원장 내역 및 페이징 정보 목록
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<DetailedLedgerDto>>> getAllDetailedLedgers(
+    public ResponseEntity<ApiResponse<Page<DetailedLedgerODT>>> getAllDetailedLedgers(
             @RequestParam(name = "search", required = false) String search,
             @RequestParam(value = "startDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
             @RequestParam(value = "endDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate,
@@ -52,10 +52,10 @@ public class LedgerController {
         java.time.LocalDateTime finalStartDate = startDate != null ? startDate : finalEndDate.minusDays(30);
         
         int offset = page * size;
-        List<DetailedLedgerDto> list = ledgerJournalMapper.selectDetailedLedgers(search, finalStartDate, finalEndDate, offset, size);
+        List<DetailedLedgerODT> list = ledgerJournalMapper.selectDetailedLedgers(search, finalStartDate, finalEndDate, offset, size);
         long total = ledgerJournalMapper.countDetailedLedgers(search, finalStartDate, finalEndDate);
         
-        Page<DetailedLedgerDto> pageResult = new PageImpl<>(list, PageRequest.of(page, size), total);
+        Page<DetailedLedgerODT> pageResult = new PageImpl<>(list, PageRequest.of(page, size), total);
         return ApiResponse.ok(pageResult);
     }
 }

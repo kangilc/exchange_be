@@ -5,7 +5,7 @@
 <mapper namespace="exchange.admin.mapper.TradeMapper">
 
     <!-- 체결 내역 통계 (시간 해상도별) 조회 -->
-    <select id="selectTradeStats" resultType="exchange.admin.dto.TradeStatsDto">
+    <select id="selectTradeStats" resultType="exchange.admin.dto.response.TradeStatsODT">
         WITH RAW_SUMS AS (		<!-- 거래 테이블 스캔 시 조인 부하를 방지하기 위해 심볼별로 단독 합산함 -->
             SELECT 
                 TO_CHAR(DATE_TRUNC(#{timeBucket}, CREATED_AT), 'YYYY-MM-DD HH24:MI:SS') AS BUCKET,		<!-- 통계 시간대 -->
@@ -31,7 +31,7 @@
     </select>
 
     <!-- 특정 유저의 체결 내역 목록 조회 (UNION ALL 사용으로 성능 최적화) -->
-    <select id="selectUserTrades" resultType="exchange.admin.dto.UserTradeDto">
+    <select id="selectUserTrades" resultType="exchange.admin.dto.response.UserTradeODT">
         SELECT 
             T.TRADE_ID AS TRADEID,		<!-- 체결 고유 식별자 -->
             T.SYMBOL AS SYMBOL,		<!-- 대상 자산 심볼 -->

@@ -1,7 +1,7 @@
 package exchange.admin.service;
 
 import exchange.admin.config.AdminSettings;
-import exchange.admin.dto.AuthResponseDTO;
+import exchange.admin.dto.response.AuthResponseODT;
 import exchange.admin.exception.AuthException;
 import exchange.admin.model.User;
 import exchange.admin.repository.UserRepository;
@@ -30,7 +30,7 @@ public class AuthService {
     /**
      * 로그인 검증 및 토큰 발급 로직.
      */
-    public AuthResponseDTO login(String email, String password) {
+    public AuthResponseODT login(String email, String password) {
         Optional<User> userOpt = userRepository.findByEmail(email);
         if (userOpt.isEmpty()) {
             throw new AuthException("이메일 또는 비밀번호가 올바르지 않습니다.");
@@ -56,7 +56,7 @@ public class AuthService {
         user.setRefreshToken(refreshToken);
         userRepository.save(user);
 
-        return AuthResponseDTO.builder()
+        return AuthResponseODT.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .email(user.getEmail())
@@ -69,7 +69,7 @@ public class AuthService {
     /**
      * Refresh Token 갱신(RTR) 로직.
      */
-    public AuthResponseDTO refresh(String refreshToken) {
+    public AuthResponseODT refresh(String refreshToken) {
         if (refreshToken == null || refreshToken.trim().isEmpty()) {
             throw new AuthException("Refresh Token은 필수입니다.");
         }
@@ -101,7 +101,7 @@ public class AuthService {
         user.setRefreshToken(newRefreshToken);
         userRepository.save(user);
 
-        return AuthResponseDTO.builder()
+        return AuthResponseODT.builder()
                 .accessToken(newAccessToken)
                 .refreshToken(newRefreshToken)
                 .email(user.getEmail())

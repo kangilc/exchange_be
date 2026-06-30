@@ -1,6 +1,6 @@
-package exchange.admin.dto;
+package exchange.admin.dto.response;
 
-public class LedgerStatsDto {
+public class LedgerStatsODT {
     private String bucket;
     private String currency;
     private String type;

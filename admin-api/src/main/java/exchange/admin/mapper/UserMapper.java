@@ -1,6 +1,6 @@
 package exchange.admin.mapper;
 
-import exchange.admin.dto.UserStatsDto;
+import exchange.admin.dto.response.UserStatsODT;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -16,7 +16,7 @@ public interface UserMapper {
      * @param endDate 조회 종료일
      * @return 회원 가입 통계 목록
      */
-    List<UserStatsDto> selectUserStats(
+    List<UserStatsODT> selectUserStats(
             @Param("timeBucket") String timeBucket,
             @Param("startDate") java.time.LocalDateTime startDate,
             @Param("endDate") java.time.LocalDateTime endDate);

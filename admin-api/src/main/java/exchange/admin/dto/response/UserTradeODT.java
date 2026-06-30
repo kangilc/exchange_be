@@ -1,4 +1,4 @@
-package exchange.admin.dto;
+package exchange.admin.dto.response;
 
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
  * MyBatis 쿼리 결과를 매핑함.
  */
 @Data
-public class UserTradeDto {
+public class UserTradeODT {
     // 체결 고유 식별자
     private Long tradeId;
     

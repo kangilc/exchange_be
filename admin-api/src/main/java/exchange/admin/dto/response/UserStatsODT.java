@@ -1,6 +1,6 @@
-package exchange.admin.dto;
+package exchange.admin.dto.response;
 
-public class UserStatsDto {
+public class UserStatsODT {
     private String bucket;
     private Long userCount;
 

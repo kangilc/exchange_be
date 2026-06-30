@@ -36,7 +36,7 @@ public class StatsController {
      * @return 체결 거래 통계 목록
      */
     @GetMapping("/trades")
-    public ResponseEntity<ApiResponse<List<exchange.admin.dto.TradeStatsDto>>> getTradeStats(
+    public ResponseEntity<ApiResponse<List<exchange.admin.dto.response.TradeStatsODT>>> getTradeStats(
             @RequestParam(value = "resolution", defaultValue = "daily") String resolution,
             @RequestParam(value = "startDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
             @RequestParam(value = "endDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate) {
@@ -57,7 +57,7 @@ public class StatsController {
      * @return 자산 변동 통계 목록
      */
     @GetMapping("/assets")
-    public ResponseEntity<ApiResponse<List<exchange.admin.dto.LedgerStatsDto>>> getLedgerStats(
+    public ResponseEntity<ApiResponse<List<exchange.admin.dto.response.LedgerStatsODT>>> getLedgerStats(
             @RequestParam(value = "resolution", defaultValue = "daily") String resolution,
             @RequestParam(value = "startDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
             @RequestParam(value = "endDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate) {
@@ -78,7 +78,7 @@ public class StatsController {
      * @return 회원 지표 통계 목록
      */
     @GetMapping("/users")
-    public ResponseEntity<ApiResponse<List<exchange.admin.dto.UserStatsDto>>> getUserStats(
+    public ResponseEntity<ApiResponse<List<exchange.admin.dto.response.UserStatsODT>>> getUserStats(
             @RequestParam(value = "resolution", defaultValue = "daily") String resolution,
             @RequestParam(value = "startDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
             @RequestParam(value = "endDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate) {
@@ -95,7 +95,7 @@ public class StatsController {
      * @return 회원 수, 체결 수, 현재가 등의 종합 요약 정보
      */
     @GetMapping("/summary")
-    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getSummaryStats() {
+    public ResponseEntity<ApiResponse<exchange.admin.dto.response.SummaryODT>> getSummaryStats() {
         return ApiResponse.ok(statsService.getSummaryStats());
     }
 
@@ -105,7 +105,7 @@ public class StatsController {
      * @return 수수료 수익, DAU/MAU, 거래 회전율 등의 실적 지표 정보
      */
     @GetMapping("/performance")
-    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getPerformanceStats() {
+    public ResponseEntity<ApiResponse<exchange.admin.dto.response.PerformanceODT>> getPerformanceStats() {
         return ApiResponse.ok(statsService.getPerformanceStats());
     }
 
@@ -116,19 +116,19 @@ public class StatsController {
      * @return 종목 코드, 현재가, 전일종가 정보를 담은 맵
      */
     @GetMapping("/ticker")
-    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getTicker(@RequestParam("symbol") String symbol) {
-        java.util.Map<String, Object> response = new java.util.HashMap<>();
-        response.put("symbol", symbol);
-        response.put("lastPrice", statsService.getLastPrice(symbol));
-        response.put("prevClosePrice", statsService.getPrevClosePrice(symbol));
-        return ApiResponse.ok(response);
+    public ResponseEntity<ApiResponse<exchange.admin.dto.response.TickerODT>> getTicker(@RequestParam("symbol") String symbol) {
+        return ApiResponse.ok(exchange.admin.dto.response.TickerODT.builder()
+                .symbol(symbol)
+                .lastPrice(statsService.getLastPrice(symbol))
+                .prevClosePrice(statsService.getPrevClosePrice(symbol))
+                .build());
     }
 
     /**
      * 전체 ACTIVE 마켓에 대한 티커 정보 벌크 조회.
      */
     @GetMapping("/tickers")
-    public ResponseEntity<ApiResponse<List<java.util.Map<String, Object>>>> getTickers() {
+    public ResponseEntity<ApiResponse<List<exchange.admin.dto.response.TickerODT>>> getTickers() {
         return ApiResponse.ok(statsService.getTickers());
     }
 
@@ -142,7 +142,7 @@ public class StatsController {
      * @return OHLCV 캔들 목록
      */
     @GetMapping("/candles")
-    public ResponseEntity<ApiResponse<List<java.util.Map<String, Object>>>> getCandles(
+    public ResponseEntity<ApiResponse<List<exchange.admin.dto.response.CandleODT>>> getCandles(
             @RequestParam("symbol") String symbol,
             @RequestParam(value = "resolution", defaultValue = "1m") String resolution,
             @RequestParam(value = "limit", defaultValue = "100") int limit) {
