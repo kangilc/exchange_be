@@ -416,3 +416,22 @@ services:
       resources:
         limits:
           memory: 256M
+
+  # =========================================================================
+  # 7. 테스트 도구 (Order Generator)
+  # =========================================================================
+  order-generator:
+    build:
+      context: .
+      dockerfile: order-generator/Dockerfile
+    container_name: order-generator
+    env_file:
+      - .env.dev
+    depends_on:
+      - engine-btc
+      - engine-ada
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
