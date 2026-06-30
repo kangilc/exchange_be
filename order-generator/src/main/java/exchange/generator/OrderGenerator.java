@@ -18,10 +18,23 @@ public final class OrderGenerator {
     private static final int MAX_ORDERS = ConfigLoader.getInt("MAX_ORDERS", Integer.MAX_VALUE);
     
     // 주문 간격 속도 제어용 환경변수 (기본값: 최소 50ms, 최대 250ms)
-    private static final int SLEEP_MIN_MS = ConfigLoader.getInt("GENERATOR_SLEEP_MIN", 50);
-    private static final int SLEEP_MAX_MS = ConfigLoader.getInt("GENERATOR_SLEEP_MAX", 250);
+    private static final int ENV_SLEEP_MIN_MS = ConfigLoader.getInt("GENERATOR_SLEEP_MIN", 50);
+    private static final int ENV_SLEEP_MAX_MS = ConfigLoader.getInt("GENERATOR_SLEEP_MAX", 250);
 
     public static void main(String[] args) {
+        int sleepMin = ENV_SLEEP_MIN_MS;
+        int sleepMax = ENV_SLEEP_MAX_MS;
+        
+        // 사용자가 커맨드라인 아규먼트(변수)로 명시적 값을 넘겼을 경우 이를 최우선으로 적용
+        if (args.length >= 2) {
+            try {
+                sleepMin = Integer.parseInt(args[0]);
+                sleepMax = Integer.parseInt(args[1]);
+                System.out.println("Applied custom sleep args: " + sleepMin + "ms ~ " + sleepMax + "ms");
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid sleep args. Falling back to env values.");
+            }
+        }
         // 환경 변수 및 config 파일로부터 대상 매칭 엔진의 IP 호스트와 포트를 바인딩
         String btcHost = ConfigLoader.get("ENGINE_HOST", "localhost");
         String adaHost = ConfigLoader.get("ADA_ENGINE_HOST", btcHost);
@@ -39,10 +52,10 @@ public final class OrderGenerator {
 
         // 1. 비트코인(BTC-USD) 가상 주문 주입을 담당하는 스레드 생성 (BTC 소수점 8자리 스케일 100,000,000)
         long btcScale = 100000000L;
-        Thread btcThread = new Thread(new GeneratorTask(btcHost, btcPort, 65000L * btcScale, "BTC-USD", btcScale), "generator-btc");
+        Thread btcThread = new Thread(new GeneratorTask(btcHost, btcPort, 65000L * btcScale, "BTC-USD", btcScale, sleepMin, sleepMax), "generator-btc");
         // 2. 에이다(ADA-KRW) 가상 주문 주입을 담당하는 스레드 생성 (ADA 소수점 4자리 스케일 10,000)
         long adaScale = 10000L;
-        Thread adaThread = new Thread(new GeneratorTask(adaHost, adaPort, 500L * adaScale, "ADA-KRW", adaScale), "generator-ada");
+        Thread adaThread = new Thread(new GeneratorTask(adaHost, adaPort, 500L * adaScale, "ADA-KRW", adaScale, sleepMin, sleepMax), "generator-ada");
 
         // 각 마켓별 주문 인젝터 스레드 동시 구동 (병렬 처리 구조)
         btcThread.start();
@@ -67,13 +80,17 @@ public final class OrderGenerator {
         private long referencePrice;         // 변동성의 기준이 되는 실시간 시세 기준값
         private final String symbol;          // 대상 마켓 심볼명 (BTC-USD, ADA-KRW 등)
         private final long scale;             // 마켓 소수점 스케일 팩터
+        private final int sleepMin;           // 딜레이 최소값
+        private final int sleepMax;           // 딜레이 최대값
 
-        public GeneratorTask(String host, int port, long referencePrice, String symbol, long scale) {
+        public GeneratorTask(String host, int port, long referencePrice, String symbol, long scale, int sleepMin, int sleepMax) {
             this.host = host;
             this.port = port;
             this.referencePrice = referencePrice;
             this.symbol = symbol;
             this.scale = scale;
+            this.sleepMin = sleepMin;
+            this.sleepMax = sleepMax;
         }
 
         @Override
@@ -150,8 +167,8 @@ public final class OrderGenerator {
                         }
 
                         // 8. 초고속 주입 과부하 및 지연 제어 장치: 설정된 범위 내의 랜덤 슬립
-                        int bound = Math.max(1, SLEEP_MAX_MS - SLEEP_MIN_MS);
-                        Thread.sleep(SLEEP_MIN_MS + rand.nextInt(bound));
+                        int bound = Math.max(1, sleepMax - sleepMin);
+                        Thread.sleep(sleepMin + rand.nextInt(bound));
                     }
 
                 } catch (Exception e) {
