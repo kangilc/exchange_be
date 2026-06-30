@@ -159,7 +159,8 @@ export const TradingViewChart: React.FC = React.memo(() => {
             try {
                 const response = await fetch(url);
                 if (!response.ok) throw new Error('API fetch failed');
-                const data = await response.json();
+                const rawJson = await response.json();
+                const data = rawJson.data !== undefined ? rawJson.data : rawJson;
 
                 if (data && data.length > 0) {
                     const candles: CandlestickData[] = [];

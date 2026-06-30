@@ -7,6 +7,15 @@ import exchange.admin.model.constant.UserGrade;
 import exchange.admin.repository.LedgerJournalRepository;
 import exchange.admin.repository.UserRepository;
 import exchange.admin.repository.WalletRepository;
+import exchange.admin.repository.WalletRepository;
+import exchange.admin.mapper.LedgerJournalMapper;
+import exchange.admin.mapper.TradeMapper;
+import exchange.admin.dto.request.common.DateRangePageIDT;
+import exchange.admin.dto.response.DetailedLedgerODT;
+import exchange.admin.dto.response.UserTradeODT;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +46,12 @@ public class UserService {
 
     @Autowired
     private LedgerJournalRepository ledgerJournalRepository;
+
+    @Autowired
+    private LedgerJournalMapper ledgerJournalMapper;
+
+    @Autowired
+    private TradeMapper tradeMapper;
 
     public List<User> getAllUsers() {
         return userRepository.findAll();
@@ -138,6 +153,30 @@ public class UserService {
         ledgerJournalRepository.save(journal);
 
         return savedWallet;
+    }
+
+    /**
+     * 회원의 원장 변동 내역을 페이징하여 조회합니다. (CQRS - Read)
+     */
+    public Page<DetailedLedgerODT> getUserLedgers(Long userId, DateRangePageIDT idt) {
+        int offset = idt.getPage() * idt.getSize();
+        List<DetailedLedgerODT> list = ledgerJournalMapper.selectDetailedLedgersByUserId(
+                userId, idt.getFinalStartDate(), idt.getFinalEndDate(), offset, idt.getSize());
+        long total = ledgerJournalMapper.countDetailedLedgersByUserId(
+                userId, idt.getFinalStartDate(), idt.getFinalEndDate());
+                
+        return new PageImpl<>(list, PageRequest.of(idt.getPage(), idt.getSize()), total);
+    }
+
+    /**
+     * 회원의 체결 내역을 페이징하여 조회합니다. (CQRS - Read)
+     */
+    public Page<UserTradeODT> getUserTrades(Long userId, DateRangePageIDT idt) {
+        int offset = idt.getPage() * idt.getSize();
+        List<UserTradeODT> list = tradeMapper.selectUserTrades(userId, offset, idt.getSize());
+        long total = tradeMapper.countUserTrades(userId);
+                
+        return new PageImpl<>(list, PageRequest.of(idt.getPage(), idt.getSize()), total);
     }
 
     private void initializeWallet(Long userId, String currency) {

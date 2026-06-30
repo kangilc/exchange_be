@@ -1,6 +1,8 @@
 package exchange.admin.config;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+
+import org.jetbrains.annotations.NotNull;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
@@ -19,20 +21,20 @@ public class CacheConfig {
     @Bean
     public CacheManager cacheManager() {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager();
-        
+
         // 1. 글로벌 마켓 수수료 캐시 설정 등록
-        cacheManager.registerCustomCache("marketFeeRates",
-                Caffeine.newBuilder()
-                        .maximumSize(50)
-                        .build());
-                        
+        com.github.benmanes.caffeine.cache.Cache<Object, Object> marketFeeRatesCache = Caffeine.newBuilder()
+                .maximumSize(50)
+                .build();
+        cacheManager.registerCustomCache("marketFeeRates", marketFeeRatesCache);
+
         // 2. 실시간 현재가 캐시 설정 등록 (1초 만료)
-        cacheManager.registerCustomCache("lastPrice",
-                Caffeine.newBuilder()
-                        .expireAfterWrite(1, TimeUnit.SECONDS)
-                        .maximumSize(100)
-                        .build());
-                        
+        com.github.benmanes.caffeine.cache.Cache<Object, Object> lastPriceCache = Caffeine.newBuilder()
+                .expireAfterWrite(1, TimeUnit.SECONDS)
+                .maximumSize(100)
+                .build();
+        cacheManager.registerCustomCache("lastPrice", lastPriceCache);
+
         return cacheManager;
     }
 }

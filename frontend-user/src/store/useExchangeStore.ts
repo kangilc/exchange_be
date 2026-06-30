@@ -532,7 +532,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     body: JSON.stringify({ email, password })
                 });
                 if (res.ok) {
-                    const tokens = await res.json();
+                    const rawJson = await res.json();
+                    const tokens = rawJson.data !== undefined ? rawJson.data : rawJson;
                     setLocalTokens(tokens.accessToken, tokens.refreshToken);
                     
                     let userId = 1;

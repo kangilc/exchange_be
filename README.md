@@ -7,6 +7,12 @@
 ---
 
 ## 🆕 최근 업데이트 (Recent Updates)
+- 프론트엔드(`frontend-user`) 백엔드 응답 규격(ApiResponse) 연동 완료.
+  - Zustand 스토어 및 차트 컴포넌트의 API 호출부를 `ApiResponse<T>` 래퍼 규격에 맞춰 안전하게 추출하도록 수정함.
+- 백엔드(`admin-api`) GET 요청 파라미터 IDT(Input Data Transfer) 캡슐화 및 계층 분리.
+  - 반복되는 페이징 및 날짜 파라미터를 `BasePageIDT`, `DateRangePageIDT` 등 상속 구조의 공통 IDT로 묶어 재사용성 확보.
+  - `UserController` 내의 `Map` 수신 파라미터를 명시적 IDT(`UserRegisterIDT` 등)로 전면 교체하여 타입 안전성 강화.
+  - 컨트롤러에 혼재되어 있던 데이터베이스(Mapper) 직접 호출 및 비즈니스 로직(페이징, 날짜 계산)을 `UserService` 계층으로 완전 분리하여 CQRS 아키텍처 원칙 복원.
 - 백엔드 응답 규격 통합 및 DTO 분리 아키텍처 적용 (`admin-api`).
   - 모든 API 응답을 `ApiResponse<T>` 래퍼로 통합하여 에러 코드 및 메시지 규격화.
   - 요청 DTO는 `*IDT` (Input Data Transfer), 응답 DTO는 `*ODT` (Output Data Transfer) 네이밍 컨벤션으로 완전 분리 적용.

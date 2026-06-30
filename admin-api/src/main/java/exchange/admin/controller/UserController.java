@@ -1,16 +1,23 @@
 package exchange.admin.controller;
 
 import exchange.admin.dto.ApiResponse;
+import exchange.admin.dto.request.common.BasePageIDT;
+import exchange.admin.dto.request.common.DateRangePageIDT;
+import exchange.admin.dto.request.user.AssetAdjustIDT;
+import exchange.admin.dto.request.user.UserRegisterIDT;
+import exchange.admin.dto.request.user.UserUpdateIDT;
+import exchange.admin.dto.response.DetailedLedgerODT;
+import exchange.admin.dto.response.UserTradeODT;
 import exchange.admin.model.User;
 import exchange.admin.model.Wallet;
 import exchange.admin.service.UserService;
-import org.springframework.http.HttpStatus;
+import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
 /**
  * 어드민 회원 관리 컨트롤러.
@@ -22,24 +29,10 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
-    private final exchange.admin.repository.TradeRepository tradeRepository;
-
-    private final exchange.admin.mapper.TradeMapper tradeMapper;
-    private final exchange.admin.repository.LedgerJournalRepository ledgerJournalRepository;
-    private final exchange.admin.mapper.LedgerJournalMapper ledgerJournalMapper;
 
     // 생성자 주입
-    public UserController(
-            UserService userService,
-            exchange.admin.repository.TradeRepository tradeRepository,
-            exchange.admin.mapper.TradeMapper tradeMapper,
-            exchange.admin.repository.LedgerJournalRepository ledgerJournalRepository,
-            exchange.admin.mapper.LedgerJournalMapper ledgerJournalMapper) {
+    public UserController(UserService userService) {
         this.userService = userService;
-        this.tradeRepository = tradeRepository;
-        this.tradeMapper = tradeMapper;
-        this.ledgerJournalRepository = ledgerJournalRepository;
-        this.ledgerJournalMapper = ledgerJournalMapper;
     }
 
     /**
@@ -73,16 +66,8 @@ public class UserController {
      * @return 가입 완료된 회원 정보
      */
     @PostMapping
-    public ResponseEntity<ApiResponse<User>> registerUser(@RequestBody Map<String, String> request) {
-        String email = request.get("email");
-        String password = request.get("password");
-        String grade = request.get("grade");
-        
-        if (email == null || password == null) {
-            return ApiResponse.badRequest("Email and password are required");
-        }
-        
-        User registeredUser = userService.registerUser(email, password, grade);
+    public ResponseEntity<ApiResponse<User>> registerUser(@Valid @RequestBody UserRegisterIDT request) {
+        User registeredUser = userService.registerUser(request.getEmail(), request.getPassword(), request.getGrade());
         return ApiResponse.ok(registeredUser);
     }
 
@@ -94,12 +79,8 @@ public class UserController {
      * @return 수정된 회원 정보
      */
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<User>> updateUser(@PathVariable Long id, @RequestBody Map<String, String> request) {
-        String email = request.get("email");
-        String status = request.get("status");
-        String grade = request.get("grade");
-        
-        return userService.updateUser(id, email, status, grade)
+    public ResponseEntity<ApiResponse<User>> updateUser(@PathVariable Long id, @Valid @RequestBody UserUpdateIDT request) {
+        return userService.updateUser(id, request.getEmail(), request.getStatus(), request.getGrade())
                 .map(user -> ApiResponse.ok(user))
                 .orElse(ApiResponse.notFound("User not found"));
     }
@@ -112,23 +93,9 @@ public class UserController {
      * @return 갱신된 회원 지갑 정보
      */
     @PostMapping("/{id}/assets/adjust")
-    public ResponseEntity<ApiResponse<Wallet>> adjustAsset(@PathVariable Long id, @RequestBody Map<String, Object> request) {
-        String currency = (String) request.get("currency");
-        Object amountObj = request.get("amount");
-        
-        if (currency == null || amountObj == null) {
-            return ApiResponse.badRequest("Required fields: 'currency' and 'amount'");
-        }
-
-        BigDecimal amount;
+    public ResponseEntity<ApiResponse<Wallet>> adjustAsset(@PathVariable Long id, @Valid @RequestBody AssetAdjustIDT request) {
         try {
-            amount = new BigDecimal(amountObj.toString());
-        } catch (NumberFormatException e) {
-            return ApiResponse.badRequest("Invalid amount format");
-        }
-
-        try {
-            Wallet updatedWallet = userService.adjustAsset(id, currency, amount);
+            Wallet updatedWallet = userService.adjustAsset(id, request.getCurrency(), request.getAmount());
             return ApiResponse.ok(updatedWallet);
         } catch (IllegalArgumentException e) {
             return ApiResponse.badRequest(e.getMessage());
@@ -141,23 +108,15 @@ public class UserController {
      * 특정 회원의 거래 체결 내역 조회.
      * 
      * @param id   회원 ID
-     * @param page 조회할 페이지 번호
-     * @param size 페이지당 목록 수
+     * @param idt 조회할 페이지 번호 및 사이즈 등 공통 IDT
      * @return 체결 정보 페이징 객체
      */
     @GetMapping("/{id}/trades")
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.dto.response.UserTradeODT>>> getUserTrades(
+    public ResponseEntity<ApiResponse<Page<UserTradeODT>>> getUserTrades(
             @PathVariable Long id,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @ModelAttribute DateRangePageIDT idt) {
         
-        int offset = page * size;
-        java.util.List<exchange.admin.dto.response.UserTradeODT> list = tradeMapper.selectUserTrades(id, offset, size);
-        long total = tradeMapper.countUserTrades(id);
-        
-        org.springframework.data.domain.Page<exchange.admin.dto.response.UserTradeODT> pageResult = 
-                new org.springframework.data.domain.PageImpl<>(list, org.springframework.data.domain.PageRequest.of(page, size), total);
-                
+        Page<UserTradeODT> pageResult = userService.getUserTrades(id, idt);
         return ApiResponse.ok(pageResult);
     }
 
@@ -165,28 +124,15 @@ public class UserController {
      * 특정 회원의 상세 원장 변동 내역 조회.
      * 
      * @param id   회원 ID
-     * @param page 조회할 페이지 번호
-     * @param size 페이지당 목록 수
+     * @param idt 페이징 및 날짜 검색 파라미터
      * @return 자산 변동 상세 내역 페이징 객체
      */
     @GetMapping("/{id}/ledgers")
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.dto.response.DetailedLedgerODT>>> getUserLedgers(
+    public ResponseEntity<ApiResponse<Page<DetailedLedgerODT>>> getUserLedgers(
             @PathVariable Long id,
-            @RequestParam(value = "startDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
-            @RequestParam(value = "endDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @ModelAttribute DateRangePageIDT idt) {
             
-        java.time.LocalDateTime finalEndDate = endDate != null ? endDate : java.time.LocalDateTime.now();
-        java.time.LocalDateTime finalStartDate = startDate != null ? startDate : finalEndDate.minusDays(30);
-        
-        int offset = page * size;
-        java.util.List<exchange.admin.dto.response.DetailedLedgerODT> list = ledgerJournalMapper.selectDetailedLedgersByUserId(id, finalStartDate, finalEndDate, offset, size);
-        long total = ledgerJournalMapper.countDetailedLedgers(String.valueOf(id), finalStartDate, finalEndDate); // userId as search string if count method doesn't have userId overload, wait count method takes search. Actually I should probably just return a page. Let's just use the length or write a new count method.
-        
-        org.springframework.data.domain.Page<exchange.admin.dto.response.DetailedLedgerODT> pageResult = 
-                new org.springframework.data.domain.PageImpl<>(list, org.springframework.data.domain.PageRequest.of(page, size), total);
-                
+        Page<DetailedLedgerODT> pageResult = userService.getUserLedgers(id, idt);
         return ApiResponse.ok(pageResult);
     }
 
@@ -194,25 +140,17 @@ public class UserController {
      * 로그인된 회원 본인의 거래 체결 내역 조회.
      * SecurityContextHolder의 인증정보를 기반으로 본인의 체결 데이터만 필터링하여 반환합니다.
      * 
-     * @param page 조회할 페이지 번호
-     * @param size 페이지당 목록 수
+     * @param idt 페이징 파라미터
      * @return 체결 정보 페이징 객체 또는 401 Unauthorized
      */
     @GetMapping("/me/trades")
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.dto.response.UserTradeODT>>> getMyTrades(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+    public ResponseEntity<ApiResponse<Page<UserTradeODT>>> getMyTrades(
+            @ModelAttribute DateRangePageIDT idt) {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
-        java.util.Optional<exchange.admin.model.User> userOpt = userService.getUserByEmail(email);
+        Optional<User> userOpt = userService.getUserByEmail(email);
         if (userOpt.isPresent()) {
             Long userId = userOpt.get().getUserId();
-            int offset = page * size;
-            java.util.List<exchange.admin.dto.response.UserTradeODT> list = tradeMapper.selectUserTrades(userId, offset, size);
-            long total = tradeMapper.countUserTrades(userId);
-            
-            org.springframework.data.domain.Page<exchange.admin.dto.response.UserTradeODT> pageResult = 
-                    new org.springframework.data.domain.PageImpl<>(list, org.springframework.data.domain.PageRequest.of(page, size), total);
-                    
+            Page<UserTradeODT> pageResult = userService.getUserTrades(userId, idt);
             return ApiResponse.ok(pageResult);
         }
         return ApiResponse.unauthorized("Unauthorized");
@@ -222,34 +160,21 @@ public class UserController {
      * 로그인된 회원 본인의 상세 원장 변동 내역 조회.
      * SecurityContextHolder의 인증정보를 기반으로 본인의 원장 정보만 필터링하여 반환합니다.
      * 
-     * @param page 조회할 페이지 번호
-     * @param size 페이지당 목록 수
+     * @param idt 페이징 및 날짜 검색 파라미터
      * @return 원장 정보 페이징 객체 또는 401 Unauthorized
      */
     @GetMapping("/me/ledgers")
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<exchange.admin.dto.response.DetailedLedgerODT>>> getMyLedgers(
-            @RequestParam(value = "startDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
-            @RequestParam(value = "endDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+    public ResponseEntity<ApiResponse<Page<DetailedLedgerODT>>> getMyLedgers(
+            @ModelAttribute DateRangePageIDT idt) {
             
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
-        java.util.Optional<exchange.admin.model.User> userOpt = userService.getUserByEmail(email);
+        Optional<User> userOpt = userService.getUserByEmail(email);
         
         if (userOpt.isPresent()) {
             Long userId = userOpt.get().getUserId();
-            java.time.LocalDateTime finalEndDate = endDate != null ? endDate : java.time.LocalDateTime.now();
-            java.time.LocalDateTime finalStartDate = startDate != null ? startDate : finalEndDate.minusDays(30);
-            
-            int offset = page * size;
-            java.util.List<exchange.admin.dto.response.DetailedLedgerODT> list = ledgerJournalMapper.selectDetailedLedgersByUserId(userId, finalStartDate, finalEndDate, offset, size);
-            long total = ledgerJournalMapper.countDetailedLedgers(String.valueOf(userId), finalStartDate, finalEndDate); // using count method
-            
-            org.springframework.data.domain.Page<exchange.admin.dto.response.DetailedLedgerODT> pageResult = 
-                    new org.springframework.data.domain.PageImpl<>(list, org.springframework.data.domain.PageRequest.of(page, size), total);
+            Page<DetailedLedgerODT> pageResult = userService.getUserLedgers(userId, idt);
             return ApiResponse.ok(pageResult);
         }
         return ApiResponse.unauthorized("Unauthorized");
     }
 }
-

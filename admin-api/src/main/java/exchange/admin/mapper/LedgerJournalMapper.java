@@ -65,7 +65,11 @@ public interface LedgerJournalMapper {
      * @param userId 사용자 ID
      * @return 총 데이터 개수
      */
-    long countDetailedLedgersByUserId(@Param("userId") Long userId);
+    long countDetailedLedgersByUserId(
+        @Param("userId") Long userId,
+        @Param("startDate") java.time.LocalDateTime startDate,
+        @Param("endDate") java.time.LocalDateTime endDate
+    );
     
     /**
      * 자산 원장 변동 통계 (시간 해상도별) 조회.
