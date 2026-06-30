@@ -153,6 +153,18 @@ export const TradingViewChart: React.FC = React.memo(() => {
         const fetchHistoricalData = async () => {
             if (!candlestickSeriesRef.current || !volumeSeriesRef.current || !ma7SeriesRef.current || !ma25SeriesRef.current) return;
 
+            const scale = useExchangeStore.getState().getScaleFactor(activeSymbol);
+            const decimals = Math.log10(scale);
+            const priceFormatOptions = {
+                type: 'price' as const,
+                precision: decimals,
+                minMove: 1 / scale,
+            };
+
+            candlestickSeriesRef.current.applyOptions({ priceFormat: priceFormatOptions });
+            ma7SeriesRef.current.applyOptions({ priceFormat: priceFormatOptions });
+            ma25SeriesRef.current.applyOptions({ priceFormat: priceFormatOptions });
+
             const basePrice = activeSymbol === 'BTC-USD' ? 65000 : 500;
             const url = `${apiBaseUrl}/admin/stats/candles?symbol=${activeSymbol}&resolution=${activeResolution}&limit=120`;
 
