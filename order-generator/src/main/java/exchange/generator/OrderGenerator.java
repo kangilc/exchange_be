@@ -93,14 +93,14 @@ public final class OrderGenerator {
                         // 1. 주문 유형 결정: 매수(BUY)와 매도(SELL) 확률을 정확히 50% 반반으로 나눔
                         String side = rand.nextBoolean() ? "BUY" : "SELL";
                         
-                        // 2. 호가 격차(Price Offset) 산정: 현재 기준가격 대비 무작위 난수 기반 소수점 단위 격차 발생
+                        // 2. 호가 격차(Price Offset) 산정: 호가창(OrderBook)의 물량 그룹핑을 위해 가격은 특정 틱 단위로 제한 (BTC는 1달러 단위, ADA는 1원 단위)
                         long priceOffset;
                         if (symbol.equalsIgnoreCase("BTC-USD")) {
-                            // BTC: -15.00 ~ +15.00 달러
-                            priceOffset = (long) ((rand.nextDouble() * 30 - 15) * scale);
+                            // BTC: -15 ~ +14 달러 (정수 단위)
+                            priceOffset = (rand.nextInt(30) - 15) * scale;
                         } else {
-                            // ADA: -3.00 ~ +3.00 원
-                            priceOffset = (long) ((rand.nextDouble() * 6 - 3) * scale);
+                            // ADA: -3 ~ +2 원 (정수 단위)
+                            priceOffset = (rand.nextInt(6) - 3) * scale;
                         }
                         long price = referencePrice + priceOffset;
                         
@@ -136,9 +136,9 @@ public final class OrderGenerator {
                         // 7. 기준값 트렌드 변동: 5% 확률로 시장의 대세 흐름 가격(Reference Price) 자체를 동적 이동시켜 차트 우상향/우하향 연출
                         if (rand.nextInt(100) < 5) {
                             if (symbol.equalsIgnoreCase("BTC-USD")) {
-                                referencePrice += (long) ((rand.nextDouble() * 10 - 5) * scale); // -5 ~ +5 달러
+                                referencePrice += (rand.nextInt(10) - 5) * scale; // -5 ~ +4 달러
                             } else {
-                                referencePrice += (long) ((rand.nextDouble() * 4 - 2) * scale);  // -2 ~ +2 원
+                                referencePrice += (rand.nextInt(4) - 2) * scale;  // -2 ~ +1 원
                             }
                             if (referencePrice < minPrice) {
                                 referencePrice = minPrice;
@@ -179,7 +179,7 @@ public final class OrderGenerator {
             
             // 1. 매도(SELL) 대기열 25단계 생성: 기준가 위쪽으로 대량 물량 주입
             for (int i = 1; i <= 25; i++) {
-                long price = referencePrice + i * scale;
+                long price = referencePrice + i * scale; // 정수 1틱(달러/원) 단위 깊이
                 long qty;
                 if (symbol.equalsIgnoreCase("BTC-USD")) {
                     qty = (long) (scale * (0.01 + r.nextDouble() * 2.0)); // 0.01 ~ 2.0 BTC
