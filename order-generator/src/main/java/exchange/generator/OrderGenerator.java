@@ -93,8 +93,15 @@ public final class OrderGenerator {
                         // 1. 주문 유형 결정: 매수(BUY)와 매도(SELL) 확률을 정확히 50% 반반으로 나눔
                         String side = rand.nextBoolean() ? "BUY" : "SELL";
                         
-                        // 2. 호가 격차(Price Offset) 산정: 현재 기준가격 대비 -15 ~ +14 단위의 격차를 실시간으로 발생시킴
-                        long priceOffset = (rand.nextInt(30) - 15) * scale;
+                        // 2. 호가 격차(Price Offset) 산정: 현재 기준가격 대비 무작위 난수 기반 소수점 단위 격차 발생
+                        long priceOffset;
+                        if (symbol.equalsIgnoreCase("BTC-USD")) {
+                            // BTC: -15.00 ~ +15.00 달러
+                            priceOffset = (long) ((rand.nextDouble() * 30 - 15) * scale);
+                        } else {
+                            // ADA: -3.00 ~ +3.00 원
+                            priceOffset = (long) ((rand.nextDouble() * 6 - 3) * scale);
+                        }
                         long price = referencePrice + priceOffset;
                         
                         // 3. 최저 호가 한계선(보호 가드) 산정: 비트코인은 $10,000.00, 에이다는 ₩10.00 미만으로 하락할 수 없도록 제한
@@ -103,8 +110,15 @@ public final class OrderGenerator {
                             price = minPrice;
                         }
                         
-                        // 4. 주문 수량(Qty) 산정: 1 ~ 15개 사이의 수량을 임의 지정 후 스케일업
-                        long qty = (rand.nextInt(15) + 1) * scale;
+                        // 4. 주문 수량(Qty) 산정: 종목에 맞는 현실적인 소수점 수량 생성 후 스케일업
+                        long qty;
+                        if (symbol.equalsIgnoreCase("BTC-USD")) {
+                            // BTC: 0.001 ~ 0.5 BTC
+                            qty = (long) (scale * (0.001 + rand.nextDouble() * 0.499));
+                        } else {
+                            // ADA: 10 ~ 1000 ADA
+                            qty = (long) (scale * (10 + rand.nextDouble() * 990));
+                        }
                         // 5. 가상 유저 UID 할당: 1~1000번 사이의 1000명 랜덤 회원으로 할당하여 골고루 트랜잭션이 일어나도록 설계
                         long userId = rand.nextInt(1000) + 1;
 
@@ -119,9 +133,13 @@ public final class OrderGenerator {
                         writer.println(String.format("NEW,%s,%d,%d,%d", side, price, qty, userId));
                         writer.flush(); // 즉시 소켓 버퍼 비우기(실시간 스트리밍 지연 방지)
 
-                        // 7. 기준값 트렌드 변동: 5% 확률로 시장의 대세 흐름 가격(Reference Price) 자체를 상하방 -3 ~ +2 단위로 동적 이동시켜 차트 우상향/우하향 연출
+                        // 7. 기준값 트렌드 변동: 5% 확률로 시장의 대세 흐름 가격(Reference Price) 자체를 동적 이동시켜 차트 우상향/우하향 연출
                         if (rand.nextInt(100) < 5) {
-                            referencePrice += (rand.nextInt(6) - 3) * scale;
+                            if (symbol.equalsIgnoreCase("BTC-USD")) {
+                                referencePrice += (long) ((rand.nextDouble() * 10 - 5) * scale); // -5 ~ +5 달러
+                            } else {
+                                referencePrice += (long) ((rand.nextDouble() * 4 - 2) * scale);  // -2 ~ +2 원
+                            }
                             if (referencePrice < minPrice) {
                                 referencePrice = minPrice;
                             }
@@ -159,10 +177,15 @@ public final class OrderGenerator {
             System.out.println("[" + symbol + "] Generating initial 25-level thick seed book...");
             Random r = new Random();
             
-            // 1. 매도(SELL) 대기열 25단계 생성: 기준가 위쪽으로 i * 1.0 간격마다 대량 물량 주입 (수량: 20 ~ 69개 랜덤)
+            // 1. 매도(SELL) 대기열 25단계 생성: 기준가 위쪽으로 대량 물량 주입
             for (int i = 1; i <= 25; i++) {
                 long price = referencePrice + i * scale;
-                long qty = (20 + r.nextInt(50)) * scale;
+                long qty;
+                if (symbol.equalsIgnoreCase("BTC-USD")) {
+                    qty = (long) (scale * (0.01 + r.nextDouble() * 2.0)); // 0.01 ~ 2.0 BTC
+                } else {
+                    qty = (long) (scale * (100 + r.nextDouble() * 5000)); // 100 ~ 5100 ADA
+                }
                 long userId = r.nextInt(1000) + 1;
                 writer.println(String.format("NEW,SELL,%d,%d,%d", price, qty, userId));
             }
@@ -170,7 +193,12 @@ public final class OrderGenerator {
             // 매수 25단계 깊이 주입 (현재가보다 낮게)
             for (int i = 1; i <= 25; i++) {
                 long price = referencePrice - i * scale;
-                long qty = (20 + r.nextInt(50)) * scale;
+                long qty;
+                if (symbol.equalsIgnoreCase("BTC-USD")) {
+                    qty = (long) (scale * (0.01 + r.nextDouble() * 2.0));
+                } else {
+                    qty = (long) (scale * (100 + r.nextDouble() * 5000));
+                }
                 long userId = r.nextInt(1000) + 1;
                 writer.println(String.format("NEW,BUY,%d,%d,%d", price, qty, userId));
             }
