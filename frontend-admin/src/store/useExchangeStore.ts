@@ -63,7 +63,8 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
                 body: JSON.stringify({ refreshToken: getLocalRefreshToken() })
             });
             if (refreshRes.ok) {
-                const refreshBody = await refreshRes.json();
+                const _json_refreshBody = await refreshRes.json();
+                const refreshBody = _json_refreshBody.data !== undefined ? _json_refreshBody.data : _json_refreshBody;
                 const tokens = refreshBody.data !== undefined ? refreshBody.data : refreshBody;
                 setLocalTokens(tokens.accessToken, tokens.refreshToken);
                 // 새로 발급받은 Access Token 재주입 후 원래 요청 재시도
@@ -445,7 +446,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     body: JSON.stringify({ email, password })
                 });
                 if (res.ok) {
-                    const loginBody = await res.json();
+                    const _json_loginBody = await res.json();
+                    const loginBody = _json_loginBody.data !== undefined ? _json_loginBody.data : _json_loginBody;
                     const tokens = loginBody.data !== undefined ? loginBody.data : loginBody;
                     setLocalTokens(tokens.accessToken, tokens.refreshToken);
                     localStorage.setItem('admin_auth_email', tokens.email);
@@ -490,7 +492,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 // 1. config.json 동적 연동
                 const res = await fetch('/config.json');
                 if (res.ok) {
-                    const config = await res.json();
+                    const _json_config = await res.json();
+                    const config = _json_config.data !== undefined ? _json_config.data : _json_config;
                     if (config.API_BASE_URL) {
                         const configBase = config.API_BASE_URL;
                         const configHost = configBase.replace(/^https?:\/\//, '').split(':')[0];
@@ -537,7 +540,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     const tickerUrl = `${get().apiBaseUrl}/admin/stats/ticker?symbol=${symbol}`;
                     const tickerRes = await fetchWithAuth(tickerUrl);
                     if (tickerRes.ok) {
-                        const tickerData = await tickerRes.json();
+                        const _json_tickerData = await tickerRes.json();
+                        const tickerData = _json_tickerData.data !== undefined ? _json_tickerData.data : _json_tickerData;
                         if (tickerData && typeof tickerData.lastPrice === 'number') {
                             const scale = get().getScaleFactor(symbol);
                             set({ lastPrice: tickerData.lastPrice / scale });
@@ -549,7 +553,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const data = await response.json();
+                const _json_data = await response.json();
+                const data = _json_data.data !== undefined ? _json_data.data : _json_data;
 
                 bidsMap.clear();
                 asksMap.clear();
@@ -652,7 +657,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     set({ users: data });
                 }
             } catch (err) {
@@ -697,8 +703,10 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 ]);
 
                 if (walletsRes.ok && usersRes.ok) {
-                    const wallets = await walletsRes.json();
-                    const users = await usersRes.json();
+                    const _json_wallets = await walletsRes.json();
+                    const wallets = _json_wallets.data !== undefined ? _json_wallets.data : _json_wallets;
+                    const _json_users = await usersRes.json();
+                    const users = _json_users.data !== undefined ? _json_users.data : _json_users;
                     const userMap = new Map(users.map((u: any) => [u.userId, u.email]));
                     const mappedWallets = wallets.map((w: any) => ({
                         ...w,
@@ -706,7 +714,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     }));
                     set({ wallets: mappedWallets });
                 } else if (walletsRes.ok) {
-                    const wallets = await walletsRes.json();
+                    const _json_wallets = await walletsRes.json();
+                    const wallets = _json_wallets.data !== undefined ? _json_wallets.data : _json_wallets;
                     set({ wallets });
                 }
             } catch (err) {
@@ -750,7 +759,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/ledgers?page=${page}&size=${size}${searchParam}${dateParams}`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     set({
                         ledgerList: data.content || [],
                         ledgerTotalCount: data.totalElements || 0,
@@ -771,7 +781,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/${userId}/ledgers?page=0&size=50${dateParams}`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     return data.content || [];
                 }
             } catch (err) {
@@ -784,7 +795,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/${userId}/trades?page=0&size=50`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     return data.content || [];
                 }
             } catch (err) {
@@ -797,7 +809,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/stats/summary`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     if (data && typeof data.totalTrades === 'number') {
                         set({ totalTradesCount: data.totalTrades });
                         // console.log(`[통계 동기화] DB 누적 체결 수 동기화 성공: ${data.totalTrades} 건`);
@@ -812,7 +825,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/settings`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     if (data) {
                         set({
                             duplicateLoginBlockEnabled: !!data.duplicateLoginBlockEnabled,
@@ -840,7 +854,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     })
                 });
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     if (data) {
                         set({
                             marketFeeRates: data.marketFeeRates || rates
@@ -872,7 +887,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     body: JSON.stringify({ duplicateLoginBlockEnabled: enabled })
                 });
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     if (data && typeof data.duplicateLoginBlockEnabled === 'boolean') {
                         set({ duplicateLoginBlockEnabled: data.duplicateLoginBlockEnabled });
                         console.log(`[설정 변경] 중복 로그인 차단 상태가 ${enabled}로 변경되었습니다.`);
@@ -891,7 +907,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     body: JSON.stringify({ onChainDepositMonitoringEnabled: enabled })
                 });
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     if (data && typeof data.onChainDepositMonitoringEnabled === 'boolean') {
                         set({ onChainDepositMonitoringEnabled: data.onChainDepositMonitoringEnabled });
                         console.log(`[설정 변경] 실시간 온체인 입금 모니터링 상태가 ${enabled}로 변경되었습니다.`);
@@ -910,7 +927,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     body: JSON.stringify({ walletSimulationEnabled: enabled })
                 });
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     if (data && typeof data.walletSimulationEnabled === 'boolean') {
                         set({ walletSimulationEnabled: data.walletSimulationEnabled });
                         console.log(`[설정 변경] 지갑 시뮬레이션 상태가 ${enabled}로 변경되었습니다.`);
@@ -933,7 +951,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     })
                 });
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     if (data) {
                         set({
                             btcConfirmations: typeof data.btcConfirmations === 'number' ? data.btcConfirmations : btc,
@@ -959,7 +978,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/withdrawals`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     set({ cryptoWithdrawals: data });
                 }
             } catch (err) {
@@ -971,7 +991,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/hot-wallets`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     set({ hotWallets: data });
                 }
             } catch (err) {
@@ -983,7 +1004,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/addresses`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     set({ userCryptoAddresses: data });
                 }
             } catch (err) {
@@ -995,7 +1017,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/pending-deposits`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     set({ pendingDeposits: data });
                 }
             } catch (err) {
@@ -1007,7 +1030,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/block-height`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const _json_data = await res.json();
+                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
                     set({ blockHeight: data.blockHeight });
                 }
             } catch (err) {
@@ -1099,7 +1123,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                         try {
                             const tickersRes = await fetch(`${get().apiBaseUrl}/admin/stats/tickers`);
                             if (tickersRes.ok) {
-                                const tBody = await tickersRes.json();
+                                const _json_tBody = await tickersRes.json();
+                                const tBody = _json_tBody.data !== undefined ? _json_tBody.data : _json_tBody;
                                 const tickersData = tBody.data !== undefined ? tBody.data : tBody;
                                 tickersData.forEach((t: any) => {
                                     const scale = get().getScaleFactor(t.symbol);

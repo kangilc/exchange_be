@@ -57,7 +57,8 @@ export const CustodyManagementTab: React.FC<CustodyManagementTabProps> = ({ hand
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId: 1, amount: Number(amount) })
             });
-            const result = await res.json();
+            const _json_result = await res.json();
+            const result = _json_result.data !== undefined ? _json_result.data : _json_result;
             if (result.success || result.txHash) {
                 alert(`JAF 테스트 입금이 성공적으로 전송되었습니다!\nTxHash: ${result.txHash}\n수신처: ${result.toAddress}\n\n잠시 후 입금 모니터링 테이블에 감지됩니다.`);
             } else {
