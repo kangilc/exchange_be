@@ -324,14 +324,14 @@ export const TradingTerminal: React.FC = React.memo(() => {
         }
 
         // WebSocket을 통해 매칭 엔진에 실시간 주문 발사
-        const scale = getScaleFactor(activeSymbol);
+        const scale = useExchangeStore.getState().getScaleFactor(activeSymbol);
         const scaledPrice = Math.round(finalPrice * scale);
         const payload = {
             action: 'NEW',
             symbol: activeSymbol,
             side: selectedSide,
             price: scaledPrice,
-            qty: Math.round(qtyVal),
+            qty: Math.round(qtyVal * scale),
             userId: authUserId || 1
         };
 
