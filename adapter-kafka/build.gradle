@@ -14,6 +14,8 @@ dependencies {
     
     testImplementation 'org.mockito:mockito-core:5.3.1'
     testImplementation 'org.flywaydb:flyway-core:9.16.3'
+    testImplementation 'org.testcontainers:testcontainers:1.19.7' // 도커 기반 격리 테스트 환경을 생성하고 생명주기를 관리하는 코어 라이브러리
+    testImplementation 'org.testcontainers:postgresql:1.19.7' // 도커 컨테이너 내부에 임시 PostgreSQL 인스턴스를 기동하고 연결 정보를 제어하는 라이브러리
 }
 
 application {
@@ -24,4 +26,10 @@ jar {
     manifest {
         attributes 'Main-Class': 'exchange.kafka.AdapterKafkaRunner'
     }
+}
+
+test {
+    useJUnitPlatform()
+    environment "DOCKER_API_VERSION", "1.44" // 도커 데몬 API 버전 고정으로 접속 호환성 확보
+    systemProperty "api.version", "1.44" // 자바 도커 클라이언트용 프로퍼티 버전 고정
 }

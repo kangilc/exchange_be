@@ -121,22 +121,19 @@ sequenceDiagram
 ### 테스트 실행 및 검증 방법
 
 1. **테스트 데이터베이스 환경 설정**
-   * 테스트는 개발용 DB(`exchange`)와 완전히 분리된 전용 테스트 DB(`exchange_test`)를 대상으로 실행됩니다.
-   * 로컬/도커에 PostgreSQL 컨테이너가 정상 구동 중이어야 하며, `exchange_test` 데이터베이스가 사전에 생성되어 있어야 합니다.
-     ```bash
-     # 도커 PostgreSQL 내부에 exchange_test DB 생성 명령어
-     docker exec -i postgres psql -U postgres -c "CREATE DATABASE exchange_test;"
-     ```
+   * 테스트 실행 시 도커 기반의 Testcontainers가 임시 PostgreSQL 컨테이너를 배후에서 자동으로 기동함.
+   * 개발자가 수동으로 로컬 PostgreSQL 서버를 설치하거나 `exchange_test` 데이터베이스를 직접 생성할 필요가 없음.
 
 2. **단위 및 통합 테스트 실행**
-   * `Flyway` 마이그레이션을 이용하여 `admin-api` 모듈의 스키마 스펙(`../admin-api/src/main/resources/db/migration`)을 자동으로 `exchange_test` DB에 갱신 후 테스트 케이스를 수행합니다.
+   * 구동 시 `admin-api` 모듈의 Flyway DDL 마이그레이션 파일들을 임시 컨테이너에 자동 주입하여 최신 스키마를 구성함.
+   * 테스트 격리성을 확보하기 위해 `@BeforeEach` 메서드 내에서 리플렉션으로 `DbPersisterRunner` 내부의 10초 인메모리 마켓 설정 캐시(`marketConfigCache`)를 강제 클리어함.
    * **전체 테스트 실행**:
      ```bash
-     ./gradlew :adapter-kafka:test
+     ./gradlew :adapter-kafka:test --no-daemon
      ```
    * **특정 테스트 클래스 개별 실행**:
      ```bash
-     ./gradlew :adapter-kafka:test --tests "exchange.kafka.db.DbPersisterRunnerTest"
+     ./gradlew :adapter-kafka:test --tests "exchange.kafka.db.DbPersisterRunnerTest" --no-daemon
      ```
 
 3. **테스트 결과 리포트 확인**

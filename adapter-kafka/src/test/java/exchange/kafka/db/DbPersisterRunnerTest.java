@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 import java.sql.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.testcontainers.containers.PostgreSQLContainer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -14,14 +15,25 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class DbPersisterRunnerTest {
 
-    // PostgreSQL 테스트용 데이터베이스 URL (exchange_test)
-    private static final String BASE_DB_URL = exchange.kafka.ConfigLoader.get("DB_URL", "jdbc:postgresql://localhost:5432/exchange");
-    private static final String TEST_DB_URL = BASE_DB_URL.endsWith("/exchange") ? BASE_DB_URL.substring(0, BASE_DB_URL.length() - 9) + "/exchange_test" : BASE_DB_URL;
-    private static final String TEST_DB_USER = exchange.kafka.ConfigLoader.get("DB_USER", "postgres");
-    private static final String TEST_DB_PASSWORD = exchange.kafka.ConfigLoader.get("DB_PASSWORD", "postgres");
-    private static final ObjectMapper mapper = new ObjectMapper();
+    // PostgreSQLTestcontainers를 static 싱글톤 컨테이너로 선언하여 테스트 생명주기 전체에서 재사용함.
+    private static final PostgreSQLContainer<?> postgres; // 가상 DB 컨테이너를 제어하는 객체 변수
+    private static final String TEST_DB_URL; // 컨테이너로부터 획득한 동적 JDBC 주소 저장 변수
+    private static final String TEST_DB_USER; // 가상 DB 접속용 계정명 저장 변수
+    private static final String TEST_DB_PASSWORD; // 가상 DB 접속용 패스워드 저장 변수
+    private static final ObjectMapper mapper = new ObjectMapper(); // JSON 파싱 및 생성을 위한 맵퍼 객체
 
     static {
+        // 테스트 독립성과 격리성을 보장하기 위해 도커를 통한 가상 PostgreSQL 15-alpine 환경을 기동함.
+        postgres = new PostgreSQLContainer<>("postgres:15-alpine")
+                .withDatabaseName("exchange_test")
+                .withUsername("postgres")
+                .withPassword("postgres");
+        postgres.start(); // 컨테이너 구동 실행
+
+        TEST_DB_URL = postgres.getJdbcUrl(); // 실행된 컨테이너의 포트 매핑이 반영된 URL 주소 추출
+        TEST_DB_USER = postgres.getUsername(); // 컨테이너 내부 데이터베이스 계정명 추출
+        TEST_DB_PASSWORD = postgres.getPassword(); // 컨테이너 내부 데이터베이스 패스워드 추출
+
         // 테스트용 DB 환경 변수를 System Property로 지정하여 ConfigLoader가 읽도록 유도
         System.setProperty("DB_URL", TEST_DB_URL);
         System.setProperty("DB_USER", TEST_DB_USER);
@@ -46,6 +58,20 @@ public class DbPersisterRunnerTest {
 
     @BeforeEach
     public void clearDatabase() throws Exception {
+        // DbPersisterRunner 내부의 10초 메모리 캐시(marketConfigCache)로 인해 테스트 케이스가 오염되는 현상을 원천 방어하기 위해 리플렉션으로 캐시와 시간값을 비움.
+        try {
+            java.lang.reflect.Field cacheField = DbPersisterRunner.class.getDeclaredField("marketConfigCache"); // 내부 캐시 맵 필드 객체 획득
+            cacheField.setAccessible(true); // 필드 접근 제어 지시자 해제
+            java.util.concurrent.ConcurrentHashMap<?, ?> cache = (java.util.concurrent.ConcurrentHashMap<?, ?>) cacheField.get(null); // static 필드 인스턴스 획득
+            cache.clear(); // 마켓 설정 캐시 맵 전체 원소 소거
+
+            java.lang.reflect.Field tsField = DbPersisterRunner.class.getDeclaredField("lastMarketConfigsLoadTs"); // 내부 타임스탬프 필드 객체 획득
+            tsField.setAccessible(true); // 필드 접근 제어 지시자 해제
+            tsField.set(null, 0L); // 캐시 유효 시간을 0초로 강제 리셋하여 다음 쿼리 호출 유도
+        } catch (Exception e) {
+            System.err.println("WARN: Failed to clear DbPersisterRunner static cache: " + e.getMessage());
+        }
+
         // 테스트 케이스 수행 전 모든 데이터 클리어 및 초기 모의 데이터 적재
         try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
             try (Statement stmt = conn.createStatement()) {
