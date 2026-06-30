@@ -16,6 +16,10 @@ public final class OrderGenerator {
     private static final java.util.concurrent.atomic.AtomicInteger totalOrderCount = new java.util.concurrent.atomic.AtomicInteger(0);
     // 환경변수 또는 프로필 설정(MAX_ORDERS)으로부터 수신하며, 없을 시 무한 생성을 위해 정수형 최대치(약 21억 건)로 설정
     private static final int MAX_ORDERS = ConfigLoader.getInt("MAX_ORDERS", Integer.MAX_VALUE);
+    
+    // 주문 간격 속도 제어용 환경변수 (기본값: 최소 50ms, 최대 250ms)
+    private static final int SLEEP_MIN_MS = ConfigLoader.getInt("GENERATOR_SLEEP_MIN", 50);
+    private static final int SLEEP_MAX_MS = ConfigLoader.getInt("GENERATOR_SLEEP_MAX", 250);
 
     public static void main(String[] args) {
         // 환경 변수 및 config 파일로부터 대상 매칭 엔진의 IP 호스트와 포트를 바인딩
@@ -145,8 +149,9 @@ public final class OrderGenerator {
                             }
                         }
 
-                        // 8. 초고속 주입 과부하 및 지연 제어 장치: 50ms ~ 250ms 사이의 랜덤 슬립
-                        Thread.sleep(rand.nextInt(200) + 50);
+                        // 8. 초고속 주입 과부하 및 지연 제어 장치: 설정된 범위 내의 랜덤 슬립
+                        int bound = Math.max(1, SLEEP_MAX_MS - SLEEP_MIN_MS);
+                        Thread.sleep(SLEEP_MIN_MS + rand.nextInt(bound));
                     }
 
                 } catch (Exception e) {
