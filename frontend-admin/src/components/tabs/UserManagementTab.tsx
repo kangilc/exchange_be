@@ -82,6 +82,7 @@ export const UserManagementTab: React.FC = () => {
         }
     };
 
+    // 승인 대기 회원에 대한 가입 승인을 처리함
     const handleApproveUser = async (user: any) => {
         if (!window.confirm(`${user.email} 회원의 가입 신청을 승인하시겠습니까?`)) return;
         const ok = await updateUser(user.userId, user.email, user.grade, 'ACTIVE');

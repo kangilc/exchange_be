@@ -19,8 +19,8 @@ export const App: React.FC = () => {
     const [emailInput, setEmailInput] = useState('');
     const [passwordInput, setPasswordInput] = useState('');
     const [loginError, setLoginError] = useState('');
-    const [successMessage, setSuccessMessage] = useState('');
-    const [isSignupMode, setIsSignupMode] = useState(false);
+    const [successMessage, setSuccessMessage] = useState(''); // 회원가입 성공 알림 메시지 상태임
+    const [isSignupMode, setIsSignupMode] = useState(false); // 회원가입 모드 스위칭 여부 상태임
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -51,17 +51,19 @@ export const App: React.FC = () => {
         setLoading(true);
 
         if (isSignupMode) {
+            // 회원가입 모드일 때 가입 신청 처리함
             const res = await signup(emailInput, passwordInput);
             setLoading(false);
             if (!res.success) {
                 setLoginError(res.message || '회원가입 신청에 실패했습니다.');
             } else {
                 setSuccessMessage('회원가입 신청이 완료되었습니다. 관리자 승인 후 로그인이 가능합니다.');
-                setIsSignupMode(false);
+                setIsSignupMode(false); // 가입 성공 시 로그인 모드로 전환함
                 setEmailInput('');
                 setPasswordInput('');
             }
         } else {
+            // 로그인 모드일 때 로그인 검증 처리함
             const res = await login(emailInput, passwordInput);
             setLoading(false);
             if (!res.success) {
@@ -76,8 +78,8 @@ export const App: React.FC = () => {
     const handleCloseModal = () => {
         setLoginModalOpen(false);
         setLoginError('');
-        setSuccessMessage('');
-        setIsSignupMode(false);
+        setSuccessMessage(''); // 닫기 처리 시 알림 메시지 초기화함
+        setIsSignupMode(false); // 닫기 처리 시 회원가입 모드 해제함
         setEmailInput('');
         setPasswordInput('');
     };

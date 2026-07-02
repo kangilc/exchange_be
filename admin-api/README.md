@@ -153,13 +153,15 @@ sequenceDiagram
 ### 통합 테스트 실행 및 구조
 - 데이터베이스 격리 및 시드 데이터 오염 방지를 위해 DDL 스키마(db/migration)와 시뮬레이션용 시드 데이터(db/seed)의 Flyway 실행 경로를 프로파일별로 분리함.
 - 테스트 구동 시 DB(exchange_test)가 비어 있는 상태에서 격리 검증을 수행함.
-- 검증 신뢰도와 보고서 가독성을 높이기 위해 도메인별로 6개의 테스트 클래스로 분리하고 총 37개의 세부 테스트 케이스를 구축함.
+- 검증 신뢰도와 보고서 가독성을 높이기 위해 도메인별로 8개의 테스트 클래스로 분리하고 총 44개의 세부 테스트 케이스를 구축함.
   1. `UserAccountIntegrationTest`: 회원 등록, 중복 가입 차단, 정보 수정 및 조회 검증 (8개 테스트)
   2. `UserWalletIntegrationTest`: 지갑 생성, 자산 조정, 잔고 부족 차단, 가상자산 소수점 및 대용량 연산 검증 (10개 테스트)
   3. `UserHistoryIntegrationTest`: 감사용 원장 이력 적재 및 MyBatis 연동 상세 조회 페이징 검증 (4개 테스트)
-  4. `UserAuthIntegrationTest`: 로그인 자격 증명 처리, 리프레시 토큰 회전(RTR) 및 재사용 공격 차단 검증 (5개 테스트)
+  4. `UserAuthIntegrationTest`: 로그인 자격 증명 처리, 리프레시 토큰 회전(RTR) 및 재사용 공격 차단 검증 (6개 테스트)
   5. `MarketPolicyIntegrationTest`: 수수료 변경 DB 반영, 캐시 동기화 및 마켓 이력 감사 기록 검증 (4개 테스트)
   6. `StatsServiceIntegrationTest`: 요약 지표 집계, 1초 Caffeine 캐싱 및 마이바티스 OHLCV 캔들 집계 검증 (6개 테스트)
+  7. `AuthControllerTest`: 회원가입 성공/실패, 입력값 오류 및 이메일 중복 가입 신청 차단 검증 (3개 테스트)
+  8. `UserControllerTest`: 어드민 회원 목록 조회 인가(ROLE_ADMIN), 가입 승인에 따른 DB 수정자(updated_by) 추적 및 자산 수동 조정 입력 검사 검증 (4개 테스트)
 
 - **테스트 실행 방법**:
   ```bash

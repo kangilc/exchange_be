@@ -571,7 +571,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             }
         },
 
-        // 회원가입 액션 구현
+        // 신규 회원가입 신청 처리를 수행함
         signup: async (email, password) => {
             try {
                 const res = await fetch(`${get().apiBaseUrl}/admin/auth/signup`, {
