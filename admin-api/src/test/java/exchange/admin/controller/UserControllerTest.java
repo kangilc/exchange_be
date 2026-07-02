@@ -74,12 +74,14 @@ class UserControllerTest extends BaseIntegrationTest {
 
     @Test
     @Transactional
-    @DisplayName("2. 회원 목록 조회 권한 검증 - 일반 USER 권한인 경우 실패(403)")
+    @DisplayName("2. 회원 목록 조회 권한 검증 - 일반 USER 권한인 경우 실패(403) 및 공통 에러 응답 규격 검증")
     void test02_getAllUsers_User_Forbidden() throws Exception {
         // 일반 USER 토큰을 첨부하여 요청함
         mockMvc.perform(get("/admin/users")
                         .header("Authorization", "Bearer " + userToken))
-                .andExpect(status().isForbidden()); // 403 Forbidden 발생 검증함
+                .andExpect(status().isForbidden()) // 403 Forbidden 발생 검증함
+                .andExpect(jsonPath("$.success").value(false)) // 공통 에러 규격 성공 여부 검증함
+                .andExpect(jsonPath("$.message").value("해당 리소스에 접근할 권한이 없습니다.")); // 권한 차단 메시지 검증함
     }
 
     @Test
@@ -135,5 +137,16 @@ class UserControllerTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest()); // 400 Bad Request 발생 검증함
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("5. 인증 누락 검증 - 토큰 없이 ADMIN 경로 요청 시 401 Unauthorized 및 규격화된 에러 JSON 반환")
+    void test05_unauthorizedRequest_Fail() throws Exception {
+        // 토큰 없이 회원 목록 조회 요청함
+        mockMvc.perform(get("/admin/users"))
+                .andExpect(status().isUnauthorized()) // 401 상태코드 반환 검증함
+                .andExpect(jsonPath("$.success").value(false)) // 공통 규격 성공 여부 검증함
+                .andExpect(jsonPath("$.message").value("인증 토큰이 누락되었거나 유효하지 않습니다.")); // 공통 에러 메시지 검증함
     }
 }

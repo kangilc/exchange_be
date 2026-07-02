@@ -1,8 +1,11 @@
 package exchange.admin.config;
 
+import exchange.admin.dto.ApiResponse;
 import exchange.admin.security.JwtAuthenticationFilter;
 import exchange.admin.security.JwtTokenProvider;
 import exchange.admin.repository.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -13,7 +16,9 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -86,6 +91,11 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/favicon.ico").permitAll()
                         .anyRequest().authenticated())
+                // 서블릿 필터 예외 발생 시 공통 응답 규격(ApiResponse)을 적용하기 위한 핸들러 등록함
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(authenticationEntryPoint())
+                        .accessDeniedHandler(accessDeniedHandler())
+                )
                 // JWT 인증 필터를 UsernamePasswordAuthenticationFilter 앞에 추가
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
 
@@ -170,6 +180,38 @@ public class SecurityConfig {
                     return password;
                 }
             }
+        };
+    }
+
+    /**
+     * 401 Unauthorized 예외 발생 시 공통 응답 규격(ApiResponse)으로 에러 JSON을 작성해 응답 처리함.
+     */
+    @Bean
+    public AuthenticationEntryPoint authenticationEntryPoint() {
+        return (request, response, authException) -> {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401 코드로 지정함
+            response.setContentType("application/json;charset=UTF-8");
+
+            ApiResponse<Void> apiResponse = ApiResponse.unauthorized("인증 토큰이 누락되었거나 유효하지 않습니다.");
+            String json = new ObjectMapper().writeValueAsString(apiResponse);
+
+            response.getWriter().write(json); // JSON 형태로 직렬화하여 출력함
+        };
+    }
+
+    /**
+     * 403 Forbidden 예외 발생 시 공통 응답 규격(ApiResponse)으로 에러 JSON을 작성해 응답 처리함.
+     */
+    @Bean
+    public AccessDeniedHandler accessDeniedHandler() {
+        return (request, response, accessDeniedException) -> {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN); // 403 코드로 지정함
+            response.setContentType("application/json;charset=UTF-8");
+
+            ApiResponse<Void> apiResponse = ApiResponse.forbidden("해당 리소스에 접근할 권한이 없습니다.");
+            String json = new ObjectMapper().writeValueAsString(apiResponse);
+
+            response.getWriter().write(json); // JSON 형태로 직렬화하여 출력함
         };
     }
 }
