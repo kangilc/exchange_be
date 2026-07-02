@@ -60,27 +60,27 @@ public class UserController {
 
     /**
      * 신규 회원 가입 및 계정 개설.
-     * 지갑은 불필요한 초기 생성을 방지하기 위해 입금/거래 시점에 지연 생성(Lazy Initialization)됩니다.
+     * E2E 테스트용 경로(/register)와 대시보드 등록 경로(/) 두 매핑을 동시에 수용합니다.
      * 
-     * @param request 가입 요청 데이터 (email, password, grade)
+     * @param request 가입 요청 데이터 (email, password, grade, role)
      * @return 가입 완료된 회원 정보
      */
-    @PostMapping
+    @PostMapping(value = {"", "/register"})
     public ResponseEntity<ApiResponse<User>> registerUser(@Valid @RequestBody UserRegisterIDT request) {
-        User registeredUser = userService.registerUser(request.getEmail(), request.getPassword(), request.getGrade());
+        User registeredUser = userService.registerUser(request.getEmail(), request.getPassword(), request.getGrade(), request.getRole());
         return ApiResponse.ok(registeredUser);
     }
 
     /**
-     * 회원 정보(이메일, 계정 상태, 보안 등급 등) 수정.
+     * 회원 정보(이메일, 계정 상태, 보안 등급 및 권한 역할 등) 수정.
      * 
      * @param id      회원 ID
-     * @param request 수정 요청 데이터 (email, status, grade)
+     * @param request 수정 요청 데이터 (email, status, grade, role)
      * @return 수정된 회원 정보
      */
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<User>> updateUser(@PathVariable Long id, @Valid @RequestBody UserUpdateIDT request) {
-        return userService.updateUser(id, request.getEmail(), request.getStatus(), request.getGrade())
+        return userService.updateUser(id, request.getEmail(), request.getStatus(), request.getGrade(), request.getRole())
                 .map(user -> ApiResponse.ok(user))
                 .orElse(ApiResponse.notFound("User not found"));
     }

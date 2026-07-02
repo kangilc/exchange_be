@@ -72,3 +72,9 @@ dist/
 .eslintcache
 .npm/
 
+# ==========================================
+# playwright
+# ==========================================
+playwright-report/
+test-results/
+.playwright-report/

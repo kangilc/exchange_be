@@ -138,4 +138,55 @@ class UserAuthIntegrationTest extends BaseIntegrationTest {
         User dbUser = userRepository.findById(loginResp.getUserId()).orElseThrow();
         assertThat(dbUser.getRefreshToken()).isNull();
     }
+
+    @Test
+    @Order(6)
+    @Transactional
+    @DisplayName("6. 존재하지 않는 사용자 이메일로 로그인 시도 시 예외 발생 검증")
+    void test06_login_UserNotFound_Throws() {
+        // 등록되지 않은 이메일 주소로 로그인 시도를 수행함.
+        // AuthService가 가입 정보를 조회한 후 결과가 존재하지 않아 AuthException을 적절히 반환하는지 검증함.
+        assertThrows(AuthException.class, () -> {
+            authService.login("non_existent_user@example.com", "any_password");
+        });
+    }
+
+    @Test
+    @Order(7)
+    @Transactional
+    @DisplayName("7. 비어있거나(null) 공백인 리프레시 토큰으로 갱신 시도 시 예외 발생 검증")
+    void test07_refresh_EmptyToken_Throws() {
+        // 인자값이 null이거나 빈 문자열, 혹은 공백으로만 이루어진 토큰을 갱신 메서드에 전달하여 예외를 발생시키는지 검증함.
+        // 유효하지 않은 요청에 대해 비즈니스 로직 단에서 사전에 필터링하는 방어적 로직의 동작 정합성을 확인함.
+        assertThrows(AuthException.class, () -> {
+            authService.refresh(null);
+        });
+        assertThrows(AuthException.class, () -> {
+            authService.refresh("   ");
+        });
+    }
+
+    @Test
+    @Order(8)
+    @Transactional
+    @DisplayName("8. 위조되거나 유효하지 않은 리프레시 토큰으로 갱신 시도 시 예외 발생 검증")
+    void test08_refresh_InvalidToken_Throws() {
+        // 임의로 위조되었거나 유효성 형식을 만족하지 못하는 문자열을 리프레시 토큰으로 전달하여 갱신을 시도함.
+        // tokenProvider.validateToken() 검증 과정을 통해 비정상 토큰임이 감지되어 최종적으로 AuthException이 터지는지 확인함.
+        assertThrows(AuthException.class, () -> {
+            authService.refresh("completely_fake_invalid_token_value_xyz123");
+        });
+    }
+
+    @Test
+    @Order(9)
+    @Transactional
+    @DisplayName("9. 존재하지 않는 사용자 이메일로 로그아웃 시도 시 예외 없이 무시(Silent)되는지 검증")
+    void test09_logout_NonExistentUser_SilentlyIgnores() {
+        // 가입되지 않은 이메일 주소 정보로 로그아웃 메서드를 직접 호출함.
+        // 내부 조회 결과 유저 데이터가 없더라도 NullPointerException이나 기타 런타임 예외가 전파되지 않고 내부적으로 안전하게 무시 처리가 완료되는지 검증함.
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> {
+            authService.logout("no_such_user_email_exists@example.com");
+        });
+    }
 }

@@ -175,12 +175,12 @@ public final class DbPersisterRunner {
         double divisor = Math.pow(10, config.priceDecimals);
 
         if ("BUY".equals(side)) {
-            // 매수(BUY) 주문 시: 가격과 수량을 모두 스케일(divisor) 다운하여 실제 결제 자산(quote) 잠금량 계산
-            double requiredQuote = (price / divisor) * (qty / divisor);
+            // 매수(BUY) 주문 시: 가격은 스케일(divisor) 다운하고 수량을 곱하여 실제 결제 자산(quote) 잠금량 계산
+            double requiredQuote = (price / divisor) * qty;
             adjustBalance(conn, userId, quoteAsset, -requiredQuote, requiredQuote, "ORDER_HOLD", orderId);
         } else {
-            // 매도(SELL) 주문 시: 주문 수량 스케일(divisor) 다운하여 기초 자산(base) 잠금량 계산
-            double requiredBase = qty / divisor;
+            // 매도(SELL) 주문 시: 기초 자산(base) 잠금량 계산
+            double requiredBase = qty;
             adjustBalance(conn, userId, baseAsset, -requiredBase, requiredBase, "ORDER_HOLD", orderId);
         }
 
@@ -209,7 +209,7 @@ public final class DbPersisterRunner {
         MarketConfig config = getMarketConfig(conn, symbol);
         double divisor = Math.pow(10, config.priceDecimals);
         double feeRate = config.feeRate;
-        double feeAmount = (price / divisor * (qty / divisor)) * feeRate;
+        double feeAmount = (price / divisor * qty) * feeRate;
 
         // 1. 체결 이벤트 저장
         String sqlTrade = "INSERT INTO trades (trade_id, symbol, buy_order_id, sell_order_id, price, qty, fee_rate, fee_amount, created_at) "
@@ -250,8 +250,8 @@ public final class DbPersisterRunner {
         String baseAsset = symbol.split("-")[0];
         String quoteAsset = symbol.split("-")[1];
 
-        double tradeQuoteQty = (price / divisor) * (qty / divisor);
-        double tradeBaseQty = qty / divisor;
+        double tradeQuoteQty = (price / divisor) * qty;
+        double tradeBaseQty = qty;
 
         // 구매자(Buyer) 처리: 잠금되어 있던 결제 자산(quote) 차감 및 획득한 기초 자산(base) 가산
         long buyerUserId = "BUY".equals(takerSide) ? takerUserId : makerUserId;
@@ -351,12 +351,12 @@ public final class DbPersisterRunner {
         double divisor = Math.pow(10, config.priceDecimals);
 
         if ("BUY".equals(side)) {
-            // 매수 주문 취소 시 남은 수량을 스케일 다운하여 결제자산(quote) 잠금 해제
-            double refundQuote = (price / divisor) * (remainingQty / divisor);
+            // 매수 주문 취소 시 남은 수량을 바탕으로 결제자산(quote) 잠금 해제
+            double refundQuote = (price / divisor) * remainingQty;
             adjustBalance(conn, userId, quoteAsset, refundQuote, -refundQuote, "CANCEL_RELEASE", orderId);
         } else {
-            // 매도 주문 취소 시 남은 수량을 스케일 다운하여 기초자산(base) 잠금 해제
-            double refundBase = remainingQty / divisor;
+            // 매도 주문 취소 시 남은 수량을 기초자산(base) 잠금 해제
+            double refundBase = remainingQty;
             adjustBalance(conn, userId, baseAsset, refundBase, -refundBase, "CANCEL_RELEASE", orderId);
         }
 

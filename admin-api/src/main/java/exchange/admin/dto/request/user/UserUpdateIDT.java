@@ -14,5 +14,9 @@ public class UserUpdateIDT {
 
     private String status;
 
+    // 회원 거래 등급 (STANDARD, VIP 등)
     private String grade;
+
+    // 회원 시스템 역할 권한 (ADMIN, USER 등)
+    private String role;
 }

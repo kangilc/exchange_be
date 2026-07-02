@@ -7,6 +7,11 @@
 ---
 
 ## 🆕 최근 업데이트 (Recent Updates)
+- 백엔드(`admin-api`) 사용자 등록 및 권한 처리 강화.
+  - 가입 엔드포인트에 `/register` 별칭 멀티 매핑을 추가해 E2E 테스트와 프론트엔드 통신 호환성 확보.
+  - 회원가입 DTO 및 서비스 오버로딩을 통해 다중 권한(role) 지정 기능 신설.
+  - 가입 시 이메일 중복 사전 검사 로직 추가 및 IllegalArgumentException 발생 시 400 Bad Request 반환 처리.
+  - CustomUserDetailsService의 스프링 시큐리티 권한 생성 시 등급 대신 역할을 매핑하도록 수정.
 - 프론트엔드(`frontend-user`) 백엔드 응답 규격(ApiResponse) 연동 완료.
   - Zustand 스토어 및 차트 컴포넌트의 API 호출부를 `ApiResponse<T>` 래퍼 규격에 맞춰 안전하게 추출하도록 수정함.
 - 백엔드(`admin-api`) GET 요청 파라미터 IDT(Input Data Transfer) 캡슐화 및 계층 분리.

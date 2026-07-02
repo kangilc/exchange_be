@@ -13,7 +13,8 @@ import java.util.Collections;
 
 /**
  * Spring Security의 UserDetailsService를 구현한 커스텀 서비스 클래스입니다.
- * DB로부터 사용자 정보를 이메일 기준으로 조회한 뒤 Spring Security가 요구하는 UserDetails 객체로 변환하여 제공합니다.
+ * DB로부터 사용자 정보를 이메일 기준으로 조회한 뒤 Spring Security가 요구하는 UserDetails 객체로 변환하여
+ * 제공합니다.
  */
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
@@ -39,12 +40,11 @@ public class CustomUserDetailsService implements UserDetailsService {
         }
 
         // 예: GRADE가 'ADMIN'이면 ROLE_ADMIN 권한 매핑
-        String role = "ROLE_" + user.getGrade().name().toUpperCase();
+        String role = "ROLE_" + user.getRole().name().toUpperCase();
 
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
                 user.getPasswordHash(),
-                Collections.singletonList(new SimpleGrantedAuthority(role))
-        );
+                Collections.singletonList(new SimpleGrantedAuthority(role)));
     }
 }

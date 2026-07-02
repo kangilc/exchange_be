@@ -39,6 +39,19 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 잘못된 파라미터 전달이나 비즈니스 검증 오류(IllegalArgumentException) 발생 시
+     * 이를 가로채어 400 Bad Request 오류와 에러 메시지를 규격화 포맷으로 반환합니다.
+     *
+     * @param ex IllegalArgumentException 예외
+     * @return 400 에러 응답 객체
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentExceptions(IllegalArgumentException ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+    }
+
+    /**
      * 서버 내부에서 발생하는 예상치 못한 모든 예외(500)를 가로채어 규격화된 포맷(ApiResponse)으로 반환함.
      * 실제 에러 로그는 서버 콘솔에만 기록함.
      * 

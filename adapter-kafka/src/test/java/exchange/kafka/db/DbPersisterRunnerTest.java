@@ -366,4 +366,172 @@ public class DbPersisterRunnerTest {
             }
         }
     }
+    @Test
+    @DisplayName("매도(SELL) 주문 접수 검증")
+    public void testBasicOrderAcceptSell() throws Exception {
+        ObjectNode node = mapper.createObjectNode();
+        node.put("type", "ACCEPT");
+        node.put("orderId", 2L);
+        node.put("userId", 200L); // user 200 has 10 BTC
+        node.put("symbol", "BTC-USD");
+        node.put("side", "SELL");
+        node.put("price", 6000000L); // $60,000.00
+        node.put("qty", 2L); // 2 BTC
+        node.put("ts", System.currentTimeMillis());
+
+        invokeProcessMessage(node.toString());
+
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
+            // 주문 확인
+            try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM orders WHERE order_id = 2")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals("NEW", rs.getString("status"));
+                    assertEquals(2, rs.getLong("remaining_qty"));
+                }
+            }
+            // 잔고 잠금 확인
+            try (PreparedStatement ps = conn.prepareStatement("SELECT balance, locked_balance FROM wallets WHERE user_id = 200 AND currency = 'BTC'")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(8.0, rs.getDouble("balance")); // 10.0 - 2.0
+                    assertEquals(2.0, rs.getDouble("locked_balance"));
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("매도(SELL) 주문 취소 검증")
+    public void testBasicOrderCancelSell() throws Exception {
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("INSERT INTO orders (order_id, user_id, symbol, side, price, qty, remaining_qty, status) " +
+                        "VALUES (6, 200, 'BTC-USD', 'SELL', 6000000, 2, 2, 'NEW')");
+                stmt.execute("UPDATE wallets SET balance = 8.0, locked_balance = 2.0 WHERE user_id = 200 AND currency = 'BTC'");
+            }
+        }
+
+        ObjectNode node = mapper.createObjectNode();
+        node.put("type", "CANCEL");
+        node.put("orderId", 6L);
+        node.put("userId", 200L);
+        node.put("symbol", "BTC-USD");
+
+        invokeProcessMessage(node.toString());
+
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
+            try (PreparedStatement ps = conn.prepareStatement("SELECT balance, locked_balance FROM wallets WHERE user_id = 200 AND currency = 'BTC'")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(10.0, rs.getDouble("balance"));
+                    assertEquals(0.0, rs.getDouble("locked_balance"));
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("부분 체결 (Partial Fill) 검증")
+    public void testPartialFillTrade() throws Exception {
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("INSERT INTO orders (order_id, user_id, symbol, side, price, qty, remaining_qty, status) " +
+                        "VALUES (30, 100, 'BTC-USD', 'BUY', 6000000, 3, 3, 'NEW')");
+                stmt.execute("UPDATE wallets SET balance = 0.0, locked_balance = 180000.0 WHERE user_id = 100 AND currency = 'USD'");
+
+                stmt.execute("INSERT INTO orders (order_id, user_id, symbol, side, price, qty, remaining_qty, status) " +
+                        "VALUES (40, 200, 'BTC-USD', 'SELL', 6000000, 1, 1, 'NEW')");
+                stmt.execute("UPDATE wallets SET balance = 9.0, locked_balance = 1.0 WHERE user_id = 200 AND currency = 'BTC'");
+            }
+        }
+
+        ObjectNode node = mapper.createObjectNode();
+        node.put("type", "TRADE");
+        node.put("seq", 502L);
+        node.put("symbol", "BTC-USD");
+        node.put("takerOrderId", 40L);
+        node.put("takerUserId", 200L); // Taker SELL (1 BTC)
+        node.put("makerOrderId", 30L);
+        node.put("makerUserId", 100L); // Maker BUY (3 BTC)
+        node.put("price", 6000000L);
+        node.put("qty", 1L); // 1 BTC 체결
+        node.put("ts", System.currentTimeMillis());
+
+        invokeProcessMessage(node.toString());
+
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
+            // Maker BUY 주문 부분 체결 검증
+            try (PreparedStatement ps = conn.prepareStatement("SELECT remaining_qty, status FROM orders WHERE order_id = 30")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(2, rs.getLong("remaining_qty"));
+                    assertEquals("PARTIALLY_FILLED", rs.getString("status"));
+                }
+            }
+            // Taker SELL 주문 완전 체결 검증
+            try (PreparedStatement ps = conn.prepareStatement("SELECT remaining_qty, status FROM orders WHERE order_id = 40")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(0, rs.getLong("remaining_qty"));
+                    assertEquals("FILLED", rs.getString("status"));
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Taker가 매도(SELL)인 체결 및 수수료 정산 검증")
+    public void testTradeWithTakerSell() throws Exception {
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("INSERT INTO orders (order_id, user_id, symbol, side, price, qty, remaining_qty, status) " +
+                        "VALUES (50, 100, 'BTC-USD', 'BUY', 6000000, 1, 1, 'NEW')");
+                stmt.execute("UPDATE wallets SET balance = 40000.0, locked_balance = 60000.0 WHERE user_id = 100 AND currency = 'USD'");
+
+                stmt.execute("INSERT INTO orders (order_id, user_id, symbol, side, price, qty, remaining_qty, status) " +
+                        "VALUES (60, 200, 'BTC-USD', 'SELL', 6000000, 1, 1, 'NEW')");
+                stmt.execute("UPDATE wallets SET balance = 9.0, locked_balance = 1.0 WHERE user_id = 200 AND currency = 'BTC'");
+            }
+        }
+
+        ObjectNode node = mapper.createObjectNode();
+        node.put("type", "TRADE");
+        node.put("seq", 503L);
+        node.put("symbol", "BTC-USD");
+        node.put("takerOrderId", 60L);
+        node.put("takerUserId", 200L); // Taker SELL
+        node.put("makerOrderId", 50L);
+        node.put("makerUserId", 100L); // Maker BUY
+        node.put("price", 6000000L);
+        node.put("qty", 1L);
+        node.put("ts", System.currentTimeMillis());
+
+        invokeProcessMessage(node.toString());
+
+        try (Connection conn = DriverManager.getConnection(TEST_DB_URL, TEST_DB_USER, TEST_DB_PASSWORD)) {
+            // 구매자(Maker) 검증: 1 BTC 획득, 60,000 잠금 해제/차감, 수수료 60 차감
+            try (PreparedStatement ps = conn.prepareStatement("SELECT balance FROM wallets WHERE user_id = 100 AND currency = 'USD'")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(40000.0 - 60.0, rs.getDouble("balance"));
+                }
+            }
+            try (PreparedStatement ps = conn.prepareStatement("SELECT balance FROM wallets WHERE user_id = 100 AND currency = 'BTC'")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(1.0, rs.getDouble("balance"));
+                }
+            }
+            
+            // 판매자(Taker) 검증: 1 BTC 잠금 해제/차감, 60,000 획득
+            try (PreparedStatement ps = conn.prepareStatement("SELECT balance, locked_balance FROM wallets WHERE user_id = 200 AND currency = 'USD'")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(60000.0, rs.getDouble("balance"));
+                    assertEquals(0.0, rs.getDouble("locked_balance"));
+                }
+            }
+        }
+    }
 }

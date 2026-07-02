@@ -62,8 +62,8 @@ class UserAccountIntegrationTest extends BaseIntegrationTest {
         // 첫 번째 가입
         userService.registerUser("dup_test@example.com", "pass123", "STANDARD");
 
-        // 두 번째 동일 메일 가입 시 DB 제약조건 예외(DataIntegrityViolationException) 발생 검증
-        assertThrows(DataIntegrityViolationException.class, () -> {
+        // 두 번째 동일 메일 가입 시 비즈니스 오류 예외(IllegalArgumentException) 발생 검증
+        assertThrows(IllegalArgumentException.class, () -> {
             userService.registerUser("dup_test@example.com", "pass456", "STANDARD");
         });
     }

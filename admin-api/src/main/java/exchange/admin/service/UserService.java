@@ -58,33 +58,49 @@ public class UserService {
     }
 
     /**
-     * 신규 회원을 등록합니다.
-     * 지갑(Wallet)은 불필요한 데이터베이스 확장을 방지하기 위해 가입 시점에는 생성하지 않으며,
-     * 실제 자산 입금이나 거래가 발생하는 시점에 지연 생성(Lazy Initialization)됩니다.
-     * 
+     * 신규 회원을 등록합니다. (하위 호환성 유지용)
+     *
      * @param email 가입 이메일
-     * @param password 비밀번호 (인코딩하여 해싱 저장됨)
-     * @param grade 회원 등급 (ADMIN, STANDARD 등)
+     * @param password 비밀번호
+     * @param grade 회원 등급
      * @return 등록 완료된 회원 객체
      */
     @Transactional
     public User registerUser(String email, String password, String grade) {
+        // 기본 역할 권한 USER로 등록 처리함
+        return registerUser(email, password, grade, "USER");
+    }
+
+    /**
+     * 신규 회원을 등록합니다. (역할 권한 추가 버전)
+     *
+     * @param email 가입 이메일
+     * @param password 비밀번호
+     * @param grade 회원 등급
+     * @param role 역할 권한
+     * @return 등록 완료된 회원 객체
+     */
+    @Transactional
+    public User registerUser(String email, String password, String grade, String role) {
+        // 이메일 중복 체크 사전 수행
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("이미 등록된 이메일 주소입니다: " + email);
+        }
+
         User user = new User();
         user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(password));
         // String 타입을 UserGrade Enum 타입으로 변환하여 저장
         user.setGrade(grade != null ? UserGrade.valueOf(grade.toUpperCase()) : UserGrade.STANDARD);
+        // String 타입을 UserRole Enum 타입으로 변환하여 저장
+        user.setRole(role != null ? exchange.admin.model.constant.UserRole.valueOf(role.toUpperCase()) : exchange.admin.model.constant.UserRole.USER);
         user.setStatus("ACTIVE");
         
-        User savedUser = userRepository.save(user);
-
-
-
-        return savedUser;
+        return userRepository.save(user);
     }
 
     /**
-     * 회원의 특정 정보(이메일, 상태, 등급)를 수정합니다.
+     * 회원의 특정 정보(이메일, 상태, 등급)를 수정합니다. (하위 호환성 유지용)
      * 
      * @param id 회원 ID
      * @param email 변경할 이메일
@@ -94,11 +110,28 @@ public class UserService {
      */
     @Transactional
     public Optional<User> updateUser(Long id, String email, String status, String grade) {
+        return updateUser(id, email, status, grade, null);
+    }
+
+    /**
+     * 회원의 특정 정보(이메일, 상태, 등급, 역할)를 수정합니다. (역할 권한 추가 버전)
+     * 
+     * @param id 회원 ID
+     * @param email 변경할 이메일
+     * @param status 변경할 상태
+     * @param grade 변경할 등급
+     * @param role 변경할 역할 권한
+     * @return 수정 결과 User 객체 Optional
+     */
+    @Transactional
+    public Optional<User> updateUser(Long id, String email, String status, String grade, String role) {
         return userRepository.findById(id).map(user -> {
             if (email != null) user.setEmail(email);
             if (status != null) user.setStatus(status);
             // String 타입을 UserGrade Enum 타입으로 변환하여 저장
             if (grade != null) user.setGrade(UserGrade.valueOf(grade.toUpperCase()));
+            // String 타입을 UserRole Enum 타입으로 변환하여 저장
+            if (role != null) user.setRole(exchange.admin.model.constant.UserRole.valueOf(role.toUpperCase()));
             return userRepository.save(user);
         });
     }
