@@ -82,6 +82,17 @@ export const UserManagementTab: React.FC = () => {
         }
     };
 
+    const handleApproveUser = async (user: any) => {
+        if (!window.confirm(`${user.email} 회원의 가입 신청을 승인하시겠습니까?`)) return;
+        const ok = await updateUser(user.userId, user.email, user.grade, 'ACTIVE');
+        if (ok) {
+            alert('회원 가입 승인이 완료되었습니다.');
+            fetchUsers();
+        } else {
+            alert('가입 승인 처리에 실패했습니다.');
+        }
+    };
+
     const handleAdjustAsset = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!adjustTargetUser) return;
@@ -189,13 +200,21 @@ export const UserManagementTab: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="px-5 py-4">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${u.status === 'ACTIVE' ? 'bg-emerald-500/10 border border-emerald-500/35 text-emerald-400' : 'bg-rose-500/10 border border-rose-500/35 text-rose-400'}`}>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${u.status === 'ACTIVE' ? 'bg-emerald-500/10 border border-emerald-500/35 text-emerald-400' : u.status === 'PENDING' ? 'bg-amber-500/10 border border-amber-500/35 text-amber-400 animate-pulse' : 'bg-rose-500/10 border border-rose-500/35 text-rose-400'}`}>
                                                 {u.status}
                                             </span>
                                         </td>
                                         <td className="px-5 py-4 text-slate-400">{new Date(u.createdAt).toLocaleString()}</td>
                                         <td className="px-5 py-4">
                                             <div className="flex justify-end gap-2 text-[10px] font-bold">
+                                                {u.status === 'PENDING' && (
+                                                    <button 
+                                                        onClick={() => handleApproveUser(u)}
+                                                        className="px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all font-black"
+                                                    >
+                                                        ✔️ 가입 승인
+                                                    </button>
+                                                )}
                                                 <button 
                                                     onClick={() => openAssetModal(u)}
                                                     className="px-3 py-1.5 rounded-lg border border-emerald-500/25 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/12 transition-all"
@@ -330,6 +349,7 @@ export const UserManagementTab: React.FC = () => {
                                         className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white outline-none"
                                     >
                                         <option value="ACTIVE">ACTIVE (거래 가능)</option>
+                                        <option value="PENDING">PENDING (승인 대기)</option>
                                         <option value="SUSPENDED">SUSPENDED (거래정지)</option>
                                     </select>
                                 </div>

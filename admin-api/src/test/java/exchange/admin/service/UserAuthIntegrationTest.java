@@ -189,4 +189,29 @@ class UserAuthIntegrationTest extends BaseIntegrationTest {
             authService.logout("no_such_user_email_exists@example.com");
         });
     }
+
+    @Test
+    @Order(10)
+    @Transactional
+    @DisplayName("10. 회원가입 신청 시 PENDING 상태로 생성되며 승인(ACTIVE) 전에는 로그인 차단됨을 검증")
+    void test10_signup_And_Approval_Workflow() {
+        // 회원가입 신청
+        User user = authService.signup("signup_pending@example.com", "signup_pass");
+        assertThat(user.getStatus()).isEqualTo("PENDING");
+
+        // 승인 대기 상태에서 로그인 시도 -> 차단되어야 함
+        AuthException ex = assertThrows(AuthException.class, () -> {
+            authService.login("signup_pending@example.com", "signup_pass");
+        });
+        assertThat(ex.getMessage()).contains("승인 대기");
+
+        // 관리자가 상태를 ACTIVE로 변경 (승인 처리)
+        user.setStatus("ACTIVE");
+        userRepository.save(user);
+
+        // 승인 완료 후 로그인 시도 -> 성공해야 함
+        AuthResponseODT response = authService.login("signup_pending@example.com", "signup_pass");
+        assertThat(response.getAccessToken()).isNotEmpty();
+        assertThat(response.getEmail()).isEqualTo("signup_pending@example.com");
+    }
 }

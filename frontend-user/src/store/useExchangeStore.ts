@@ -168,6 +168,8 @@ interface ExchangeState {
     setLoginModalOpen: (open: boolean) => void;
     /** 이메일/비밀번호 기반 로그인 요청 액션 */
     login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
+    /** 신규 회원가입 요청 액션 */
+    signup: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
     /** 로그아웃 처리 액션 (로컬 토큰 파기 및 세션 해제) */
     logout: () => void;
 
@@ -565,6 +567,26 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 }
             } catch (err) {
                 console.error("[Auth] 로그인 처리 실패", err);
+                return { success: false, message: "서버에 연결할 수 없습니다." };
+            }
+        },
+
+        // 회원가입 액션 구현
+        signup: async (email, password) => {
+            try {
+                const res = await fetch(`${get().apiBaseUrl}/admin/auth/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                if (res.ok) {
+                    return { success: true };
+                } else {
+                    const errData = await res.json();
+                    return { success: false, message: errData.message || "회원가입 실패" };
+                }
+            } catch (err) {
+                console.error("[Auth] 회원가입 처리 실패", err);
                 return { success: false, message: "서버에 연결할 수 없습니다." };
             }
         },

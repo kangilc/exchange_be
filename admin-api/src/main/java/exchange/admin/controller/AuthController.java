@@ -5,6 +5,8 @@ import exchange.admin.dto.response.AuthResponseODT;
 import exchange.admin.service.AuthService;
 import jakarta.validation.Valid;
 
+import exchange.admin.dto.request.user.UserRegisterIDT;
+import exchange.admin.model.User;
 import exchange.admin.dto.ApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,7 +17,7 @@ import java.util.Map;
 
 /**
  * 인증 처리 컨트롤러.
- * 로그인, 토큰 갱신(RTR), 로그아웃 기능 제공.
+ * 로그인, 토큰 갱신(RTR), 로그아웃 및 회원가입 기능 제공.
  */
 @RestController
 @RequestMapping("/admin/auth")
@@ -24,6 +26,19 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+
+    /**
+     * 신규 사용자 회원가입 신청.
+     * 가입 즉시 승인 대기(PENDING) 상태가 됨.
+     * 
+     * @param request 가입 요청 정보
+     * @return 가입 완료된 사용자 객체 정보
+     */
+    @PostMapping("/signup")
+    public ResponseEntity<ApiResponse<User>> signup(@Valid @RequestBody UserRegisterIDT request) {
+        User user = authService.signup(request.getEmail(), request.getPassword());
+        return ApiResponse.ok(user);
+    }
 
     /**
      * 로그인 처리 및 JWT 발급.

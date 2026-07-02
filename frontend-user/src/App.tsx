@@ -13,11 +13,14 @@ export const App: React.FC = () => {
     const isLoginModalOpen = useExchangeStore(state => state.isLoginModalOpen);
     const setLoginModalOpen = useExchangeStore(state => state.setLoginModalOpen);
     const login = useExchangeStore(state => state.login);
+    const signup = useExchangeStore(state => state.signup);
     const logout = useExchangeStore(state => state.logout);
 
     const [emailInput, setEmailInput] = useState('');
     const [passwordInput, setPasswordInput] = useState('');
     const [loginError, setLoginError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
+    const [isSignupMode, setIsSignupMode] = useState(false);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -44,21 +47,37 @@ export const App: React.FC = () => {
     const handleLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoginError('');
+        setSuccessMessage('');
         setLoading(true);
 
-        const res = await login(emailInput, passwordInput);
-        setLoading(false);
-        if (!res.success) {
-            setLoginError(res.message || '이메일 또는 비밀번호가 올바르지 않습니다.');
+        if (isSignupMode) {
+            const res = await signup(emailInput, passwordInput);
+            setLoading(false);
+            if (!res.success) {
+                setLoginError(res.message || '회원가입 신청에 실패했습니다.');
+            } else {
+                setSuccessMessage('회원가입 신청이 완료되었습니다. 관리자 승인 후 로그인이 가능합니다.');
+                setIsSignupMode(false);
+                setEmailInput('');
+                setPasswordInput('');
+            }
         } else {
-            setEmailInput('');
-            setPasswordInput('');
+            const res = await login(emailInput, passwordInput);
+            setLoading(false);
+            if (!res.success) {
+                setLoginError(res.message || '이메일 또는 비밀번호가 올바르지 않습니다.');
+            } else {
+                setEmailInput('');
+                setPasswordInput('');
+            }
         }
     };
 
     const handleCloseModal = () => {
         setLoginModalOpen(false);
         setLoginError('');
+        setSuccessMessage('');
+        setIsSignupMode(false);
         setEmailInput('');
         setPasswordInput('');
     };
@@ -137,15 +156,27 @@ export const App: React.FC = () => {
 
                         <div className="flex flex-col items-center gap-3 mb-6 mt-2">
                             <img src="/JavaF_logo_tiny_400.png" alt="JavaF Logo" className="h-10 object-contain mb-1" />
-                            <h2 className="font-extrabold text-xl tracking-tight text-white mt-1">JavaF 거래소 로그인</h2>
-                            <p className="text-xs text-slate-400 font-medium text-center">모의투자 및 입출금 관리를 위해 계정으로 로그인해 주세요.</p>
-                            <p className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">초기 이메일: user1@exchange.com / 비번: password123</p>
+                            <h2 className="font-extrabold text-xl tracking-tight text-white mt-1">
+                                {isSignupMode ? 'JavaF 거래소 회원가입' : 'JavaF 거래소 로그인'}
+                            </h2>
+                            <p className="text-xs text-slate-400 font-medium text-center">
+                                {isSignupMode ? '신규 회원가입을 신청해 주세요. 가입 완료 후 관리자 승인이 필요합니다.' : '모의투자 및 입출금 관리를 위해 계정으로 로그인해 주세요.'}
+                            </p>
+                            {!isSignupMode && (
+                                <p className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">초기 이메일: user1@exchange.com / 비번: password123</p>
+                            )}
                         </div>
 
                         <form onSubmit={handleLoginSubmit} className="flex flex-col gap-5 text-xs font-semibold">
                             {loginError && (
                                 <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 font-bold text-center">
                                     {loginError}
+                                </div>
+                            )}
+
+                            {successMessage && (
+                                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-center">
+                                    {successMessage}
                                 </div>
                             )}
 
@@ -184,8 +215,22 @@ export const App: React.FC = () => {
                                 disabled={loading}
                                 className="w-full py-3.5 mt-2 rounded-xl bg-gradient-to-r from-[#8a2be2] to-[#6366f1] text-white font-extrabold text-sm shadow-xl transition-all hover:scale-[1.01] hover:brightness-110 disabled:opacity-50 cursor-pointer"
                             >
-                                {loading ? '로그인 처리 중...' : '거래소 로그인'}
+                                {loading ? '처리 중...' : (isSignupMode ? '회원가입 신청' : '거래소 로그인')}
                             </button>
+
+                            <div className="text-center mt-1">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsSignupMode(!isSignupMode);
+                                        setLoginError('');
+                                        setSuccessMessage('');
+                                    }}
+                                    className="text-slate-400 hover:text-white transition-all underline cursor-pointer text-[10px]"
+                                >
+                                    {isSignupMode ? '이미 계정이 있으신가요? 로그인하기' : '계정이 없으신가요? 회원가입 신청하기'}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
