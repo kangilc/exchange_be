@@ -1,5 +1,6 @@
 package exchange.admin.controller;
 
+import lombok.RequiredArgsConstructor;
 import exchange.admin.dto.ApiResponse;
 import exchange.admin.model.Wallet;
 import exchange.admin.repository.WalletRepository;
@@ -16,16 +17,11 @@ import java.util.List;
 @RestController
 @RequestMapping("/admin/wallets")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class WalletController {
 
     private final WalletRepository walletRepository;
     private final exchange.admin.repository.UserRepository userRepository;
-
-    // 생성자 주입
-    public WalletController(WalletRepository walletRepository, exchange.admin.repository.UserRepository userRepository) {
-        this.walletRepository = walletRepository;
-        this.userRepository = userRepository;
-    }
 
     /**
      * 전체 회원 보유 지갑 목록 조회.
