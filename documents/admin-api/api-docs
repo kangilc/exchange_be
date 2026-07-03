@@ -1,0 +1,3148 @@
+{
+"openapi": "3.0.1",
+"info": {
+"title": "JavaF Exchange Admin API",
+"description": "JavaF Exchange integrated management Admin API specification with JWT security.",
+"version": "1.0.0"
+},
+"servers": [
+{
+"url": "http://localhost:8181",
+"description": "Generated server url"
+}
+],
+"security": [
+{
+"bearerAuth": []
+}
+],
+"paths": {
+"/admin/users/{id}": {
+"get": {
+"tags": [
+"user-controller"
+],
+"operationId": "getUserById",
+"parameters": [
+{
+"name": "id",
+"in": "path",
+"required": true,
+"schema": {
+"type": "integer",
+"format": "int64"
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseUser"
+}
+}
+}
+}
+}
+},
+"put": {
+"tags": [
+"user-controller"
+],
+"operationId": "updateUser",
+"parameters": [
+{
+"name": "id",
+"in": "path",
+"required": true,
+"schema": {
+"type": "integer",
+"format": "int64"
+}
+}
+],
+"requestBody": {
+"content": {
+"application/json": {
+"schema": {
+"$ref": "#/components/schemas/UserUpdateIDT"
+}
+}
+},
+"required": true
+},
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseUser"
+}
+}
+}
+}
+}
+}
+},
+"/admin/stats/markets/{symbol}": {
+"put": {
+"tags": [
+"market-controller"
+],
+"operationId": "updateMarket",
+"parameters": [
+{
+"name": "symbol",
+"in": "path",
+"required": true,
+"schema": {
+"type": "string"
+}
+}
+],
+"requestBody": {
+"content": {
+"application/json": {
+"schema": {
+"$ref": "#/components/schemas/Market"
+}
+}
+},
+"required": true
+},
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseMarket"
+}
+}
+}
+}
+}
+}
+},
+"/admin/users/{id}/assets/adjust": {
+"post": {
+"tags": [
+"user-controller"
+],
+"operationId": "adjustAsset",
+"parameters": [
+{
+"name": "id",
+"in": "path",
+"required": true,
+"schema": {
+"type": "integer",
+"format": "int64"
+}
+}
+],
+"requestBody": {
+"content": {
+"application/json": {
+"schema": {
+"$ref": "#/components/schemas/AssetAdjustIDT"
+}
+}
+},
+"required": true
+},
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseWallet"
+}
+}
+}
+}
+}
+}
+},
+"/admin/users": {
+"get": {
+"tags": [
+"user-controller"
+],
+"operationId": "getAllUsers",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListUser"
+}
+}
+}
+}
+}
+},
+"post": {
+"tags": [
+"user-controller"
+],
+"operationId": "registerUser",
+"requestBody": {
+"content": {
+"application/json": {
+"schema": {
+"$ref": "#/components/schemas/UserRegisterIDT"
+}
+}
+},
+"required": true
+},
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseUser"
+}
+}
+}
+}
+}
+}
+},
+"/admin/users/register": {
+"post": {
+"tags": [
+"user-controller"
+],
+"operationId": "registerUser_1",
+"requestBody": {
+"content": {
+"application/json": {
+"schema": {
+"$ref": "#/components/schemas/UserRegisterIDT"
+}
+}
+},
+"required": true
+},
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseUser"
+}
+}
+}
+}
+}
+}
+},
+"/admin/settings": {
+"get": {
+"tags": [
+"settings-controller"
+],
+"operationId": "getSettings",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseMapStringObject"
+}
+}
+}
+}
+}
+},
+"post": {
+"tags": [
+"settings-controller"
+],
+"operationId": "updateSettings",
+"requestBody": {
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"additionalProperties": {
+"type": "object"
+}
+}
+}
+},
+"required": true
+},
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseMapStringObject"
+}
+}
+}
+}
+}
+}
+},
+"/admin/crypto/withdrawals/{id}/reject": {
+"post": {
+"tags": [
+"crypto-wallet-controller"
+],
+"operationId": "rejectWithdrawal",
+"parameters": [
+{
+"name": "id",
+"in": "path",
+"required": true,
+"schema": {
+"type": "integer",
+"format": "int64"
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseCryptoWithdrawal"
+}
+}
+}
+}
+}
+}
+},
+"/admin/crypto/withdrawals/{id}/approve": {
+"post": {
+"tags": [
+"crypto-wallet-controller"
+],
+"operationId": "approveWithdrawal",
+"parameters": [
+{
+"name": "id",
+"in": "path",
+"required": true,
+"schema": {
+"type": "integer",
+"format": "int64"
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseCryptoWithdrawal"
+}
+}
+}
+}
+}
+}
+},
+"/admin/crypto/withdraw": {
+"post": {
+"tags": [
+"crypto-wallet-controller"
+],
+"operationId": "requestWithdrawal",
+"requestBody": {
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"additionalProperties": {
+"type": "object"
+}
+}
+}
+},
+"required": true
+},
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseCryptoWithdrawal"
+}
+}
+}
+}
+}
+}
+},
+"/admin/crypto/test-jaf-deposit": {
+"post": {
+"tags": [
+"crypto-wallet-controller"
+],
+"operationId": "testJafDeposit",
+"requestBody": {
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"additionalProperties": {
+"type": "object"
+}
+}
+}
+},
+"required": true
+},
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseMapStringObject"
+}
+}
+}
+}
+}
+}
+},
+"/admin/crypto/hot-wallets/{id}/rebalance": {
+"post": {
+"tags": [
+"crypto-wallet-controller"
+],
+"operationId": "rebalanceHotWallet",
+"parameters": [
+{
+"name": "id",
+"in": "path",
+"required": true,
+"schema": {
+"type": "integer",
+"format": "int64"
+}
+}
+],
+"requestBody": {
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"additionalProperties": {
+"type": "object"
+}
+}
+}
+},
+"required": true
+},
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseSystemHotWallet"
+}
+}
+}
+}
+}
+}
+},
+"/admin/auth/signup": {
+"post": {
+"tags": [
+"auth-controller"
+],
+"operationId": "signup",
+"requestBody": {
+"content": {
+"application/json": {
+"schema": {
+"$ref": "#/components/schemas/UserRegisterIDT"
+}
+}
+},
+"required": true
+},
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseUser"
+}
+}
+}
+}
+}
+}
+},
+"/admin/auth/refresh": {
+"post": {
+"tags": [
+"auth-controller"
+],
+"operationId": "refresh",
+"requestBody": {
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"additionalProperties": {
+"type": "string"
+}
+}
+}
+},
+"required": true
+},
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseAuthResponseODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/auth/logout": {
+"post": {
+"tags": [
+"auth-controller"
+],
+"operationId": "logout",
+"requestBody": {
+"content": {
+"application/json": {
+"schema": {
+"type": "object",
+"additionalProperties": {
+"type": "string"
+}
+}
+}
+},
+"required": true
+},
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseVoid"
+}
+}
+}
+}
+}
+}
+},
+"/admin/auth/login": {
+"post": {
+"tags": [
+"auth-controller"
+],
+"operationId": "login",
+"requestBody": {
+"content": {
+"application/json": {
+"schema": {
+"$ref": "#/components/schemas/LoginIDT"
+}
+}
+},
+"required": true
+},
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseAuthResponseODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/wallets": {
+"get": {
+"tags": [
+"wallet-controller"
+],
+"operationId": "getAllWallets",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListWallet"
+}
+}
+}
+}
+}
+}
+},
+"/admin/wallets/user/{userId}": {
+"get": {
+"tags": [
+"wallet-controller"
+],
+"operationId": "getWalletsByUserId",
+"parameters": [
+{
+"name": "userId",
+"in": "path",
+"required": true,
+"schema": {
+"type": "integer",
+"format": "int64"
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListWallet"
+}
+}
+}
+}
+}
+}
+},
+"/admin/wallets/summary": {
+"get": {
+"tags": [
+"wallet-controller"
+],
+"operationId": "getWalletSummary",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListCurrencySummary"
+}
+}
+}
+}
+}
+}
+},
+"/admin/wallets/me": {
+"get": {
+"tags": [
+"wallet-controller"
+],
+"operationId": "getMyWallets",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListWallet"
+}
+}
+}
+}
+}
+}
+},
+"/admin/users/{id}/trades": {
+"get": {
+"tags": [
+"user-controller"
+],
+"operationId": "getUserTrades",
+"parameters": [
+{
+"name": "id",
+"in": "path",
+"required": true,
+"schema": {
+"type": "integer",
+"format": "int64"
+}
+},
+{
+"name": "idt",
+"in": "query",
+"required": true,
+"schema": {
+"$ref": "#/components/schemas/DateRangePageIDT"
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponsePageUserTradeODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/users/{id}/ledgers": {
+"get": {
+"tags": [
+"user-controller"
+],
+"operationId": "getUserLedgers",
+"parameters": [
+{
+"name": "id",
+"in": "path",
+"required": true,
+"schema": {
+"type": "integer",
+"format": "int64"
+}
+},
+{
+"name": "idt",
+"in": "query",
+"required": true,
+"schema": {
+"$ref": "#/components/schemas/DateRangePageIDT"
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponsePageDetailedLedgerODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/users/me/trades": {
+"get": {
+"tags": [
+"user-controller"
+],
+"operationId": "getMyTrades",
+"parameters": [
+{
+"name": "idt",
+"in": "query",
+"required": true,
+"schema": {
+"$ref": "#/components/schemas/DateRangePageIDT"
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponsePageUserTradeODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/users/me/ledgers": {
+"get": {
+"tags": [
+"user-controller"
+],
+"operationId": "getMyLedgers",
+"parameters": [
+{
+"name": "idt",
+"in": "query",
+"required": true,
+"schema": {
+"$ref": "#/components/schemas/DateRangePageIDT"
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponsePageDetailedLedgerODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/stats/users": {
+"get": {
+"tags": [
+"stats-controller"
+],
+"operationId": "getUserStats",
+"parameters": [
+{
+"name": "resolution",
+"in": "query",
+"required": false,
+"schema": {
+"type": "string",
+"default": "daily"
+}
+},
+{
+"name": "startDate",
+"in": "query",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date-time"
+}
+},
+{
+"name": "endDate",
+"in": "query",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date-time"
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListUserStatsODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/stats/trades": {
+"get": {
+"tags": [
+"stats-controller"
+],
+"operationId": "getTradeStats",
+"parameters": [
+{
+"name": "resolution",
+"in": "query",
+"required": false,
+"schema": {
+"type": "string",
+"default": "daily"
+}
+},
+{
+"name": "startDate",
+"in": "query",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date-time"
+}
+},
+{
+"name": "endDate",
+"in": "query",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date-time"
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListTradeStatsODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/stats/tickers": {
+"get": {
+"tags": [
+"stats-controller"
+],
+"operationId": "getTickers",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListTickerODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/stats/ticker": {
+"get": {
+"tags": [
+"stats-controller"
+],
+"operationId": "getTicker",
+"parameters": [
+{
+"name": "symbol",
+"in": "query",
+"required": true,
+"schema": {
+"type": "string"
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseTickerODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/stats/summary": {
+"get": {
+"tags": [
+"stats-controller"
+],
+"operationId": "getSummaryStats",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseSummaryODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/stats/performance": {
+"get": {
+"tags": [
+"stats-controller"
+],
+"operationId": "getPerformanceStats",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponsePerformanceODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/stats/markets": {
+"get": {
+"tags": [
+"market-controller"
+],
+"operationId": "getActiveMarkets",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListMarket"
+}
+}
+}
+}
+}
+}
+},
+"/admin/stats/candles": {
+"get": {
+"tags": [
+"stats-controller"
+],
+"operationId": "getCandles",
+"parameters": [
+{
+"name": "symbol",
+"in": "query",
+"required": true,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "resolution",
+"in": "query",
+"required": false,
+"schema": {
+"type": "string",
+"default": "1m"
+}
+},
+{
+"name": "limit",
+"in": "query",
+"required": false,
+"schema": {
+"type": "integer",
+"format": "int32",
+"default": 100
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListCandleODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/stats/assets": {
+"get": {
+"tags": [
+"stats-controller"
+],
+"operationId": "getLedgerStats",
+"parameters": [
+{
+"name": "resolution",
+"in": "query",
+"required": false,
+"schema": {
+"type": "string",
+"default": "daily"
+}
+},
+{
+"name": "startDate",
+"in": "query",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date-time"
+}
+},
+{
+"name": "endDate",
+"in": "query",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date-time"
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListLedgerStatsODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/ledgers": {
+"get": {
+"tags": [
+"ledger-controller"
+],
+"operationId": "getAllDetailedLedgers",
+"parameters": [
+{
+"name": "search",
+"in": "query",
+"required": false,
+"schema": {
+"type": "string"
+}
+},
+{
+"name": "startDate",
+"in": "query",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date-time"
+}
+},
+{
+"name": "endDate",
+"in": "query",
+"required": false,
+"schema": {
+"type": "string",
+"format": "date-time"
+}
+},
+{
+"name": "page",
+"in": "query",
+"required": false,
+"schema": {
+"type": "integer",
+"format": "int32",
+"default": 0
+}
+},
+{
+"name": "size",
+"in": "query",
+"required": false,
+"schema": {
+"type": "integer",
+"format": "int32",
+"default": 50
+}
+}
+],
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponsePageDetailedLedgerODT"
+}
+}
+}
+}
+}
+}
+},
+"/admin/crypto/withdrawals": {
+"get": {
+"tags": [
+"crypto-wallet-controller"
+],
+"operationId": "getAllWithdrawals",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListCryptoWithdrawal"
+}
+}
+}
+}
+}
+}
+},
+"/admin/crypto/pending-deposits": {
+"get": {
+"tags": [
+"crypto-wallet-controller"
+],
+"operationId": "getPendingDeposits",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListPendingDeposit"
+}
+}
+}
+}
+}
+}
+},
+"/admin/crypto/hot-wallets": {
+"get": {
+"tags": [
+"crypto-wallet-controller"
+],
+"operationId": "getHotWallets",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListSystemHotWallet"
+}
+}
+}
+}
+}
+}
+},
+"/admin/crypto/block-height": {
+"get": {
+"tags": [
+"crypto-wallet-controller"
+],
+"operationId": "getBlockHeight",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseMapStringLong"
+}
+}
+}
+}
+}
+}
+},
+"/admin/crypto/addresses": {
+"get": {
+"tags": [
+"crypto-wallet-controller"
+],
+"operationId": "getUserAddresses",
+"responses": {
+"200": {
+"description": "OK",
+"content": {
+"*/*": {
+"schema": {
+"$ref": "#/components/schemas/ApiResponseListUserCryptoAddress"
+}
+}
+}
+}
+}
+}
+}
+},
+"components": {
+"schemas": {
+"UserUpdateIDT": {
+"type": "object",
+"properties": {
+"email": {
+"type": "string"
+},
+"status": {
+"type": "string"
+},
+"grade": {
+"type": "string"
+},
+"role": {
+"type": "string"
+}
+}
+},
+"ApiResponseUser": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"$ref": "#/components/schemas/User"
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"User": {
+"type": "object",
+"properties": {
+"createdAt": {
+"type": "string",
+"format": "date-time"
+},
+"updatedAt": {
+"type": "string",
+"format": "date-time"
+},
+"createdBy": {
+"type": "string"
+},
+"updatedBy": {
+"type": "string"
+},
+"userId": {
+"type": "integer",
+"format": "int64"
+},
+"email": {
+"type": "string"
+},
+"passwordHash": {
+"type": "string"
+},
+"status": {
+"type": "string"
+},
+"grade": {
+"type": "string",
+"enum": [
+"STANDARD",
+"VIP"
+]
+},
+"refreshToken": {
+"type": "string"
+},
+"role": {
+"type": "string",
+"enum": [
+"USER",
+"SYSTEM",
+"ADMIN"
+]
+},
+"executedAt": {
+"type": "string",
+"format": "date-time"
+}
+}
+},
+"Market": {
+"type": "object",
+"properties": {
+"createdAt": {
+"type": "string",
+"format": "date-time"
+},
+"updatedAt": {
+"type": "string",
+"format": "date-time"
+},
+"createdBy": {
+"type": "string"
+},
+"updatedBy": {
+"type": "string"
+},
+"symbol": {
+"type": "string"
+},
+"baseCurrency": {
+"type": "string"
+},
+"quoteCurrency": {
+"type": "string"
+},
+"feeRate": {
+"type": "number"
+},
+"priceDecimals": {
+"type": "integer",
+"format": "int32"
+},
+"minAmt": {
+"type": "number"
+},
+"status": {
+"type": "string"
+},
+"listingPrice": {
+"type": "integer",
+"format": "int64"
+},
+"executedAt": {
+"type": "string",
+"format": "date-time"
+}
+}
+},
+"ApiResponseMarket": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"$ref": "#/components/schemas/Market"
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"AssetAdjustIDT": {
+"required": [
+"amount",
+"currency"
+],
+"type": "object",
+"properties": {
+"currency": {
+"type": "string"
+},
+"amount": {
+"type": "number"
+},
+"reason": {
+"type": "string"
+}
+}
+},
+"ApiResponseWallet": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"$ref": "#/components/schemas/Wallet"
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"Wallet": {
+"type": "object",
+"properties": {
+"createdAt": {
+"type": "string",
+"format": "date-time"
+},
+"updatedAt": {
+"type": "string",
+"format": "date-time"
+},
+"createdBy": {
+"type": "string"
+},
+"updatedBy": {
+"type": "string"
+},
+"walletId": {
+"type": "integer",
+"format": "int64"
+},
+"userId": {
+"type": "integer",
+"format": "int64"
+},
+"currency": {
+"type": "string"
+},
+"balance": {
+"type": "number"
+},
+"lockedBalance": {
+"type": "number"
+},
+"executedAt": {
+"type": "string",
+"format": "date-time"
+}
+}
+},
+"UserRegisterIDT": {
+"required": [
+"email",
+"password"
+],
+"type": "object",
+"properties": {
+"email": {
+"type": "string",
+"description": "이메일",
+"example": "test_user_001@exchange.net"
+},
+"password": {
+"type": "string",
+"description": "password",
+"example": "password123!"
+},
+"grade": {
+"type": "string",
+"description": "grade",
+"example": "ADMIN"
+},
+"role": {
+"type": "string",
+"description": "role",
+"example": "USER"
+}
+}
+},
+"ApiResponseMapStringObject": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "object",
+"additionalProperties": {
+"type": "object"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"ApiResponseCryptoWithdrawal": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"$ref": "#/components/schemas/CryptoWithdrawal"
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"CryptoWithdrawal": {
+"type": "object",
+"properties": {
+"createdAt": {
+"type": "string",
+"format": "date-time"
+},
+"updatedAt": {
+"type": "string",
+"format": "date-time"
+},
+"createdBy": {
+"type": "string"
+},
+"updatedBy": {
+"type": "string"
+},
+"withdrawalId": {
+"type": "integer",
+"format": "int64"
+},
+"userId": {
+"type": "integer",
+"format": "int64"
+},
+"currency": {
+"type": "string"
+},
+"amount": {
+"type": "number"
+},
+"toAddress": {
+"type": "string"
+},
+"status": {
+"type": "string"
+},
+"confirmations": {
+"type": "integer",
+"format": "int32"
+},
+"txHash": {
+"type": "string"
+},
+"executedAt": {
+"type": "string",
+"format": "date-time"
+}
+}
+},
+"ApiResponseSystemHotWallet": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"$ref": "#/components/schemas/SystemHotWallet"
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"SystemHotWallet": {
+"type": "object",
+"properties": {
+"createdAt": {
+"type": "string",
+"format": "date-time"
+},
+"updatedAt": {
+"type": "string",
+"format": "date-time"
+},
+"createdBy": {
+"type": "string"
+},
+"updatedBy": {
+"type": "string"
+},
+"walletId": {
+"type": "integer",
+"format": "int64"
+},
+"currency": {
+"type": "string"
+},
+"cryptoAddress": {
+"type": "string"
+},
+"balance": {
+"type": "number"
+},
+"executedAt": {
+"type": "string",
+"format": "date-time"
+}
+}
+},
+"ApiResponseAuthResponseODT": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"$ref": "#/components/schemas/AuthResponseODT"
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"AuthResponseODT": {
+"type": "object",
+"properties": {
+"accessToken": {
+"type": "string"
+},
+"refreshToken": {
+"type": "string"
+},
+"email": {
+"type": "string"
+},
+"userId": {
+"type": "integer",
+"format": "int64"
+},
+"grade": {
+"type": "string",
+"enum": [
+"STANDARD",
+"VIP"
+]
+},
+"priorLoginExisted": {
+"type": "boolean"
+}
+}
+},
+"ApiResponseVoid": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "object"
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"LoginIDT": {
+"required": [
+"email",
+"password"
+],
+"type": "object",
+"properties": {
+"email": {
+"type": "string",
+"description": "이메일",
+"example": "admin@javaf.net"
+},
+"password": {
+"type": "string",
+"description": "비밀번호",
+"example": "admin123!@#"
+}
+},
+"description": "로그인 요청 DTO"
+},
+"ApiResponseListWallet": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/Wallet"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"ApiResponseListCurrencySummary": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/CurrencySummary"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"CurrencySummary": {
+"type": "object",
+"properties": {
+"currency": {
+"type": "string"
+},
+"totalBalance": {
+"type": "number"
+},
+"totalLocked": {
+"type": "number"
+}
+}
+},
+"ApiResponseListUser": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/User"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"DateRangePageIDT": {
+"type": "object",
+"properties": {
+"page": {
+"type": "integer",
+"format": "int32"
+},
+"size": {
+"type": "integer",
+"format": "int32"
+},
+"startDate": {
+"type": "string",
+"format": "date-time"
+},
+"endDate": {
+"type": "string",
+"format": "date-time"
+},
+"finalEndDate": {
+"type": "string",
+"format": "date-time"
+},
+"finalStartDate": {
+"type": "string",
+"format": "date-time"
+}
+}
+},
+"ApiResponsePageUserTradeODT": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"$ref": "#/components/schemas/PageUserTradeODT"
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"PageUserTradeODT": {
+"type": "object",
+"properties": {
+"totalElements": {
+"type": "integer",
+"format": "int64"
+},
+"totalPages": {
+"type": "integer",
+"format": "int32"
+},
+"size": {
+"type": "integer",
+"format": "int32"
+},
+"content": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/UserTradeODT"
+}
+},
+"number": {
+"type": "integer",
+"format": "int32"
+},
+"sort": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/SortObject"
+}
+},
+"first": {
+"type": "boolean"
+},
+"last": {
+"type": "boolean"
+},
+"numberOfElements": {
+"type": "integer",
+"format": "int32"
+},
+"pageable": {
+"$ref": "#/components/schemas/PageableObject"
+},
+"empty": {
+"type": "boolean"
+}
+}
+},
+"PageableObject": {
+"type": "object",
+"properties": {
+"offset": {
+"type": "integer",
+"format": "int64"
+},
+"sort": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/SortObject"
+}
+},
+"pageNumber": {
+"type": "integer",
+"format": "int32"
+},
+"pageSize": {
+"type": "integer",
+"format": "int32"
+},
+"paged": {
+"type": "boolean"
+},
+"unpaged": {
+"type": "boolean"
+}
+}
+},
+"SortObject": {
+"type": "object",
+"properties": {
+"direction": {
+"type": "string"
+},
+"nullHandling": {
+"type": "string"
+},
+"ascending": {
+"type": "boolean"
+},
+"property": {
+"type": "string"
+},
+"ignoreCase": {
+"type": "boolean"
+}
+}
+},
+"UserTradeODT": {
+"type": "object",
+"properties": {
+"tradeId": {
+"type": "integer",
+"format": "int64"
+},
+"symbol": {
+"type": "string"
+},
+"buyOrderId": {
+"type": "integer",
+"format": "int64"
+},
+"sellOrderId": {
+"type": "integer",
+"format": "int64"
+},
+"price": {
+"type": "integer",
+"format": "int64"
+},
+"qty": {
+"type": "integer",
+"format": "int64"
+},
+"executedAt": {
+"type": "string",
+"format": "date-time"
+},
+"side": {
+"type": "string"
+}
+}
+},
+"ApiResponsePageDetailedLedgerODT": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"$ref": "#/components/schemas/PageDetailedLedgerODT"
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"DetailedLedgerODT": {
+"type": "object",
+"properties": {
+"journalId": {
+"type": "integer",
+"format": "int64"
+},
+"userId": {
+"type": "integer",
+"format": "int64"
+},
+"email": {
+"type": "string"
+},
+"currency": {
+"type": "string"
+},
+"amount": {
+"type": "number"
+},
+"type": {
+"type": "string"
+},
+"referenceId": {
+"type": "integer",
+"format": "int64"
+},
+"createdAt": {
+"type": "string",
+"format": "date-time"
+}
+}
+},
+"PageDetailedLedgerODT": {
+"type": "object",
+"properties": {
+"totalElements": {
+"type": "integer",
+"format": "int64"
+},
+"totalPages": {
+"type": "integer",
+"format": "int32"
+},
+"size": {
+"type": "integer",
+"format": "int32"
+},
+"content": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/DetailedLedgerODT"
+}
+},
+"number": {
+"type": "integer",
+"format": "int32"
+},
+"sort": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/SortObject"
+}
+},
+"first": {
+"type": "boolean"
+},
+"last": {
+"type": "boolean"
+},
+"numberOfElements": {
+"type": "integer",
+"format": "int32"
+},
+"pageable": {
+"$ref": "#/components/schemas/PageableObject"
+},
+"empty": {
+"type": "boolean"
+}
+}
+},
+"ApiResponseListUserStatsODT": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/UserStatsODT"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"UserStatsODT": {
+"type": "object",
+"properties": {
+"bucket": {
+"type": "string"
+},
+"userCount": {
+"type": "integer",
+"format": "int64"
+}
+}
+},
+"ApiResponseListTradeStatsODT": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/TradeStatsODT"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"TradeStatsODT": {
+"type": "object",
+"properties": {
+"bucket": {
+"type": "string"
+},
+"tradeCount": {
+"type": "integer",
+"format": "int64"
+},
+"totalQty": {
+"type": "integer",
+"format": "int64"
+},
+"avgPrice": {
+"type": "number",
+"format": "double"
+},
+"totalVolume": {
+"type": "number",
+"format": "double"
+}
+}
+},
+"ApiResponseListTickerODT": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/TickerODT"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"TickerODT": {
+"type": "object",
+"properties": {
+"symbol": {
+"type": "string"
+},
+"lastPrice": {
+"type": "integer",
+"format": "int64"
+},
+"prevClosePrice": {
+"type": "integer",
+"format": "int64"
+}
+}
+},
+"ApiResponseTickerODT": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"$ref": "#/components/schemas/TickerODT"
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"ApiResponseSummaryODT": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"$ref": "#/components/schemas/SummaryODT"
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"SummaryODT": {
+"type": "object",
+"properties": {
+"totalUsers": {
+"type": "integer",
+"format": "int64"
+},
+"totalTrades": {
+"type": "integer",
+"format": "int64"
+},
+"totalVolume": {
+"type": "number",
+"format": "double"
+},
+"totalWallets": {
+"type": "integer",
+"format": "int64"
+}
+}
+},
+"ActiveUsersODT": {
+"type": "object",
+"properties": {
+"dau24h": {
+"type": "integer",
+"format": "int64"
+},
+"mau30d": {
+"type": "integer",
+"format": "int64"
+},
+"dauMauRatioPercent": {
+"type": "number",
+"format": "double"
+}
+}
+},
+"ApiResponsePerformanceODT": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"$ref": "#/components/schemas/PerformanceODT"
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"CompetitorODT": {
+"type": "object",
+"properties": {
+"exchange": {
+"type": "string"
+},
+"btcUsdFeeRatePercent": {
+"type": "number",
+"format": "double"
+},
+"adaKrwFeeRatePercent": {
+"type": "number",
+"format": "double"
+},
+"avgLatencyMs": {
+"type": "number",
+"format": "double"
+},
+"tps": {
+"type": "integer",
+"format": "int64"
+},
+"uptimePercent": {
+"type": "number",
+"format": "double"
+}
+}
+},
+"FeeRevenueODT": {
+"type": "object",
+"properties": {
+"symbol": {
+"type": "string"
+},
+"quoteCurrency": {
+"type": "string"
+},
+"currentFeeRate": {
+"type": "number",
+"format": "double"
+},
+"totalVolume": {
+"type": "number",
+"format": "double"
+},
+"totalFees": {
+"type": "number",
+"format": "double"
+},
+"volume24h": {
+"type": "number",
+"format": "double"
+},
+"fees24h": {
+"type": "number",
+"format": "double"
+}
+}
+},
+"NetFlowODT": {
+"type": "object",
+"properties": {
+"currency": {
+"type": "string"
+},
+"netFlow": {
+"type": "number",
+"format": "double"
+}
+}
+},
+"OrderEfficiencyODT": {
+"type": "object",
+"properties": {
+"filledCount": {
+"type": "integer",
+"format": "int64"
+},
+"cancelledCount": {
+"type": "integer",
+"format": "int64"
+},
+"activeCount": {
+"type": "integer",
+"format": "int64"
+},
+"fillRatePercent": {
+"type": "number",
+"format": "double"
+}
+}
+},
+"PerformanceODT": {
+"type": "object",
+"properties": {
+"feeRevenues": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/FeeRevenueODT"
+}
+},
+"activeUsers": {
+"$ref": "#/components/schemas/ActiveUsersODT"
+},
+"netDepositFlow30d": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/NetFlowODT"
+}
+},
+"tradingVelocity": {
+"$ref": "#/components/schemas/TradeTurnoverODT"
+},
+"orderEfficiency": {
+"$ref": "#/components/schemas/OrderEfficiencyODT"
+},
+"competitors": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/CompetitorODT"
+}
+}
+}
+},
+"TradeTurnoverODT": {
+"type": "object",
+"properties": {
+"totalUserAssetsKrwEquivalent": {
+"type": "number",
+"format": "double"
+},
+"totalVolume30dKrwEquivalent": {
+"type": "number",
+"format": "double"
+},
+"velocityPercent": {
+"type": "number",
+"format": "double"
+}
+}
+},
+"ApiResponseListMarket": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/Market"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"ApiResponseListCandleODT": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/CandleODT"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"CandleODT": {
+"type": "object",
+"properties": {
+"time": {
+"type": "integer",
+"format": "int64"
+},
+"open": {
+"type": "number",
+"format": "double"
+},
+"high": {
+"type": "number",
+"format": "double"
+},
+"low": {
+"type": "number",
+"format": "double"
+},
+"close": {
+"type": "number",
+"format": "double"
+},
+"volume": {
+"type": "number",
+"format": "double"
+}
+}
+},
+"ApiResponseListLedgerStatsODT": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/LedgerStatsODT"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"LedgerStatsODT": {
+"type": "object",
+"properties": {
+"bucket": {
+"type": "string"
+},
+"currency": {
+"type": "string"
+},
+"type": {
+"type": "string"
+},
+"entryCount": {
+"type": "integer",
+"format": "int64"
+},
+"totalAmount": {
+"type": "number",
+"format": "double"
+}
+}
+},
+"ApiResponseListCryptoWithdrawal": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/CryptoWithdrawal"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"ApiResponseListPendingDeposit": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/PendingDeposit"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"PendingDeposit": {
+"type": "object",
+"properties": {
+"userId": {
+"type": "integer",
+"format": "int64"
+},
+"currency": {
+"type": "string"
+},
+"amount": {
+"type": "number"
+},
+"txHash": {
+"type": "string"
+},
+"cryptoAddress": {
+"type": "string"
+},
+"confirmations": {
+"type": "integer",
+"format": "int32"
+},
+"requiredConfirmations": {
+"type": "integer",
+"format": "int32"
+},
+"createdAt": {
+"type": "string",
+"format": "date-time"
+}
+}
+},
+"ApiResponseListSystemHotWallet": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/SystemHotWallet"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"ApiResponseMapStringLong": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "object",
+"additionalProperties": {
+"type": "integer",
+"format": "int64"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"ApiResponseListUserCryptoAddress": {
+"type": "object",
+"properties": {
+"status": {
+"type": "integer",
+"format": "int32"
+},
+"message": {
+"type": "string"
+},
+"data": {
+"type": "array",
+"items": {
+"$ref": "#/components/schemas/UserCryptoAddress"
+}
+},
+"http.method": {
+"type": "string"
+},
+"http.path": {
+"type": "string"
+},
+"latency_ms": {
+"type": "integer",
+"format": "int64"
+},
+"client_ip": {
+"type": "string"
+},
+"user_agent": {
+"type": "string"
+}
+}
+},
+"UserCryptoAddress": {
+"type": "object",
+"properties": {
+"createdAt": {
+"type": "string",
+"format": "date-time"
+},
+"updatedAt": {
+"type": "string",
+"format": "date-time"
+},
+"createdBy": {
+"type": "string"
+},
+"updatedBy": {
+"type": "string"
+},
+"addressId": {
+"type": "integer",
+"format": "int64"
+},
+"userId": {
+"type": "integer",
+"format": "int64"
+},
+"currency": {
+"type": "string"
+},
+"cryptoAddress": {
+"type": "string"
+},
+"executedAt": {
+"type": "string",
+"format": "date-time"
+}
+}
+}
+},
+"securitySchemes": {
+"bearerAuth": {
+"type": "http",
+"name": "bearerAuth",
+"scheme": "bearer",
+"bearerFormat": "JWT"
+}
+}
+}
+}
