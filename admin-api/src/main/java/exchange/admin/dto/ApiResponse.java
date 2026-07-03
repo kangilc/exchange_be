@@ -24,6 +24,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 @AllArgsConstructor
 public class ApiResponse<T> {
 
+    /** API 처리 성공 여부 */
+    private boolean success;
+
     /** HTTP 상태 코드 */
     private int status;
 
@@ -63,6 +66,7 @@ public class ApiResponse<T> {
      */
     public static <T> ApiResponse<T> success(int status, T data) {
         return ApiResponse.<T>builder()
+                .success(true) // 성공 응답 마킹함
                 .status(status)
                 .message("Success")
                 .data(data)
@@ -89,6 +93,7 @@ public class ApiResponse<T> {
      */
     public static <T> ApiResponse<T> successWithoutData(String message) {
         return ApiResponse.<T>builder()
+                .success(true) // 성공 응답 마킹함
                 .status(200)
                 .message(message)
                 .data(null)
@@ -172,6 +177,7 @@ public class ApiResponse<T> {
      */
     public static <T> ApiResponse<T> error(int status, String message) {
         ApiResponse<T> response = ApiResponse.<T>builder()
+                .success(false) // 실패 응답 마킹함
                 .status(status)
                 .message(message)
                 .data(null)

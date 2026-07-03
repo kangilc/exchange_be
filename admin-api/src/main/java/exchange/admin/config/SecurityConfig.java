@@ -192,7 +192,7 @@ public class SecurityConfig {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401 코드로 지정함
             response.setContentType("application/json;charset=UTF-8");
 
-            ApiResponse<Void> apiResponse = ApiResponse.unauthorized("인증 토큰이 누락되었거나 유효하지 않습니다.");
+            ApiResponse<Void> apiResponse = ApiResponse.error(HttpServletResponse.SC_UNAUTHORIZED, "인증 토큰이 누락되었거나 유효하지 않습니다.");
             String json = new ObjectMapper().writeValueAsString(apiResponse);
 
             response.getWriter().write(json); // JSON 형태로 직렬화하여 출력함
@@ -208,7 +208,7 @@ public class SecurityConfig {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN); // 403 코드로 지정함
             response.setContentType("application/json;charset=UTF-8");
 
-            ApiResponse<Void> apiResponse = ApiResponse.forbidden("해당 리소스에 접근할 권한이 없습니다.");
+            ApiResponse<Void> apiResponse = ApiResponse.error(HttpServletResponse.SC_FORBIDDEN, "해당 리소스에 접근할 권한이 없습니다.");
             String json = new ObjectMapper().writeValueAsString(apiResponse);
 
             response.getWriter().write(json); // JSON 형태로 직렬화하여 출력함

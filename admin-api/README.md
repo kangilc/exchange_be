@@ -97,8 +97,9 @@ sequenceDiagram
   2. `AuthController`에서 요청에 들어온 Refresh Token을 검증하고 즉시 회전(Rotation)시킵니다.
   3. 기존 Refresh Token은 무효화(Revoke) 처리되며, 새로운 **Access Token + Refresh Token** 쌍을 발급해 세션 가로채기(Replay Attack) 위협을 방어합니다.
   4. 클라이언트는 새로운 Token 쌍을 쿠키/로컬 스토리지에 갱신 저장하여 무중단 서비스를 제공받습니다.
-* **보안 예외 응답 규격 통일**:
-  - 인증 토큰이 유실되었거나(401 Unauthorized), 어드민 경로에 일반 사용자 권한으로 접근하려 할 때(403 Forbidden) 발생하는 보안 예외 상황에서 Spring Boot 기본 오류 JSON 대신 공통 API 규격인 `ApiResponse` 포맷(JSON)으로 일관되게 에러 응답을 제공하도록 예외 처리 핸들러(`AuthenticationEntryPoint`, `AccessDeniedHandler`)를 구현하여 반영함.
+* **보안 예외 및 공통 응답 규격 개선**:
+  - 클라이언트 개발 편의성 및 상태 조회의 직관성을 강화하기 위해 공통 응답 규격인 `ApiResponse` DTO에 **`success` (boolean)** 필드를 신규 추가 적용함.
+  - 인증 토큰이 유실되었거나(401 Unauthorized), 어드민 경로에 일반 사용자 권한으로 접근하려 할 때(403 Forbidden) 발생하는 보안 예외 상황에서도 Spring Boot 기본 오류 JSON 대신 공통 API 규격인 `ApiResponse` 포맷(JSON)으로 일관되게 에러 응답(success=false, status, message)을 제공하도록 예외 처리 핸들러(`AuthenticationEntryPoint`, `AccessDeniedHandler`)를 구현하여 반영함.
 
 ---
 
