@@ -39,16 +39,24 @@ public final class OrderGenerator {
         // 환경 변수 및 config 파일로부터 대상 매칭 엔진의 IP 호스트와 포트를 바인딩
         String btcHost = ConfigLoader.get("ENGINE_HOST", "localhost");
         String adaHost = ConfigLoader.get("ADA_ENGINE_HOST", btcHost);
+        String jafKrwHost = ConfigLoader.get("JAF_KRW_ENGINE_HOST", btcHost);
+        String jafUsdHost = ConfigLoader.get("JAF_USD_ENGINE_HOST", btcHost);
 
         // BTC-USD(비트코인) 주문 수신용 TCP 포트 (기본값: 9999)
         int btcPort = ConfigLoader.getInt("COMMAND_PORT", 9999);
         // ADA-KRW(에이다) 주문 수신용 TCP 포트 (기본값: 9997)
         int adaPort = ConfigLoader.getInt("ADA_COMMAND_PORT", 9997);
+        // JAF-KRW(자프 원화) 주문 수신용 TCP 포트 (기본값: 9995)
+        int jafKrwPort = ConfigLoader.getInt("JAF_KRW_COMMAND_PORT", 9995);
+        // JAF-USD(자프 달러) 주문 수신용 TCP 포트 (기본값: 9994)
+        int jafUsdPort = ConfigLoader.getInt("JAF_USD_COMMAND_PORT", 9994);
 
         System.out.println("Starting Multi-Symbol Order Generator...");
         System.out.println("Target Matching Engines:");
         System.out.println(" - BTC-USD command port: " + btcHost + ":" + btcPort);
         System.out.println(" - ADA-KRW command port: " + adaHost + ":" + adaPort);
+        System.out.println(" - JAF-KRW command port: " + jafKrwHost + ":" + jafKrwPort);
+        System.out.println(" - JAF-USD command port: " + jafUsdHost + ":" + jafUsdPort);
         System.out.println(
                 " - Max orders limit: " + (MAX_ORDERS == Integer.MAX_VALUE ? "UNLIMITED" : MAX_ORDERS + " orders"));
 
@@ -62,15 +70,29 @@ public final class OrderGenerator {
         Thread adaThread = new Thread(
                 new GeneratorTask(adaHost, adaPort, 500L * adaScale, "ADA-KRW", adaScale, sleepMin, sleepMax),
                 "generator-ada");
+        // 3. 자프 원화(JAF-KRW) 가상 주문 주입 담당 스레드 생성 (소수점 4자리 스케일 10,000, 기준가: 1500)
+        long jafKrwScale = 10000L;
+        Thread jafKrwThread = new Thread(
+                new GeneratorTask(jafKrwHost, jafKrwPort, 1500L * jafKrwScale, "JAF-KRW", jafKrwScale, sleepMin, sleepMax),
+                "generator-jaf-krw");
+        // 4. 자프 달러(JAF-USD) 가상 주문 주입 담당 스레드 생성 (소수점 8자리 스케일 100,000,000, 기준가: 1)
+        long jafUsdScale = 100000000L;
+        Thread jafUsdThread = new Thread(
+                new GeneratorTask(jafUsdHost, jafUsdPort, 1L * jafUsdScale, "JAF-USD", jafUsdScale, sleepMin, sleepMax),
+                "generator-jaf-usd");
 
-        // 각 마켓별 주문 인젝터 스레드 동시 구동 (병렬 처리 구조)
+        // 각 마켓별 주문 인젝터 스레드 동시 구동
         btcThread.start();
         adaThread.start();
+        jafKrwThread.start();
+        jafUsdThread.start();
 
         try {
-            // 프로세스가 임의로 종료되지 않도록 작업 완료 시까지 메인 스레드를 정지 상태로 유지(Join)
+            // 프로세스가 임의로 종료되지 않도록 작업 완료 시까지 메인 스레드를 정지 상태로 유지
             btcThread.join();
             adaThread.join();
+            jafKrwThread.join();
+            jafUsdThread.join();
         } catch (InterruptedException e) {
             System.err.println("Main thread interrupted.");
         }
@@ -123,20 +145,29 @@ public final class OrderGenerator {
                         // 1. 주문 유형 결정: 매수(BUY)와 매도(SELL) 확률을 정확히 50% 반반으로 나눔
                         String side = rand.nextBoolean() ? "BUY" : "SELL";
 
-                        // 2. 호가 격차(Price Offset) 산정: 호가창(OrderBook)의 물량 그룹핑을 위해 가격은 특정 틱 단위로 제한 (BTC는
-                        // 1달러 단위, ADA는 1원 단위)
+                        // 2. 호가 격차(Price Offset) 산정: 호가창(OrderBook)의 물량 그룹핑을 위해 가격은 특정 틱 단위로 제한
                         long priceOffset;
-                        if (symbol.equalsIgnoreCase("BTC-USD")) {
-                            // BTC: -15 ~ +14 달러 (정수 단위)
+                        if (symbol.equalsIgnoreCase("BTC-USD") || symbol.equalsIgnoreCase("JAF-USD")) {
+                            // BTC-USD / JAF-USD: -15 ~ +14 달러/센트 (정수 단위)
                             priceOffset = (rand.nextInt(30) - 15) * scale;
                         } else {
-                            // ADA: -3 ~ +2 원 (정수 단위)
+                            // ADA-KRW / JAF-KRW: -3 ~ +2 원 (정수 단위)
                             priceOffset = (rand.nextInt(6) - 3) * scale;
                         }
                         long price = referencePrice + priceOffset;
 
-                        // 3. 최저 호가 한계선(보호 가드) 산정: 비트코인은 $10,000.00, 에이다는 ₩10.00 미만으로 하락할 수 없도록 제한
-                        long minPrice = symbol.equalsIgnoreCase("BTC-USD") ? 10000L * scale : 10L * scale;
+                        // 3. 최저 호가 한계선(보호 가드) 산정: 호가가 음수 또는 비정상 가격으로 하락하지 않도록 제한
+                        long minPrice;
+                        if (symbol.equalsIgnoreCase("BTC-USD")) {
+                            minPrice = 10000L * scale;
+                        } else if (symbol.equalsIgnoreCase("JAF-USD")) {
+                            minPrice = (long) (0.1 * scale); // 최저 0.1 USD
+                        } else if (symbol.equalsIgnoreCase("JAF-KRW")) {
+                            minPrice = 100L * scale; // 최저 100 KRW
+                        } else {
+                            minPrice = 10L * scale; // ADA: 최저 10 KRW
+                        }
+
                         if (price < minPrice) {
                             price = minPrice;
                         }
@@ -144,10 +175,12 @@ public final class OrderGenerator {
                         // 4. 주문 수량(Qty) 산정: 종목에 맞는 현실적인 소수점 수량 생성 후 스케일업
                         long qty;
                         if (symbol.equalsIgnoreCase("BTC-USD")) {
-                            // BTC: 0.001 ~ 0.5 BTC
                             qty = (long) (scale * (0.001 + rand.nextDouble() * 0.499));
+                        } else if (symbol.equalsIgnoreCase("JAF-USD")) {
+                            qty = (long) (scale * (0.001 + rand.nextDouble() * 99.999));
+                        } else if (symbol.equalsIgnoreCase("JAF-KRW")) {
+                            qty = (long) (scale * (0.01 + rand.nextDouble() * 999.99));
                         } else {
-                            // ADA: 0.01 ~ 1000 ADA
                             qty = (long) (scale * (0.01 + rand.nextDouble() * 99.99));
                         }
                         // 5. 가상 유저 UID 할당: 1~1000번 사이의 1000명 랜덤 회원으로 할당하여 골고루 트랜잭션이 일어나도록 설계
@@ -167,8 +200,8 @@ public final class OrderGenerator {
 
                         // 7. 기준값 트렌드 변동: 5% 확률로 시장의 대세 흐름 가격(Reference Price) 자체를 동적 이동시켜 차트 우상향/우하향 연출
                         if (rand.nextInt(100) < 5) {
-                            if (symbol.equalsIgnoreCase("BTC-USD")) {
-                                referencePrice += (rand.nextInt(10) - 5) * scale; // -5 ~ +4 달러
+                            if (symbol.equalsIgnoreCase("BTC-USD") || symbol.equalsIgnoreCase("JAF-USD")) {
+                                referencePrice += (rand.nextInt(10) - 5) * scale; // -5 ~ +4 달러/센트
                             } else {
                                 referencePrice += (rand.nextInt(4) - 2) * scale; // -2 ~ +1 원
                             }
@@ -216,6 +249,10 @@ public final class OrderGenerator {
                 long qty;
                 if (symbol.equalsIgnoreCase("BTC-USD")) {
                     qty = (long) (scale * (0.01 + r.nextDouble() * 2.0)); // 0.01 ~ 2.0 BTC
+                } else if (symbol.equalsIgnoreCase("JAF-USD")) {
+                    qty = (long) (scale * (0.1 + r.nextDouble() * 10.0)); // 0.1 ~ 10.1 JAF
+                } else if (symbol.equalsIgnoreCase("JAF-KRW")) {
+                    qty = (long) (scale * (10 + r.nextDouble() * 500)); // 10 ~ 510 JAF
                 } else {
                     qty = (long) (scale * (100 + r.nextDouble() * 5000)); // 100 ~ 5100 ADA
                 }
@@ -229,6 +266,10 @@ public final class OrderGenerator {
                 long qty;
                 if (symbol.equalsIgnoreCase("BTC-USD")) {
                     qty = (long) (scale * (0.01 + r.nextDouble() * 2.0));
+                } else if (symbol.equalsIgnoreCase("JAF-USD")) {
+                    qty = (long) (scale * (0.1 + r.nextDouble() * 10.0));
+                } else if (symbol.equalsIgnoreCase("JAF-KRW")) {
+                    qty = (long) (scale * (10 + r.nextDouble() * 500));
                 } else {
                     qty = (long) (scale * (100 + r.nextDouble() * 5000));
                 }
