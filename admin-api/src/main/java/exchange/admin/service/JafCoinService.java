@@ -18,7 +18,11 @@ import org.web3j.crypto.TransactionEncoder;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameterName;
 import org.web3j.protocol.core.methods.request.Transaction;
-import org.web3j.protocol.core.methods.response.*;
+import org.web3j.protocol.core.methods.response.EthCall;
+import org.web3j.protocol.core.methods.response.EthGetTransactionCount;
+import org.web3j.protocol.core.methods.response.EthGetTransactionReceipt;
+import org.web3j.protocol.core.methods.response.EthSendTransaction;
+import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.protocol.http.HttpService;
 import org.web3j.utils.Numeric;
 
@@ -27,13 +31,15 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 /**
- * 로컬 이더리움 테스트넷(Ganache)과 연동하여 ERC-20 표준 JAF 토큰의 배포, 잔고 조회, 온체인 이체 트랜잭션 발송 등을 담당하는 서비스 클래스입니다.
+ * JAF 토큰 네트워크 입출금 및 온체인 연동을 담당하는 서비스 구현체.
+ * Ganache 로컬 EVM 노드 상에 JAF ERC-20 스마트 계약을 배포하여 운영한다.
  */
 @Slf4j
 @Service
-public class JAFTokenService {
+public class JafCoinService implements CoinNetworkService {
 
     @Value("${ethereum.rpc-url}")
     private String defaultRpcUrl;
@@ -59,29 +65,25 @@ public class JAFTokenService {
             int retries = 10;
             while (retries > 0) {
                 try {
-                    log.info("[JAFTokenService] 로컬 EVM 노드 연결을 시도합니다... (남은 횟수: {})", retries);
+                    log.info("[JafCoinService] 로컬 EVM 노드 연결을 시도합니다... (남은 횟수: {})", retries);
                     String rpcUrl = dockerRpcUrl;
                     try {
                         web3j = Web3j.build(new HttpService(rpcUrl));
-                        // 기본 버전 조회로 연결 여부 테스트
                         web3j.web3ClientVersion().send();
-                        log.info("[JAFTokenService] Ganache 컨테이너 연결 성공! ({})", rpcUrl);
+                        log.info("[JafCoinService] Ganache 컨테이너 연결 성공! ({})", rpcUrl);
                     } catch (Exception e) {
                         rpcUrl = defaultRpcUrl;
                         web3j = Web3j.build(new HttpService(rpcUrl));
                         web3j.web3ClientVersion().send();
-                        log.info("[JAFTokenService] Ganache 로컬 호스트 연결 성공! ({})", rpcUrl);
+                        log.info("[JafCoinService] Ganache 로컬 호스트 연결 성공! ({})", rpcUrl);
                     }
 
-                    // Ganache 0번 계정 Credentials 로드 (설정 파일의 private-key 주입)
                     credentials = Credentials.create(privateKey);
-
-                    // JAF ERC-20 스마트 컨트랙트 배포 진행 (초기 공급량: 1억 JAF)
                     deployJafContract();
                     initialized = true;
                     break;
                 } catch (Exception e) {
-                    log.error("[JAFTokenService] 연결 또는 배포 실패: {}. 3초 후 재시도...", e.getMessage());
+                    log.error("[JafCoinService] 연결 또는 배포 실패: {}. 3초 후 재시도...", e.getMessage());
                     retries--;
                     try {
                         Thread.sleep(3000);
@@ -90,26 +92,20 @@ public class JAFTokenService {
                     }
                 }
             }
-
-            if (!initialized) {
-                log.warn("[JAFTokenService] 경고: Ganache EVM 노드 연결 실패. JAF 토큰 기능은 Mock 시뮬레이션으로 대체 작동될 수 있습니다.");
-            }
         }).start();
     }
 
     private void deployJafContract() throws Exception {
-        log.info("[JAFTokenService] JAF ERC-20 토큰 컨트랙트 배포 중...");
-
+        log.info("[JafCoinService] JAF ERC-20 토큰 컨트랙트 배포 중...");
         EthGetTransactionCount ethGetTransactionCount = web3j.ethGetTransactionCount(
                 credentials.getAddress(), DefaultBlockParameterName.LATEST).send();
         BigInteger nonce = ethGetTransactionCount.getTransactionCount();
 
-        // 생성자 파라미터 (1억 JAF 토큰 공급량) 인코딩
-        BigInteger initialSupply = new BigInteger("100000000"); // 100,000,000
+        BigInteger initialSupply = new BigInteger("100000000");
         String encodedParam = Numeric.toHexStringNoPrefixZeroPadded(initialSupply, 64);
         String deployData = BYTECODE + encodedParam;
 
-        BigInteger gasPrice = BigInteger.valueOf(20000000000L); // 20 Gwei
+        BigInteger gasPrice = BigInteger.valueOf(20000000000L);
         BigInteger gasLimit = BigInteger.valueOf(3000000L);
 
         RawTransaction rawTransaction = RawTransaction.createContractTransaction(
@@ -124,9 +120,8 @@ public class JAFTokenService {
         }
 
         String txHash = ethSendTransaction.getTransactionHash();
-        log.info("[JAFTokenService] 배포 트랜잭션 전송 완료. TXID: {}", txHash);
+        log.info("[JafCoinService] 배포 트랜잭션 전송 완료. TXID: {}", txHash);
 
-        // 영수증 수신 대기 (최대 10초)
         TransactionReceipt receipt = null;
         for (int i = 0; i < 20; i++) {
             Thread.sleep(500);
@@ -142,22 +137,49 @@ public class JAFTokenService {
         }
 
         contractAddress = receipt.getContractAddress();
-        log.info("[JAFTokenService] JAF ERC-20 토큰 계약 배포 성공! CA: {}", contractAddress);
-        log.info("[JAFTokenService] 초기 1억 JAF 토큰이 핫월렛 계정({})으로 민팅되었습니다.", credentials.getAddress());
+        log.info("[JafCoinService] JAF ERC-20 토큰 계약 배포 성공! CA: {}", contractAddress);
     }
 
-    public boolean isInitialized() {
-        return initialized;
+    @Override
+    public String transfer(String toAddress, BigDecimal amount) throws Exception {
+        if (!initialized || contractAddress == null) {
+            throw new IllegalStateException("JafCoinService is not initialized yet.");
+        }
+
+        log.info("[JafCoinService] JAF 송금 요청: {} JAF -> {}", amount, toAddress);
+        BigInteger rawAmount = amount.multiply(BigDecimal.TEN.pow(18)).toBigInteger();
+
+        Function function = new Function(
+                "transfer",
+                Arrays.asList(new Address(toAddress), new Uint256(rawAmount)),
+                Arrays.asList(new TypeReference<Bool>() {
+                }));
+        String encodedFunction = FunctionEncoder.encode(function);
+
+        EthGetTransactionCount ethGetTransactionCount = web3j.ethGetTransactionCount(
+                credentials.getAddress(), DefaultBlockParameterName.LATEST).send();
+        BigInteger nonce = ethGetTransactionCount.getTransactionCount();
+
+        BigInteger gasPrice = BigInteger.valueOf(20000000000L);
+        BigInteger gasLimit = BigInteger.valueOf(100000L);
+
+        RawTransaction rawTransaction = RawTransaction.createTransaction(
+                nonce, gasPrice, gasLimit, contractAddress, encodedFunction);
+
+        byte[] signedMessage = TransactionEncoder.signMessage(rawTransaction, credentials);
+        String hexValue = Numeric.toHexString(signedMessage);
+
+        EthSendTransaction ethSendTransaction = web3j.ethSendRawTransaction(hexValue).send();
+        if (ethSendTransaction.hasError()) {
+            throw new RuntimeException("JAF transfer transaction failed: " + ethSendTransaction.getError().getMessage());
+        }
+
+        String txHash = ethSendTransaction.getTransactionHash();
+        log.info("[JafCoinService] JAF 송금 트랜잭션 브로드캐스트 성공. TXID: {}", txHash);
+        return txHash;
     }
 
-    public String getContractAddress() {
-        return contractAddress;
-    }
-
-    public Web3j getWeb3j() {
-        return web3j;
-    }
-
+    @Override
     public BigDecimal getBalance(String address) {
         if (!initialized || contractAddress == null) {
             return BigDecimal.ZERO;
@@ -179,6 +201,7 @@ public class JAFTokenService {
                 return BigDecimal.ZERO;
             }
 
+            @SuppressWarnings("rawtypes")
             List<Type> values = FunctionReturnDecoder.decode(response.getValue(), function.getOutputParameters());
             if (values.isEmpty()) {
                 return BigDecimal.ZERO;
@@ -186,47 +209,36 @@ public class JAFTokenService {
             BigInteger rawBalance = (BigInteger) values.get(0).getValue();
             return new BigDecimal(rawBalance).divide(BigDecimal.TEN.pow(18), 8, RoundingMode.HALF_UP);
         } catch (Exception e) {
-            log.error("[JAFTokenService] 잔고 조회 실패 ({}): {}", address, e.getMessage());
+            log.error("[JafCoinService] 잔고 조회 실패 ({}): {}", address, e.getMessage());
             return BigDecimal.ZERO;
         }
     }
 
-    public String transfer(String toAddress, BigDecimal amount) throws Exception {
-        if (!initialized || contractAddress == null) {
-            throw new IllegalStateException("JAFTokenService is not initialized or contract not deployed.");
-        }
+    @Override
+    public String generateAddress() throws Exception {
+        // 실제 온체인 상의 지갑 주소 체계를 모방하여 0x로 시작하는 랜덤한 고유 주소를 발급한다.
+        return "0x" + UUID.randomUUID().toString().replace("-", "");
+    }
 
-        log.info("[JAFTokenService] JAF 송금 요청: {} JAF -> {}", amount, toAddress);
-        BigInteger rawAmount = amount.multiply(BigDecimal.TEN.pow(18)).toBigInteger();
+    @Override
+    public BigDecimal estimateFee(String toAddress, BigDecimal amount) throws Exception {
+        // ERC-20 가스 한도(100,000)와 가스 가격(20 Gwei)을 기반으로 예상 트랜잭션 수수료를 산정한다.
+        // 100,000 * 20,000,000,000 = 0.002 ETH 상당의 수수료를 고정으로 산출한다.
+        return new BigDecimal("0.002");
+    }
 
-        Function function = new Function(
-                "transfer",
-                Arrays.asList(new Address(toAddress), new Uint256(rawAmount)),
-                Arrays.asList(new TypeReference<Bool>() {
-                }));
-        String encodedFunction = FunctionEncoder.encode(function);
+    @Override
+    public boolean supports(String currency) {
+        return "JAF".equalsIgnoreCase(currency);
+    }
 
-        EthGetTransactionCount ethGetTransactionCount = web3j.ethGetTransactionCount(
-                credentials.getAddress(), DefaultBlockParameterName.LATEST).send();
-        BigInteger nonce = ethGetTransactionCount.getTransactionCount();
+    @Override
+    public boolean isInitialized() {
+        return initialized;
+    }
 
-        BigInteger gasPrice = BigInteger.valueOf(20000000000L); // 20 Gwei
-        BigInteger gasLimit = BigInteger.valueOf(100000L); // Transfer gas limit
-
-        RawTransaction rawTransaction = RawTransaction.createTransaction(
-                nonce, gasPrice, gasLimit, contractAddress, encodedFunction);
-
-        byte[] signedMessage = TransactionEncoder.signMessage(rawTransaction, credentials);
-        String hexValue = Numeric.toHexString(signedMessage);
-
-        EthSendTransaction ethSendTransaction = web3j.ethSendRawTransaction(hexValue).send();
-        if (ethSendTransaction.hasError()) {
-            throw new RuntimeException(
-                    "JAF transfer transaction failed: " + ethSendTransaction.getError().getMessage());
-        }
-
-        String txHash = ethSendTransaction.getTransactionHash();
-        log.info("[JAFTokenService] JAF 송금 트랜잭션 브로드캐스트 성공. TXID: {}", txHash);
-        return txHash;
+    @Override
+    public String getContractAddress() {
+        return contractAddress;
     }
 }

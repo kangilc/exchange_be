@@ -28,7 +28,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import org.web3j.protocol.core.methods.response.EthLog;
 import org.web3j.utils.Numeric;
 
 /**
@@ -50,7 +49,7 @@ public class WalletDaemonService {
     private final WalletRepository walletRepository;
     private final LedgerJournalRepository ledgerJournalRepository;
     private final UserService userService;
-    private final JAFTokenService jafTokenService;
+    private final java.util.List<CoinNetworkService> coinNetworkServices;
 
     /** 임의의 입금 이벤트를 발생시키기 위한 난수 생성기 */
     private final Random random = new Random();
@@ -61,8 +60,8 @@ public class WalletDaemonService {
     /** 시뮬레이션용 현재 가상 블록체인 높이 (초기 시드 번호에서 스케줄러당 1씩 증가) */
     private long simulatedBlockHeight = 12045300L;
 
-    /** JAF 토큰 입금 감지를 위해 마지막으로 스캔한 Ganache 블록 번호 */
-    private BigInteger lastScannedJAFBlock = null;
+    /** JAF, BTC, ADA 등의 블록체인 입금 감지를 위해 마지막으로 스캔한 블록 번호 맵 */
+    private final java.util.Map<String, BigInteger> lastScannedBlocks = new ConcurrentHashMap<>();
 
     /** 이미 감지하여 처리 중이거나 완료된 온체인 입금 트랜잭션 해시 목록 (중복 처리 방지용) */
     private final Set<String> processedDepositTxHashes = ConcurrentHashMap.newKeySet();
@@ -205,17 +204,23 @@ public class WalletDaemonService {
             }
             amount = BigDecimal.valueOf(10 + random.nextInt(90)).setScale(8, RoundingMode.HALF_UP);
 
+            // 해당 자산의 코인 서비스 조회
+            CoinNetworkService networkService = coinNetworkServices.stream()
+                    .filter(s -> s.supports(currency))
+                    .findFirst()
+                    .orElse(null);
+
             // 실물 토큰의 경우, 핫월렛(Account 0)에서 사용자 주소로 실제 온체인 트랜잭션을 전송
             try {
-                if (jafTokenService.isInitialized()) {
+                if (networkService != null && networkService.isInitialized()) {
                     log.info("[블록체인 시뮬레이터] 시뮬레이션 입금을 위한 {} 온체인 전송 수행...", currency);
-                    String txHash = jafTokenService.transfer(targetAddr.getCryptoAddress(), amount);
+                    String txHash = networkService.transfer(targetAddr.getCryptoAddress(), amount);
                     log.info("[블록체인 시뮬레이터] {} 온체인 전송 완료. TxHash: {}", currency, txHash);
                     // 온체인 전송 성공 시, block scanner가 이 트랜잭션을 다음 블록에서 감지할 것이므로
                     // 여기서는 pendingDeposits에 직접 넣지 않고 온체인 이벤트를 스캔하도록 리턴
                     return;
                 } else {
-                    log.error("[블록체인 시뮬레이터] JAFTokenService가 초기화되지 않아 {} 입금 시뮬레이션을 건너뜁니다.", currency);
+                    log.error("[블록체인 시뮬레이터] 코인 서비스가 초기화되지 않아 {} 입금 시뮬레이션을 건너뜁니다.", currency);
                     return;
                 }
             } catch (Exception e) {
@@ -327,86 +332,109 @@ public class WalletDaemonService {
         }
     }
 
-    /**
-     * <h2>scanOnChainDeposits</h2>
-     * 로컬 Ganache 노드에서 JAF, BTC, ADA 등의 토큰 Transfer 이벤트를 감지하여 입금 대기열에 적재한다.
-     */
     private void scanOnChainDeposits() {
-        if (jafTokenService == null || !jafTokenService.isInitialized()) {
-            return;
-        }
-
-        try {
-            BigInteger latestBlock = jafTokenService.getWeb3j().ethBlockNumber().send().getBlockNumber();
-            if (lastScannedJAFBlock == null) {
-                lastScannedJAFBlock = latestBlock;
-                log.info("[WalletDaemonService] 온체인 블록 스캐너가 블록 {}에서 초기화되었습니다.", lastScannedJAFBlock);
-                return;
+        for (CoinNetworkService service : coinNetworkServices) {
+            if (!service.isInitialized()) {
+                continue;
             }
 
-            BigInteger fromBlock = lastScannedJAFBlock.add(BigInteger.ONE);
-            BigInteger toBlock = latestBlock;
+            String currency = "JAF";
+            if (service.supports("BTC")) {
+                currency = "BTC";
+            } else if (service.supports("ADA")) {
+                currency = "ADA";
+            }
 
-            if (fromBlock.compareTo(toBlock) <= 0) {
-                // JAFTokenService의 단일 CA 주소에서 발생하는 Transfer 이벤트 로그를 필터링
-                org.web3j.protocol.core.methods.request.EthFilter filter = new org.web3j.protocol.core.methods.request.EthFilter(
-                        new org.web3j.protocol.core.DefaultBlockParameterNumber(fromBlock),
-                        new org.web3j.protocol.core.DefaultBlockParameterNumber(toBlock),
-                        jafTokenService.getContractAddress());
-                // ERC-20 Transfer(address,address,uint256) 이벤트 해시 등록
-                filter.addSingleTopic("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef");
-
-                EthLog ethLog = jafTokenService.getWeb3j().ethGetLogs(filter).send();
-                if (ethLog.hasError()) {
-                    log.error("[WalletDaemonService] EthGetLogs 에러: {}", ethLog.getError().getMessage());
-                    return;
+            try {
+                // JafCoinService, BtcCoinService, AdaCoinService의 내부 web3j를 사용해 온체인 로그 추출
+                // 각 구현체는 Web3j를 통해 원격 블록 정보를 스캔하도록 수정
+                org.web3j.protocol.Web3j web3j = null;
+                if (service instanceof JafCoinService) {
+                    web3j = org.web3j.protocol.Web3j.build(new org.web3j.protocol.http.HttpService(
+                            AdminSettings.isOnChainDepositMonitoringEnabled() ? "http://ganache:8545" : "http://localhost:8545"));
+                } else if (service instanceof BtcCoinService) {
+                    web3j = org.web3j.protocol.Web3j.build(new org.web3j.protocol.http.HttpService(
+                            AdminSettings.isOnChainDepositMonitoringEnabled() ? "http://ganache:8545" : "http://localhost:8545"));
+                } else if (service instanceof AdaCoinService) {
+                    web3j = org.web3j.protocol.Web3j.build(new org.web3j.protocol.http.HttpService(
+                            AdminSettings.isOnChainDepositMonitoringEnabled() ? "http://ganache:8545" : "http://localhost:8545"));
                 }
 
-                List<EthLog.LogResult> logs = ethLog.getLogs();
-                for (EthLog.LogResult logResult : logs) {
-                    org.web3j.protocol.core.methods.response.Log web3jLog = (org.web3j.protocol.core.methods.response.Log) logResult.get();
-                    List<String> topics = web3jLog.getTopics();
-                    if (topics.size() >= 3) {
-                        String toAddress = "0x" + topics.get(2).substring(26);
-                        String txHash = web3jLog.getTransactionHash();
+                if (web3j == null) {
+                    continue;
+                }
 
-                        // DB의 사용자 입금 주소 목록 매핑 시도
-                        Optional<UserCryptoAddress> userAddrOpt = userCryptoAddressRepository
-                                .findByCryptoAddressIgnoreCase(toAddress);
-                        if (userAddrOpt.isPresent()) {
-                            UserCryptoAddress userAddr = userAddrOpt.get();
-                            String currency = userAddr.getCurrency().toUpperCase();
+                BigInteger latestBlock = web3j.ethBlockNumber().send().getBlockNumber();
+                BigInteger lastScannedBlock = lastScannedBlocks.get(currency);
 
-                            // JAF, BTC, ADA 코인 주소와 일치하는 경우 온체인 입금으로 감지하여 대기열에 추가
-                            if (currency.equals("JAF") || currency.equals("BTC") || currency.equals("ADA")) {
-                                BigInteger value = Numeric.toBigInt(web3jLog.getData());
-                                BigDecimal amount = new BigDecimal(value).divide(BigDecimal.TEN.pow(18), 8, RoundingMode.HALF_UP);
+                if (lastScannedBlock == null) {
+                    lastScannedBlocks.put(currency, latestBlock);
+                    log.info("[WalletDaemonService] 온체인 {} 블록 스캐너가 블록 {}에서 초기화되었습니다.", currency, latestBlock);
+                    continue;
+                }
 
-                                boolean alreadyPending = pendingDeposits.stream()
-                                        .anyMatch(d -> d.getTxHash().equalsIgnoreCase(txHash));
-                                if (!alreadyPending && !processedDepositTxHashes.contains(txHash)) {
-                                    int reqConfirmations = AdminSettings.getEthConfirmations();
-                                    PendingDeposit deposit = new PendingDeposit(
-                                            userAddr.getUserId(),
-                                            currency,
-                                            amount,
-                                            txHash,
-                                            userAddr.getCryptoAddress(),
-                                            reqConfirmations);
-                                    pendingDeposits.add(deposit);
-                                    processedDepositTxHashes.add(txHash);
-                                    log.info(
-                                            "[WalletDaemonService] 온체인 {} 입금 감지! TxHash: {}, 수량: {}, 수신처: {} -> 컨펌 대기 대기열 진입",
-                                            currency, txHash, amount, userAddr.getCryptoAddress());
+                BigInteger fromBlock = lastScannedBlock.add(BigInteger.ONE);
+                BigInteger toBlock = latestBlock;
+
+                if (fromBlock.compareTo(toBlock) <= 0) {
+                    org.web3j.protocol.core.methods.request.EthFilter filter = new org.web3j.protocol.core.methods.request.EthFilter(
+                            new org.web3j.protocol.core.DefaultBlockParameterNumber(fromBlock),
+                            new org.web3j.protocol.core.DefaultBlockParameterNumber(toBlock),
+                            service.getContractAddress());
+                    // ERC-20 Transfer(address,address,uint256) 이벤트 해시 필터링
+                    filter.addSingleTopic("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef");
+
+                    org.web3j.protocol.core.methods.response.EthLog ethLog = web3j.ethGetLogs(filter).send();
+                    if (ethLog.hasError()) {
+                        log.error("[WalletDaemonService] {} EthGetLogs 에러: {}", currency, ethLog.getError().getMessage());
+                        continue;
+                    }
+
+                    List<org.web3j.protocol.core.methods.response.EthLog.LogResult> logs = ethLog.getLogs();
+                    for (org.web3j.protocol.core.methods.response.EthLog.LogResult logResult : logs) {
+                        org.web3j.protocol.core.methods.response.Log web3jLog = (org.web3j.protocol.core.methods.response.Log) logResult.get();
+                        List<String> topics = web3jLog.getTopics();
+                        if (topics.size() >= 3) {
+                            String toAddress = "0x" + topics.get(2).substring(26);
+                            String txHash = web3jLog.getTransactionHash();
+
+                            // DB의 사용자 입금 주소 목록 매핑 시도
+                            Optional<UserCryptoAddress> userAddrOpt = userCryptoAddressRepository
+                                    .findByCryptoAddressIgnoreCase(toAddress);
+                            if (userAddrOpt.isPresent()) {
+                                UserCryptoAddress userAddr = userAddrOpt.get();
+                                String userCurrency = userAddr.getCurrency().toUpperCase();
+
+                                if (userCurrency.equalsIgnoreCase(currency)) {
+                                    BigInteger value = Numeric.toBigInt(web3jLog.getData());
+                                    BigDecimal amount = new BigDecimal(value).divide(BigDecimal.TEN.pow(18), 8, RoundingMode.HALF_UP);
+
+                                    boolean alreadyPending = pendingDeposits.stream()
+                                            .anyMatch(d -> d.getTxHash().equalsIgnoreCase(txHash));
+                                    if (!alreadyPending && !processedDepositTxHashes.contains(txHash)) {
+                                        int reqConfirmations = AdminSettings.getEthConfirmations();
+                                        PendingDeposit deposit = new PendingDeposit(
+                                                userAddr.getUserId(),
+                                                userCurrency,
+                                                amount,
+                                                txHash,
+                                                userAddr.getCryptoAddress(),
+                                                reqConfirmations);
+                                        pendingDeposits.add(deposit);
+                                        processedDepositTxHashes.add(txHash);
+                                        log.info(
+                                                "[WalletDaemonService] 온체인 {} 입금 감지! TxHash: {}, 수량: {}, 수신처: {} -> 컨펌 대기 대기열 진입",
+                                                userCurrency, txHash, amount, userAddr.getCryptoAddress());
+                                    }
                                 }
                             }
                         }
                     }
+                    lastScannedBlocks.put(currency, toBlock);
                 }
-                lastScannedJAFBlock = toBlock;
+            } catch (Exception e) {
+                log.error("[WalletDaemonService] 온체인 {} 입금 스캔 중 에러 발생: {}", currency, e.getMessage());
             }
-        } catch (Exception e) {
-            log.error("[WalletDaemonService] 온체인 입금 스캔 중 에러 발생: {}", e.getMessage());
         }
     }
 }

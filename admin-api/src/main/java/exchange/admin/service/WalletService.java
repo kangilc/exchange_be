@@ -7,7 +7,6 @@ import exchange.admin.model.SystemHotWallet;
 import exchange.admin.model.Wallet;
 import exchange.admin.repository.CryptoWithdrawalRepository;
 import exchange.admin.repository.SystemHotWalletRepository;
-import exchange.admin.repository.UserCryptoAddressRepository;
 import exchange.admin.repository.WalletRepository;
 import exchange.admin.dto.request.wallet.WithdrawRequestIDT;
 import exchange.admin.dto.request.wallet.RebalanceRequestIDT;
@@ -29,8 +28,7 @@ public class WalletService {
     private final CryptoWithdrawalRepository cryptoWithdrawalRepository;
     private final SystemHotWalletRepository systemHotWalletRepository;
     private final WalletRepository walletRepository;
-    private final UserCryptoAddressRepository userCryptoAddressRepository;
-    private final java.util.List<CoinWithdrawService> coinWithdrawServices;
+    private final java.util.List<CoinNetworkService> coinNetworkServices;
 
     /**
      * 사용자의 가상 자산 출금 요청을 등록하고 잔고를 잠금 처리한다.
@@ -91,14 +89,18 @@ public class WalletService {
             throw new IllegalArgumentException("Insufficient hot wallet on-chain balance.");
         }
 
-        // 지원하는 코인 전용 출금 서비스 조회
-        CoinWithdrawService withdrawService = coinWithdrawServices.stream()
+        // 지원하는 코인 전용 온체인 서비스 조회
+        CoinNetworkService networkService = coinNetworkServices.stream()
                 .filter(s -> s.supports(withdrawal.getCurrency()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unsupported currency for withdrawal: " + withdrawal.getCurrency()));
 
-        // 온체인 출금 처리 실행
-        String txHash = withdrawService.withdraw(withdrawal.getToAddress(), withdrawal.getAmount());
+        // 출금 수수료 사전 산정
+        BigDecimal estimatedFee = networkService.estimateFee(withdrawal.getToAddress(), withdrawal.getAmount());
+        log.info("[출금 승인 사전 가스비 연산] 코인: {}, 예상 수수료: {}", withdrawal.getCurrency(), estimatedFee);
+
+        // 온체인 출금 처리 실행 (스마트 계약 transfer 호출)
+        String txHash = networkService.transfer(withdrawal.getToAddress(), withdrawal.getAmount());
 
         withdrawal.setTxHash(txHash);
         withdrawal.setStatus("BROADCASTED");

@@ -49,7 +49,10 @@ admin-api/
 │   ├── repository/                 # 데이터 조회를 위한 Spring Data JPA Repository 인터페이스
 │   ├── security/                   # JWT 검증 필터, 암호화 인코더 및 Security 설정
 │   └── service/                    # 핵심 비즈니스 로직 구현 서비스 계층
-│       ├── JAFTokenService.java    # 로컬 EVM(Ganache) 노드 연동 및 JAF ERC-20 토큰 스마트 컨트랙트 배포/이체 서비스
+│       ├── CoinNetworkService.java # 코인별 온체인 네트워크 입출금 연동 공통 인터페이스
+│       ├── JafCoinService.java     # Ganache EVM 상에 JAF 스마트 계약 배포 및 트랜잭션 전송 서비스
+│       ├── BtcCoinService.java     # Ganache EVM 상에 BTC 스마트 계약 배포 및 트랜잭션 전송 서비스
+│       ├── AdaCoinService.java     # Ganache EVM 상에 ADA 스마트 계약 배포 및 트랜잭션 전송 서비스
 │       ├── MarketService.java      # 마켓 구성 수정, 캐시 갱신 및 이력 저장 서비스
 │       ├── StatsService.java       # 시간 해상도별 캔들 데이터 집계, 대시보드 요약 및 KPI 성능 지표 분석 서비스
 │       ├── UserService.java        # 회원 등록, 정보 수정, 가상 지갑 수동 조정 및 원장 기록 서비스

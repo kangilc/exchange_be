@@ -4,26 +4,20 @@ import lombok.extern.slf4j.Slf4j;
 import exchange.admin.dto.ApiResponse;
 import exchange.admin.model.CryptoWithdrawal;
 import exchange.admin.model.SystemHotWallet;
-import exchange.admin.model.Wallet;
 import exchange.admin.repository.CryptoWithdrawalRepository;
 import exchange.admin.repository.SystemHotWalletRepository;
 import exchange.admin.repository.UserCryptoAddressRepository;
-import exchange.admin.repository.WalletRepository;
 import exchange.admin.service.WalletDaemonService;
-import exchange.admin.service.JAFTokenService;
+import exchange.admin.service.CoinNetworkService;
 import exchange.admin.service.WalletService;
 import exchange.admin.dto.request.wallet.WithdrawRequestIDT;
 import exchange.admin.dto.request.wallet.RebalanceRequestIDT;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * <h1>CryptoWalletController</h1>
@@ -48,13 +42,10 @@ public class CryptoWalletController {
     /** 사용자별 발급된 온체인 지갑 주소(UserCryptoAddress) 조회를 위한 리포지토리 */
     private final UserCryptoAddressRepository userCryptoAddressRepository;
 
-    /** 사용자의 가상 지갑(Wallet) 잔고 수정을 위한 리포지토리 */
-    private final WalletRepository walletRepository;
-
     /** 블록체인 시뮬레이션 데몬 및 입금 대기열 관리를 위한 서비스 */
     private final WalletDaemonService walletDaemonService;
 
-    private final JAFTokenService jafTokenService;
+    private final java.util.List<CoinNetworkService> coinNetworkServices;
 
     /**
      * [GET] /admin/crypto/withdrawals
@@ -243,8 +234,14 @@ public class CryptoWalletController {
                     .findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("User JAF address not found"));
 
-            if (jafTokenService.isInitialized()) {
-                String txHash = jafTokenService.transfer(userAddr.getCryptoAddress(), amount);
+            // CoinNetworkService 리스트에서 JAF 지원 서비스를 탐색
+            CoinNetworkService jafService = coinNetworkServices.stream()
+                    .filter(s -> s.supports("JAF"))
+                    .findFirst()
+                    .orElse(null);
+
+            if (jafService != null && jafService.isInitialized()) {
+                String txHash = jafService.transfer(userAddr.getCryptoAddress(), amount);
                 log.info("[테스트 입금 API] JAF 온체인 전송 완료. 수신주소: {}, TxHash: {}", userAddr.getCryptoAddress(), txHash);
                 return ApiResponse.ok(Map.of(
                         "success", true,
@@ -253,7 +250,7 @@ public class CryptoWalletController {
                         "amount", amount));
             } else {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "JAFTokenService is not initialized."));
+                        .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "JafCoinService is not initialized."));
             }
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
