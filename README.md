@@ -28,6 +28,12 @@
   - 모든 API 응답을 `ApiResponse<T>` 래퍼로 통합하여 에러 코드 및 메시지 규격화.
   - 요청 DTO는 `*IDT` (Input Data Transfer), 응답 DTO는 `*ODT` (Output Data Transfer) 네이밍 컨벤션으로 완전 분리 적용.
   - 컨트롤러 및 서비스 레이어에서 Map 반환을 명시적 타입 객체(ODT) 반환으로 전환하여 타입 안전성 확보.
+- 코인별 온체인 입출금 다형성 구현 및 JAF 마켓 거래쌍 신규 추가 (`admin-api`).
+  - `WalletService` 내부의 JAF 코인 하드코딩 분기 처리를 전면 제거하고, `CoinWithdrawService` 통합 인터페이스 기반 다형성 설계(OCP)를 적용함.
+  - `BTC`, `ADA`, `JAF` 자산 출금 시 로컬 EVM 스마트 계약인 `JAFTokenService`를 거치도록 단일화하고, 미지원 자산 출금 요청 시 `IllegalArgumentException` 예외를 던지도록 수정함.
+  - `WalletDaemonService` 백그라운드 스케줄러의 임의 난수 가상 입금 시뮬레이션을 전면 폐지하고, `scanOnChainDeposits`를 통해 `JAF`, `BTC`, `ADA` 3종 코인에 대한 실제 Ganache 온체인 Transfer 로그 감지 및 정산으로 일원화함.
+  - `V2__seed_data.sql`에 `JAF-KRW` (기준가: 1500) 및 `JAF-USD` (기준가: 1) 마켓 상장 데이터를 신규 주입하여 마켓 활성화를 지원함.
+  - `@Autowired` 필드 주입 방식을 생성자 주입 구조(Lombok `@RequiredArgsConstructor`)로 리팩토링하여 안전성을 극대화함.
 - MyBatis 프레임워크 전면 도입 완료 (`admin-api`).
   - `LedgerJournalRepository`에 이어 `TradeRepository`의 복잡한 네이티브 쿼리를 `TradeMapper`로 모두 이관.
   - OR 조건으로 인한 풀 스캔 성능 저하를 `UNION ALL`로 분리하여 인덱스 효율성 극대화.
