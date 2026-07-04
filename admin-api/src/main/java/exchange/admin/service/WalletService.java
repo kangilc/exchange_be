@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 import java.util.NoSuchElementException;
 
 /**
@@ -31,7 +30,7 @@ public class WalletService {
     private final SystemHotWalletRepository systemHotWalletRepository;
     private final WalletRepository walletRepository;
     private final UserCryptoAddressRepository userCryptoAddressRepository;
-    private final JAFTokenService jafTokenService;
+    private final java.util.List<CoinWithdrawService> coinWithdrawServices;
 
     /**
      * 사용자의 가상 자산 출금 요청을 등록하고 잔고를 잠금 처리한다.
@@ -72,7 +71,7 @@ public class WalletService {
     }
 
     /**
-     * 대기 중인 출금 요청을 승인하고 온체인 네트워크로 트랜잭션을 전송(시뮬레이션)한다.
+     * 대기 중인 출금 요청을 승인하고 온체인 네트워크로 트랜잭션을 전송한다.
      *
      * @param id 승인하고자 하는 출금 신청 ID
      * @return 승인되어 브로드캐스트 처리된 출금 내역
@@ -92,17 +91,14 @@ public class WalletService {
             throw new IllegalArgumentException("Insufficient hot wallet on-chain balance.");
         }
 
-        String txHash;
-        if (withdrawal.getCurrency().equalsIgnoreCase("JAF")) {
-            if (jafTokenService.isInitialized()) {
-                txHash = jafTokenService.transfer(withdrawal.getToAddress(), withdrawal.getAmount());
-            } else {
-                throw new IllegalStateException("JAFTokenService is not initialized yet.");
-            }
-        } else {
-            txHash = "0x" + UUID.randomUUID().toString().replace("-", "")
-                    + UUID.randomUUID().toString().replace("-", "").substring(0, 32);
-        }
+        // 지원하는 코인 전용 출금 서비스 조회
+        CoinWithdrawService withdrawService = coinWithdrawServices.stream()
+                .filter(s -> s.supports(withdrawal.getCurrency()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported currency for withdrawal: " + withdrawal.getCurrency()));
+
+        // 온체인 출금 처리 실행
+        String txHash = withdrawService.withdraw(withdrawal.getToAddress(), withdrawal.getAmount());
 
         withdrawal.setTxHash(txHash);
         withdrawal.setStatus("BROADCASTED");

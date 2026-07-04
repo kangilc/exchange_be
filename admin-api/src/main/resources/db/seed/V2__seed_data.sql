@@ -222,3 +222,7 @@ INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_deci
 ('BTC-USD', 'BTC', 'USD', 0.001000, 2, 0.00010000, 6500000, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
 INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, status, created_by, updated_by) VALUES
 ('ADA-KRW', 'ADA', 'KRW', 0.001500, 2, 0.00010000, 50000, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
+INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, status, created_by, updated_by) VALUES
+('JAF-KRW', 'JAF', 'KRW', 0.002000, 2, 1.00000000, 1500, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
+INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, status, created_by, updated_by) VALUES
+('JAF-USD', 'JAF', 'USD', 0.002000, 2, 0.01000000, 1, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;

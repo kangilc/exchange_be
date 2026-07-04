@@ -1,5 +1,6 @@
 package exchange.admin.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import exchange.admin.config.AdminSettings;
 import exchange.admin.model.CryptoWithdrawal;
@@ -12,7 +13,6 @@ import exchange.admin.repository.LedgerJournalRepository;
 import exchange.admin.repository.SystemHotWalletRepository;
 import exchange.admin.repository.UserCryptoAddressRepository;
 import exchange.admin.repository.WalletRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.web3j.protocol.core.methods.response.EthLog;
@@ -42,28 +41,16 @@ import org.web3j.utils.Numeric;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class WalletDaemonService {
 
-    @Autowired
-    private CryptoWithdrawalRepository cryptoWithdrawalRepository;
-
-    @Autowired
-    private SystemHotWalletRepository systemHotWalletRepository;
-
-    @Autowired
-    private UserCryptoAddressRepository userCryptoAddressRepository;
-
-    @Autowired
-    private WalletRepository walletRepository;
-
-    @Autowired
-    private LedgerJournalRepository ledgerJournalRepository;
-
-    @Autowired
-    private UserService userService;
-
-    @Autowired
-    private JAFTokenService jafTokenService;
+    private final CryptoWithdrawalRepository cryptoWithdrawalRepository;
+    private final SystemHotWalletRepository systemHotWalletRepository;
+    private final UserCryptoAddressRepository userCryptoAddressRepository;
+    private final WalletRepository walletRepository;
+    private final LedgerJournalRepository ledgerJournalRepository;
+    private final UserService userService;
+    private final JAFTokenService jafTokenService;
 
     /** 임의의 입금 이벤트를 발생시키기 위한 난수 생성기 */
     private final Random random = new Random();
@@ -186,9 +173,9 @@ public class WalletDaemonService {
             simulateIncomingDeposit();
         }
 
-        // 실제 온체인 상의 입금(JAF 토큰 등) 감지 및 대기 중인 입금의 컨펌(블록 확인) 처리는
+        // 실제 온체인 상의 입금(JAF, BTC, ADA 토큰 등) 감지 및 대기 중인 입금의 컨펌(블록 확인) 처리는
         // 시뮬레이터 ON/OFF 여부와 관계없이 실시간으로 계속 수행됩니다.
-        scanJafDeposits();
+        scanOnChainDeposits();
         processPendingDeposits();
 
         // 3. 가상 출금(Withdrawal) 컨펌 수 가산 및 최종 성공 완료 처리
@@ -209,70 +196,35 @@ public class WalletDaemonService {
 
         // 통화별 가격 및 수량 범위 설정
         BigDecimal amount;
-        int reqConfirmations;
         String currency = targetAddr.getCurrency();
 
-        if (currency.equals("JAF")) {
-            // 실물 JAF 토큰의 자동 테스트 입금 생성(시뮬레이션) 활성화 여부 검사
+        if (currency.equals("JAF") || currency.equals("BTC") || currency.equals("ADA")) {
+            // 온체인 입금 모니터링 활성화 여부 검사
             if (!AdminSettings.isOnChainDepositMonitoringEnabled()) {
                 return;
             }
             amount = BigDecimal.valueOf(10 + random.nextInt(90)).setScale(8, RoundingMode.HALF_UP);
-            reqConfirmations = AdminSettings.getEthConfirmations();
 
-            // 실물 JAF 토큰의 경우, 핫월렛(Account 0)에서 사용자 주소로 실제 온체인 트랜잭션을 전송합니다.
+            // 실물 토큰의 경우, 핫월렛(Account 0)에서 사용자 주소로 실제 온체인 트랜잭션을 전송
             try {
                 if (jafTokenService.isInitialized()) {
-                    log.info("[블록체인 시뮬레이터] 시뮬레이션 입금을 위한 JAF 온체인 전송 수행...");
+                    log.info("[블록체인 시뮬레이터] 시뮬레이션 입금을 위한 {} 온체인 전송 수행...", currency);
                     String txHash = jafTokenService.transfer(targetAddr.getCryptoAddress(), amount);
-                    log.info("[블록체인 시뮬레이터] JAF 온체인 전송 완료. TxHash: {}", txHash);
+                    log.info("[블록체인 시뮬레이터] {} 온체인 전송 완료. TxHash: {}", currency, txHash);
                     // 온체인 전송 성공 시, block scanner가 이 트랜잭션을 다음 블록에서 감지할 것이므로
-                    // 여기서는 pendingDeposits에 직접 넣지 않고 온체인 이벤트를 자연스럽게 스캔하도록 리턴합니다.
+                    // 여기서는 pendingDeposits에 직접 넣지 않고 온체인 이벤트를 스캔하도록 리턴
                     return;
                 } else {
-                    log.error("[블록체인 시뮬레이터] JAFTokenService가 초기화되지 않아 JAF 입금 시뮬레이션을 건너뜁니다.");
+                    log.error("[블록체인 시뮬레이터] JAFTokenService가 초기화되지 않아 {} 입금 시뮬레이션을 건너뜁니다.", currency);
                     return;
                 }
             } catch (Exception e) {
-                log.error("[블록체인 시뮬레이터] JAF 온체인 전송 실패: {}", e.getMessage());
+                log.error("[블록체인 시뮬레이터] {} 온체인 전송 실패: {}", currency, e.getMessage());
                 return;
             }
         } else {
-            // 인메모리 가상 입금(BTC, ETH, ADA) 생성(시뮬레이션) 활성화 여부 검사
-            if (!AdminSettings.isWalletSimulationEnabled()) {
-                return;
-            }
-            if (currency.equals("BTC")) {
-                amount = BigDecimal.valueOf(0.01 + random.nextDouble() * 0.15).setScale(8, RoundingMode.HALF_UP);
-                reqConfirmations = AdminSettings.getBtcConfirmations();
-            } else if (currency.equals("ETH")) {
-                amount = BigDecimal.valueOf(0.1 + random.nextDouble() * 2.0).setScale(8, RoundingMode.HALF_UP);
-                reqConfirmations = AdminSettings.getEthConfirmations();
-            } else if (currency.equals("ADA")) {
-                amount = BigDecimal.valueOf(50 + random.nextInt(450)).setScale(8, RoundingMode.HALF_UP);
-                reqConfirmations = AdminSettings.getAdaConfirmations();
-            } else {
-                return; // 지원하지 않는 통화 무시
-            }
+            return; // 지원하지 않는 통화 무시
         }
-
-        // 임의의 가상 온체인 TXID(Transaction Hash) 생성
-        String txHash = "0x" + UUID.randomUUID().toString().replace("-", "")
-                + UUID.randomUUID().toString().replace("-", "").substring(0, 32);
-
-        // 대기열 객체 생성
-        PendingDeposit deposit = new PendingDeposit(
-                targetAddr.getUserId(),
-                currency,
-                amount,
-                txHash,
-                targetAddr.getCryptoAddress(),
-                reqConfirmations);
-
-        // 컨펌 대기 리스트에 주입
-        pendingDeposits.add(deposit);
-        log.info("[블록체인 시뮬레이터] 신규 가상 입금 감지! {} @ {} -> 컨펌 대기 시작 (Target: {})",
-                amount, targetAddr.getCryptoAddress(), reqConfirmations);
     }
 
     /**
@@ -376,10 +328,10 @@ public class WalletDaemonService {
     }
 
     /**
-     * <h2>scanJafDeposits</h2>
-     * 로컬 Ganache 노드에서 JAF 토큰의 Transfer 이벤트를 감지하여 입금 대기열에 적재합니다.
+     * <h2>scanOnChainDeposits</h2>
+     * 로컬 Ganache 노드에서 JAF, BTC, ADA 등의 토큰 Transfer 이벤트를 감지하여 입금 대기열에 적재한다.
      */
-    private void scanJafDeposits() {
+    private void scanOnChainDeposits() {
         if (jafTokenService == null || !jafTokenService.isInitialized()) {
             return;
         }
@@ -388,7 +340,7 @@ public class WalletDaemonService {
             BigInteger latestBlock = jafTokenService.getWeb3j().ethBlockNumber().send().getBlockNumber();
             if (lastScannedJAFBlock == null) {
                 lastScannedJAFBlock = latestBlock;
-                log.info("[WalletDaemonService] JAF block scanner initialized at block {}", lastScannedJAFBlock);
+                log.info("[WalletDaemonService] 온체인 블록 스캐너가 블록 {}에서 초기화되었습니다.", lastScannedJAFBlock);
                 return;
             }
 
@@ -396,22 +348,23 @@ public class WalletDaemonService {
             BigInteger toBlock = latestBlock;
 
             if (fromBlock.compareTo(toBlock) <= 0) {
+                // JAFTokenService의 단일 CA 주소에서 발생하는 Transfer 이벤트 로그를 필터링
                 org.web3j.protocol.core.methods.request.EthFilter filter = new org.web3j.protocol.core.methods.request.EthFilter(
                         new org.web3j.protocol.core.DefaultBlockParameterNumber(fromBlock),
                         new org.web3j.protocol.core.DefaultBlockParameterNumber(toBlock),
                         jafTokenService.getContractAddress());
+                // ERC-20 Transfer(address,address,uint256) 이벤트 해시 등록
                 filter.addSingleTopic("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef");
 
                 EthLog ethLog = jafTokenService.getWeb3j().ethGetLogs(filter).send();
                 if (ethLog.hasError()) {
-                    log.error("[WalletDaemonService] EthGetLogs error: {}", ethLog.getError().getMessage());
+                    log.error("[WalletDaemonService] EthGetLogs 에러: {}", ethLog.getError().getMessage());
                     return;
                 }
 
                 List<EthLog.LogResult> logs = ethLog.getLogs();
                 for (EthLog.LogResult logResult : logs) {
-                    org.web3j.protocol.core.methods.response.Log web3jLog = (org.web3j.protocol.core.methods.response.Log) logResult
-                            .get();
+                    org.web3j.protocol.core.methods.response.Log web3jLog = (org.web3j.protocol.core.methods.response.Log) logResult.get();
                     List<String> topics = web3jLog.getTopics();
                     if (topics.size() >= 3) {
                         String toAddress = "0x" + topics.get(2).substring(26);
@@ -422,10 +375,12 @@ public class WalletDaemonService {
                                 .findByCryptoAddressIgnoreCase(toAddress);
                         if (userAddrOpt.isPresent()) {
                             UserCryptoAddress userAddr = userAddrOpt.get();
-                            if (userAddr.getCurrency().equalsIgnoreCase("JAF")) {
+                            String currency = userAddr.getCurrency().toUpperCase();
+
+                            // JAF, BTC, ADA 코인 주소와 일치하는 경우 온체인 입금으로 감지하여 대기열에 추가
+                            if (currency.equals("JAF") || currency.equals("BTC") || currency.equals("ADA")) {
                                 BigInteger value = Numeric.toBigInt(web3jLog.getData());
-                                BigDecimal amount = new BigDecimal(value).divide(BigDecimal.TEN.pow(18), 8,
-                                        RoundingMode.HALF_UP);
+                                BigDecimal amount = new BigDecimal(value).divide(BigDecimal.TEN.pow(18), 8, RoundingMode.HALF_UP);
 
                                 boolean alreadyPending = pendingDeposits.stream()
                                         .anyMatch(d -> d.getTxHash().equalsIgnoreCase(txHash));
@@ -433,7 +388,7 @@ public class WalletDaemonService {
                                     int reqConfirmations = AdminSettings.getEthConfirmations();
                                     PendingDeposit deposit = new PendingDeposit(
                                             userAddr.getUserId(),
-                                            "JAF",
+                                            currency,
                                             amount,
                                             txHash,
                                             userAddr.getCryptoAddress(),
@@ -441,8 +396,8 @@ public class WalletDaemonService {
                                     pendingDeposits.add(deposit);
                                     processedDepositTxHashes.add(txHash);
                                     log.info(
-                                            "[WalletDaemonService] 온체인 JAF 입금 감지! TxHash: {}, 수량: {} JAF, 수신처: {} -> 컨펌 대기 대기열 진입",
-                                            txHash, amount, userAddr.getCryptoAddress());
+                                            "[WalletDaemonService] 온체인 {} 입금 감지! TxHash: {}, 수량: {}, 수신처: {} -> 컨펌 대기 대기열 진입",
+                                            currency, txHash, amount, userAddr.getCryptoAddress());
                                 }
                             }
                         }
@@ -451,7 +406,7 @@ public class WalletDaemonService {
                 lastScannedJAFBlock = toBlock;
             }
         } catch (Exception e) {
-            log.error("[WalletDaemonService] JAF 입금 스캔 중 에러 발생: {}", e.getMessage());
+            log.error("[WalletDaemonService] 온체인 입금 스캔 중 에러 발생: {}", e.getMessage());
         }
     }
 }
