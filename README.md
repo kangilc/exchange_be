@@ -126,13 +126,145 @@ graph TD
 | **`prometheus`** | 분산 메트릭 수집 및 시계열 DB | **`9090`**                     | **`9090`**                     | 프로메테우스 웹 콘솔 접속 포트.                                                                                                            |
 | **`grafana`** | 실시간 계측 시각화 대시보드 | **`3000`**                     | **`3000`**                     | 그라파나 대시보드 웹 UI 접속 포트 (ID/PW: admin/admin).                                                                                    |
 | **`engine-btc`** | BTC-USD 매칭 엔진 (인메모리 코어) | **`9999`**<br>`9998`<br>`9100` | **`9999`**<br>`9998`<br>`9100` | TCP 커맨드 수신 (9999)<br>TCP 체결 이벤트 송신 (9998)<br>프로메테우스 메트릭 (9100)                                                                |
-| **`engine-ada`** | ADA-KRW 매칭 엔진 (인메모리 코어) | **`9997`**<br>`9996`<br>`9101` | **`9997`**<br>`9996`<br>`9101` | TCP 커맨드 수신 (9997)<br>TCP 체결 이벤트 송신 (9996)<br>프로메테우스 메트릭 (9101)                                                                |
+| **`engine-ada`** | ADA-KRW 매칭 엔진 (인메모리 코어) | **`9997`**<br>`9996`<br>`9101` | **`9997`**<br>`9996`<br>`9101` | TCP 커맨드 수신 (9997)<br>TCP 체결 이벤트 송신 (9996)<br>프로메테우스 메트릭 (9101) |
+| **`engine-jaf-krw`** | JAF-KRW 매칭 엔진 (원화 마켓) | **`9995`**<br>`9104`<br>`9103` | **`9995`**<br>`9996`<br>`9103` | TCP 커맨드 수신 (9995)<br>TCP 체결 이벤트 송신 (컨테이너 9996 → 호스트 9104)<br>프로메테우스 메트릭 (9103) |
+| **`engine-jaf-usd`** | JAF-USD 매칭 엔진 (달러 마켓) | **`9994`**<br>`9106`<br>`9105` | **`9994`**<br>`9993`<br>`9105` | TCP 커맨드 수신 (9994)<br>TCP 체결 이벤트 송신 (컨테이너 9993 → 호스트 9106)<br>프로메테우스 메트릭 (9105) |
 | **`kafka`** | 분산 실시간 메시지 브로커 | **`29092`**<br>`9092`          | **`29092`**<br>`9092`          | 외부 개발기 접속용 (29092)<br>컨테이너 내부 브릿지용 (9092)                                                                                     |
 | **`zookeeper`** | 카프카 메타데이터 제어/조율 관리자 | **`2181`**                     | **`2181`**                     | 카프카 클러스터 내부 조율용.                                                                                                              |
 | **`loki`** | 중앙집중형 실시간 로그 저장소 | **`3100`**                     | **`3100`**                     | 그라파나 로키 로그 수집 서버 포트.                                                                                                            |
 | **`kafka-exporter`** | 카프카 브로커 성능/지연 계측 어댑터 | **`9308`**                     | **`9308`**                     | 카프카 메트릭 노출용 포트 (Prometheus 연동).                                                                                                 |
 
 ---
+
+## 🪙 신규 코인/마켓 추가 확장 가이드 (Market Expansion Checklist)
+
+새 코인 거래쌍(예: `ETH-KRW`, `XRP-USD` 등)을 플랫폼에 추가할 때 수정해야 하는 파일과 작업 순서를 정리한 체크리스트.
+
+> **네이밍 규칙 (예: `ETH-KRW` 추가 시)**
+> - 심볼 표기: `ETH-KRW` (대문자, 하이픈 구분)
+> - 환경 변수 접두어: `ETH_KRW` (대문자, 언더스코어 구분)
+> - Docker 서비스명: `engine-eth-krw`, `kafka-adapter-eth-krw` (소문자, 하이픈 구분)
+> - 컨테이너명: `matching-engine-eth-krw` (소문자, 하이픈 구분)
+
+---
+
+### ① 포트 할당 계획 (Port Planning)
+
+새 마켓마다 커맨드/이벤트/메트릭 포트가 각각 필요하므로 기존 포트와 겹치지 않게 미리 확보.
+
+| 용도 | 환경 변수명 | 예시 값 |
+|------|-----------|--------|
+| 커맨드 수신 (주문/취소) | `ETH_KRW_COMMAND_PORT` | `9993` |
+| 이벤트 출력 (체결 피드) | `ETH_KRW_ENGINE_PORT` | `9992` |
+| Prometheus 메트릭 | (docker-compose 직접 지정) | `9106` |
+| 엔진 호스트명 | `ETH_KRW_ENGINE_HOST` | `engine-eth-krw` |
+
+---
+
+### ② 수정 파일 목록 (Files to Modify)
+
+#### 1. `.env` / `.env.dev` / `.env.qa` / `.env.prd` — 환경별 설정 추가
+
+```bash
+# 각 환경 파일에 아래 항목 추가
+ETH_KRW_COMMAND_PORT=9993
+ETH_KRW_ENGINE_PORT=9992
+ETH_KRW_ENGINE_HOST=engine-eth-krw          # dev/qa: 컨테이너명 / prd: 서버 호스트명
+ETH_KRW_REFERENCE_PRICE=3000000             # 주문 생성기 기준가 (원화 마켓 예시)
+```
+
+#### 2. `docker-compose.yml` — 엔진 및 카프카 어댑터 서비스 추가
+
+```yaml
+# 섹션 4 (거래 매칭 엔진 및 어댑터) 내에 추가
+engine-eth-krw:
+  build:
+    context: .
+    dockerfile: engine-core/Dockerfile
+  container_name: matching-engine-eth-krw
+  environment:
+    - SYMBOL=ETH-KRW
+    - COMMAND_PORT=9993
+    - ENGINE_PORT=9992
+    - METRICS_ENABLED=true
+    - METRICS_PORT=9106
+    - JAVA_OPTS=-XX:+UseSerialGC -Xms128m -Xmx256m
+  ports:
+    - "9993:9993"
+    - "9107:9992"   # 호스트 포트 충돌 방지를 위한 우회 매핑
+    - "9106:9106"
+
+kafka-adapter-eth-krw:
+  build:
+    context: .
+    dockerfile: adapter-kafka/Dockerfile
+  container_name: kafka-adapter-eth-krw
+  depends_on:
+    - engine-eth-krw
+    - kafka
+  environment:
+    - KAFKA_BROKER=kafka:9092
+    - ENGINE_HOST=engine-eth-krw
+    - ENGINE_PORT=9992
+    - JAVA_OPTS=-Xms64m -Xmx128m -XX:+UseSerialGC
+  restart: on-failure
+```
+
+> `order-generator`의 `depends_on`에도 `engine-eth-krw` 추가
+
+#### 3. `prometheus/prometheus.yml` — 메트릭 수집 대상 추가
+
+```yaml
+- job_name: 'matching-engine-eth-krw'
+  static_configs:
+    - targets: ['engine-eth-krw:9106']
+```
+
+#### 4. `order-generator/src/main/java/exchange/generator/OrderGenerator.java` — 주문 주입 스레드 추가
+
+```java
+// 환경 변수에서 호스트/포트 로드
+String ethKrwHost = ConfigLoader.get("ETH_KRW_ENGINE_HOST", engineHost);
+int ethKrwPort    = ConfigLoader.getInt("ETH_KRW_COMMAND_PORT", 9993);
+
+// 스케일 및 기준가 설정 (KRW 마켓: 소수점 4자리 스케일 10,000)
+long ethKrwScale = 10000L;
+Thread ethKrwThread = new Thread(
+    new GeneratorTask(ethKrwHost, ethKrwPort, 3000000L * ethKrwScale, "ETH-KRW",
+                      ethKrwScale, sleepMin, sleepMax),
+    "generator-eth-krw");
+ethKrwThread.start();
+// ... join() 추가
+```
+
+> `GeneratorTask` 내 분기 로직(호가 격차, 수량 범위, 호가 하한선)에 `ETH-KRW` 조건 추가
+
+#### 5. `adapter-ws/src/main/java/exchange/ws/WsHandler.java` — **수정 불필요** ✅
+
+symbol → 환경 변수 키 자동 유도 구조로 리팩토링 완료. `.env`에 `ETH_KRW_ENGINE_HOST`, `ETH_KRW_COMMAND_PORT`만 추가하면 자동 라우팅됨.
+
+#### 6. `adapter-ws` (및 관련 백엔드 서비스) — 마켓 설정 등록
+
+`MarketConfigManager`에 새 심볼(`ETH-KRW`)의 소수점 자릿수(`decimals`)와 최소 주문 금액(`minAmt`)을 등록.
+
+#### 7. README.md — 포트 맵 테이블 및 가이드 현행화
+
+포트 맵핑 현황 표에 새 엔진 행을 추가하고, 이 체크리스트의 포트 예시를 실제 할당된 포트로 업데이트.
+
+---
+
+### ③ 수정 체크리스트 요약
+
+| # | 파일/위치 | 작업 내용 | 자동화 여부 |
+|---|----------|---------|----------|
+| 1 | `.env` × 4개 파일 | 호스트/포트/기준가 환경 변수 추가 | 수동 |
+| 2 | `docker-compose.yml` | 엔진 + 카프카 어댑터 서비스 블록 추가 | 수동 |
+| 2-1 | `docker-compose.yml` | `order-generator` depends_on 추가 | 수동 |
+| 3 | `prometheus/prometheus.yml` | scrape job 추가 | 수동 |
+| 4 | `OrderGenerator.java` | 주문 주입 스레드 및 분기 로직 추가 | 수동 |
+| 5 | `WsHandler.java` | **변경 없음** (자동 라우팅) | **자동** ✅ |
+| 6 | `MarketConfigManager` | 심볼 소수점/최소금액 등록 | 수동 |
+| 7 | `README.md` | 포트 맵 및 이 체크리스트 업데이트 | 수동 |
 
 ## 🛡️ 통합 어드민 제어 시스템 (Admin Console)
 

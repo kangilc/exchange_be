@@ -15,8 +15,7 @@ services:
       - POSTGRES_DB=exchange # 데이터베이스 명칭
       - POSTGRES_USER=postgres # 데이터베이스 사용자명
       - POSTGRES_PASSWORD=postgres # 데이터베이스 암호
-    volumes:
-      - ./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql # 테이블 스키마 및 초기 가상 자산 데이터 스크립트 마운트
+      # 스키마 및 시드 데이터는 admin-api의 Flyway 마이그레이션(V1__, V2__ 등)으로 자동 관리됨
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d exchange" ]
       interval: 5s
@@ -127,9 +126,7 @@ services:
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
     depends_on:
-      - engine-btc
-      - engine-ada
-      - ws-gateway
+      # kafka-exporter가 구동된 후 prometheus를 시작 (scrape 대상 엔진/ws는 prometheus가 자체 재시도하므로 depends_on 불필요)
       - kafka-exporter
     restart: always
     deploy:
@@ -290,6 +287,92 @@ services:
         limits:
           memory: 256M
 
+  # engine-jaf-krw: 초고속 인메모리 FIFO 매칭 엔진 (JAF-KRW 원화 마켓 전용 코어)
+  engine-jaf-krw:
+    build:
+      context: .
+      dockerfile: engine-core/Dockerfile
+    container_name: matching-engine-jaf-krw
+    environment:
+      - SYMBOL=JAF-KRW             # 타겟 마켓 심볼 지정
+      - COMMAND_PORT=9995          # JAF-KRW 엔진 커맨드 입력 포트
+      - ENGINE_PORT=9996           # JAF-KRW 엔진 이벤트 출력 포트
+      - METRICS_ENABLED=true       # 메트릭 노출 활성화
+      - METRICS_PORT=9103          # JAF-KRW 엔진 전용 메트릭 포트
+      - JAVA_OPTS=-XX:+UseSerialGC -Xms128m -Xmx256m
+    ports:
+      - "9995:9995"                # 주문 수신 커맨드 포트
+      - "9104:9996"                # 이벤트 출력 포트 (호스트 포트 충돌 방지를 위해 9104로 매핑)
+      - "9103:9103"                # Prometheus 메트릭 포트
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 384M
+
+  # kafka-adapter-jaf-krw: JAF-KRW 엔진의 실시간 TCP 이벤트를 카프카 토픽으로 중계하는 어댑터
+  kafka-adapter-jaf-krw:
+    build:
+      context: .
+      dockerfile: adapter-kafka/Dockerfile
+    container_name: kafka-adapter-jaf-krw
+    depends_on:
+      - engine-jaf-krw # JAF-KRW 매칭 엔진 구동 후 실행
+      - kafka           # 카프카 브로커 구동 후 실행
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - ENGINE_HOST=engine-jaf-krw # JAF-KRW 엔진 호스트명
+      - ENGINE_PORT=9996           # JAF-KRW 엔진 이벤트 출력 포트
+      - JAVA_OPTS=-Xms64m -Xmx128m -XX:+UseSerialGC
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # engine-jaf-usd: 초고속 인메모리 FIFO 매칭 엔진 (JAF-USD 달러 마켓 전용 코어)
+  engine-jaf-usd:
+    build:
+      context: .
+      dockerfile: engine-core/Dockerfile
+    container_name: matching-engine-jaf-usd
+    environment:
+      - SYMBOL=JAF-USD             # 타겟 마켓 심볼 지정
+      - COMMAND_PORT=9994          # JAF-USD 엔진 커맨드 입력 포트
+      - ENGINE_PORT=9993           # JAF-USD 엔진 이벤트 출력 포트
+      - METRICS_ENABLED=true       # 메트릭 노출 활성화
+      - METRICS_PORT=9105          # JAF-USD 엔진 전용 메트릭 포트
+      - JAVA_OPTS=-XX:+UseSerialGC -Xms128m -Xmx256m
+    ports:
+      - "9994:9994"                # 주문 수신 커맨드 포트
+      - "9106:9993"                # 이벤트 출력 포트 (호스트 포트 충돌 방지를 위해 9106으로 매핑)
+      - "9105:9105"                # Prometheus 메트릭 포트
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 384M
+
+  # kafka-adapter-jaf-usd: JAF-USD 엔진의 실시간 TCP 이벤트를 카프카 토픽으로 중계하는 어댑터
+  kafka-adapter-jaf-usd:
+    build:
+      context: .
+      dockerfile: adapter-kafka/Dockerfile
+    container_name: kafka-adapter-jaf-usd
+    depends_on:
+      - engine-jaf-usd # JAF-USD 매칭 엔진 구동 후 실행
+      - kafka           # 카프카 브로커 구동 후 실행
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - ENGINE_HOST=engine-jaf-usd # JAF-USD 엔진 호스트명
+      - ENGINE_PORT=9993           # JAF-USD 엔진 이벤트 출력 포트
+      - JAVA_OPTS=-Xms64m -Xmx128m -XX:+UseSerialGC
+    restart: on-failure
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
   # ws-gateway: 클라이언트(프론트엔드 UI)와의 연결을 처리하는 Netty 기반 비동기 웹소켓 게이트웨이
   ws-gateway:
     build:
@@ -428,8 +511,10 @@ services:
     env_file:
       - .env.dev
     depends_on:
-      - engine-btc
-      - engine-ada
+      - engine-btc     # BTC-USD 엔진 구동 후 주문 주입 시작
+      - engine-ada     # ADA-KRW 엔진 구동 후 주문 주입 시작
+      - engine-jaf-krw # JAF-KRW 엔진 구동 후 주문 주입 시작
+      - engine-jaf-usd # JAF-USD 엔진 구동 후 주문 주입 시작
     restart: "no"
     deploy:
       resources:
