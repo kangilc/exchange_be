@@ -709,7 +709,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/autocomplete?prefix=${encodeURIComponent(prefix)}`);
                 if (res.ok) {
                     const json = await res.json();
-                    const data = json.data || [];
+                    // fetchWithAuth가 이미 .data를 추출했으므로 json 객체를 바로 사용함.
+                    const data = json || [];
                     return data.map((item: any) => item.email);
                 }
             } catch (err) {
