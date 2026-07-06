@@ -12,5 +12,10 @@ import java.util.List;
 @Repository
 public interface UserSearchRepository extends ElasticsearchRepository<UserDocument, String> {
     List<UserDocument> findByEmailContaining(String email);
+
     List<UserDocument> findByEmailStartingWith(String prefix);
+
+    // 이메일 필드에 대해 Match Query를 실행하여 부분/초성 검색을 지원함.
+    @org.springframework.data.elasticsearch.annotations.Query("{\"match\": {\"email\": \"?0\"}}")
+    List<UserDocument> findByEmail(String email);
 }

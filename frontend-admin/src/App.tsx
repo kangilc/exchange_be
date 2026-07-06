@@ -16,19 +16,18 @@ import { PerformanceTab } from './components/tabs/PerformanceTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
 
 export const App: React.FC = () => {
-    const {
-        wsConnected,
-        tradesLog,
-        initStore,
-        apiBaseUrl,
-        fetchSummaryStats,
-        isAuthenticated,
-        login,
-        logout,
-        authEmail,
-        fetchSettings,
-        sendWsMessage
-    } = useExchangeStore();
+    // 개별 셀렉터를 사용하여 실시간 데이터 갱신으로 인한 불필요한 리렌더링을 차단함.
+    const wsConnected = useExchangeStore(state => state.wsConnected);
+    const tradesLog = useExchangeStore(state => state.tradesLog);
+    const initStore = useExchangeStore(state => state.initStore);
+    const apiBaseUrl = useExchangeStore(state => state.apiBaseUrl);
+    const fetchSummaryStats = useExchangeStore(state => state.fetchSummaryStats);
+    const isAuthenticated = useExchangeStore(state => state.isAuthenticated);
+    const login = useExchangeStore(state => state.login);
+    const logout = useExchangeStore(state => state.logout);
+    const authEmail = useExchangeStore(state => state.authEmail);
+    const fetchSettings = useExchangeStore(state => state.fetchSettings);
+    const sendWsMessage = useExchangeStore(state => state.sendWsMessage);
 
     // 탭 변수 확장 ('dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger' | 'settings' | 'custody' | 'performance')
     const [activeTab, setActiveTab] = useState<'dashboard' | 'market-watch' | 'users' | 'wallets' | 'ledger' | 'settings' | 'custody' | 'performance'>('market-watch');

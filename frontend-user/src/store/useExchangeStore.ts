@@ -704,7 +704,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             }
 
             set({ apiBaseUrl: base, wsUrl });
-            console.log(`[환경 구성 적용] API: ${base}, WS: ${wsUrl}`);
+            // 불필요한 콘솔 출력을 억제하여 로깅 오버헤드를 완화함.
+            // console.log(`[환경 구성 적용] API: ${base}, WS: ${wsUrl}`);
 
             // 최초 활성 심볼 스냅샷 적재
             await get().fetchFullSnapshot(get().activeSymbol);

@@ -35,7 +35,8 @@ public class UserSearchService {
                     .stream(userSearchRepository.findAll().spliterator(), false)
                     .collect(Collectors.toList());
         } else {
-            documents = userSearchRepository.findByEmailContaining(keyword.trim().toLowerCase());
+            // 이메일 키워드 검색 시 edge_ngram 분석기를 올바르게 타는 Match Query 메소드를 사용함.
+            documents = userSearchRepository.findByEmail(keyword.trim().toLowerCase());
         }
 
         return documents.stream().map(doc -> UserSearchODT.builder()
@@ -60,7 +61,8 @@ public class UserSearchService {
             return List.of();
         }
 
-        List<UserDocument> documents = userSearchRepository.findByEmailStartingWith(prefix.trim().toLowerCase());
+        // 자동완성 추천 시에도 동일하게 검색 분석 매치 쿼리를 사용함.
+        List<UserDocument> documents = userSearchRepository.findByEmail(prefix.trim().toLowerCase());
         return documents.stream()
                 .map(doc -> UserAutocompleteODT.builder().email(doc.getEmail()).build())
                 .limit(10)

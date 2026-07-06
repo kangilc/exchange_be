@@ -45,8 +45,14 @@ public class UserService {
     private final LedgerJournalMapper ledgerJournalMapper;
     private final TradeMapper tradeMapper;
 
+    // 전체 회원 목록을 페이징 없이 조회함 (하위 호환성 유지용).
     public List<User> getAllUsers() {
         return userRepository.findAll();
+    }
+
+    // 페이징 처리가 된 회원 목록을 조회함.
+    public org.springframework.data.domain.Page<User> getAllUsers(org.springframework.data.domain.Pageable pageable) {
+        return userRepository.findAll(pageable);
     }
 
     public Optional<User> getUserById(Long id) {
