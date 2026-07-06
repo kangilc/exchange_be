@@ -103,6 +103,8 @@ interface ExchangeState {
     tradesLog: TradeLog[];
     loadedCandles: CandleData[];
     users: any[];
+    usersTotalElements: number;
+    usersTotalPages: number;
     wallets: any[];
     walletsSummary: any[];
     ledgerList: any[];
@@ -135,7 +137,7 @@ interface ExchangeState {
     addRealtimeTick: (price: number) => void;
 
     // 어드민 전용 추가 메서드
-    fetchUsers: () => Promise<void>;
+    fetchUsers: (page?: number, size?: number) => Promise<void>;
     searchUsersEs: (keyword: string) => Promise<void>;
     autocompleteEs: (prefix: string) => Promise<string[]>;
     registerUser: (email: string, password: string, grade: string) => Promise<boolean>;
@@ -331,7 +333,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                         const rtt = Date.now() - parsed.timestamp;
                         set({ latency: rtt });
                     }
-                } catch (e) {}
+                } catch (e) { }
                 return;
             }
 
@@ -416,6 +418,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             return Math.pow(10, decimals);
         },
         users: [],
+        usersTotalElements: 0,
+        usersTotalPages: 0,
         wallets: [],
         walletsSummary: [],
         ledgerList: [],
@@ -502,7 +506,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     if (config.API_BASE_URL) {
                         const configBase = config.API_BASE_URL;
                         const configHost = configBase.replace(/^https?:\/\//, '').split(':')[0];
-                        
+
                         // 현재 브라우저 주소창의 호스트가 localhost 혹은 127.0.0.1일 때만 config.json 신뢰
                         // 그렇지 않을 때는 브라우저 접속 IP를 사용하여 자동 라우팅 보정
                         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
@@ -516,7 +520,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             }
 
             set({ apiBaseUrl: base, wsUrl });
-            console.log(`[환경 구성 적용] API: ${base}, WS: ${wsUrl}`);
+            // console.log(`[환경 구성 적용] API: ${base}, WS: ${wsUrl}`);
 
             // 최초 활성 심볼 스냅샷 적재
             await get().fetchFullSnapshot(get().activeSymbol);
@@ -660,27 +664,40 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             // 차트 캔들 실시간 갱신용 로직을 마운트하기 위해 Hook 및 컴포넌트 레벨에서 차트 시리즈 레퍼런스 업데이트 수행 유도
         },
 
-        fetchUsers: async () => {
+        // 회원 목록을 페이징하여 조회하고 상태에 저장함.
+        fetchUsers: async (page = 0, size = 10) => {
             try {
-                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users`);
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users?page=${page}&size=${size}`);
                 if (res.ok) {
-                    const _json__json_data = await res.json();
-                    const _json_data = _json__json_data.data !== undefined ? _json__json_data.data : _json__json_data;
-                    const data = _json_data.data !== undefined ? _json_data.data : _json_data;
-                    set({ users: data });
+                    const json = await res.json();
+                    // fetchWithAuth가 이미 .data를 추출했으므로 json 객체를 바로 사용함.
+                    const pageData = json || { content: [], totalElements: 0, totalPages: 0 };
+                    // console.log("[useExchangeStore] fetchUsers 최종 data:", pageData);
+                    set({
+                        users: pageData.content || [],
+                        usersTotalElements: pageData.totalElements || 0,
+                        usersTotalPages: pageData.totalPages || 0
+                    });
                 }
             } catch (err) {
                 console.error("Failed to fetch users", err);
             }
         },
 
+        // 회원 목록을 키워드로 엘라스틱서치 검색하고 결과를 상태에 저장함.
         searchUsersEs: async (keyword: string) => {
             try {
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/search?keyword=${encodeURIComponent(keyword)}`);
                 if (res.ok) {
                     const json = await res.json();
-                    const data = json.data || [];
-                    set({ users: data });
+                    // fetchWithAuth가 이미 .data를 추출했으므로 json 객체를 바로 사용함.
+                    const data = json || [];
+                    // console.log("[useExchangeStore] searchUsersEs 최종 data (keyword=" + keyword + "):", data);
+                    set({
+                        users: data,
+                        usersTotalElements: data.length,
+                        usersTotalPages: 1
+                    });
                 }
             } catch (err) {
                 console.error("Failed to search users in ES", err);
@@ -743,7 +760,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     const wallets = _json_wallets.data !== undefined ? _json_wallets.data : _json_wallets;
                     const _json__json_users = await usersRes.json();
                     const _json_users = _json__json_users.data !== undefined ? _json__json_users.data : _json__json_users;
-                    const users = _json_users.data !== undefined ? _json_users.data : _json_users;
+                    // 페이징 객체 혹은 일반 배열 형태의 회원 데이터를 안전하게 목록으로 정규화함.
+                    const users = Array.isArray(_json_users) ? _json_users : (_json_users.content || []);
                     const userMap = new Map(users.map((u: any) => [u.userId, u.email]));
                     const mappedWallets = wallets.map((w: any) => ({
                         ...w,
@@ -794,7 +812,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 const past = new Date();
                 past.setDate(now.getDate() - 30);
                 const dateParams = `&startDate=${past.toISOString().split('.')[0]}&endDate=${now.toISOString().split('.')[0]}`;
-                
+
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/ledgers?page=${page}&size=${size}${searchParam}${dateParams}`);
                 if (res.ok) {
                     const _json__json_data = await res.json();
@@ -817,7 +835,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 const past = new Date();
                 past.setDate(now.getDate() - 30);
                 const dateParams = `&startDate=${past.toISOString().split('.')[0]}&endDate=${now.toISOString().split('.')[0]}`;
-                
+
                 const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/${userId}/ledgers?page=0&size=50${dateParams}`);
                 if (res.ok) {
                     const _json__json_data = await res.json();

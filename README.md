@@ -7,6 +7,10 @@
 ---
 
 ## 🆕 최근 업데이트 (Recent Updates)
+- 회원 목록 서버사이드 페이징(Pageable) 규격 적용 및 프론트엔드 연동 안정화.
+  - `UserController.java`의 회원 목록 조회(`getAllUsers`)를 JPA Pageable 구조로 전면 통합하여 Page 객체(`content`, `totalElements` 등)를 일관되게 반환하도록 함.
+  - `useExchangeStore.ts`에서 `fetchWithAuth` 공통 응답 언래핑(`data` 필드 자동 추출) 특성에 맞춰 중복으로 `.data`를 추출하던 바인딩 에러를 해결하여 회원 목록 빈 화면 현상을 안정화시켰음.
+  - `UserManagementTab.tsx`에서 하드 코딩된 페이지 사이즈 상수(10)를 `USER_PAGE_SIZE` 상수로 정의하여 아키텍처 규칙을 준수함.
 - 사용자 회원가입 신청 및 어드민 가입 승인 워크플로우 구현.
   - 신규 가입 신청 API(`POST /admin/auth/signup`)를 추가하여 기본 `PENDING` 상태로 유저를 생성함.
   - `login` 및 `refresh` 시 유저의 상태가 `ACTIVE`가 아닐 경우 로그인을 제한하는 검증 가드를 신설함.

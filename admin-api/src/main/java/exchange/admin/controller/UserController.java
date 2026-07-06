@@ -13,6 +13,7 @@ import exchange.admin.model.Wallet;
 import exchange.admin.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,13 +37,17 @@ public class UserController {
     }
 
     /**
-     * 전체 회원 목록 조회.
+     * 회원 목록 조회. 페이징 파라미터가 지정되면 페이징 객체를 반환하고, 없으면 전체 리스트를 반환함.
      * 
-     * @return 전체 회원 리스트
+     * @param page 페이지 번호 (0-based)
+     * @param size 페이지당 개수
+     * @return 회원 목록 데이터
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<User>>> getAllUsers() {
-        return ApiResponse.ok(userService.getAllUsers());
+    public ResponseEntity<ApiResponse<Object>> getAllUsers(
+            @RequestParam(name = "page", defaultValue = "0") Integer page,
+            @RequestParam(name = "size", defaultValue = "10") Integer size) {
+        return ApiResponse.<Object>ok(userService.getAllUsers(PageRequest.of(page, size)));
     }
 
     /**
@@ -65,9 +70,10 @@ public class UserController {
      * @param request 가입 요청 데이터 (email, password, grade, role)
      * @return 가입 완료된 회원 정보
      */
-    @PostMapping(value = {"", "/register"})
+    @PostMapping(value = { "", "/register" })
     public ResponseEntity<ApiResponse<User>> registerUser(@Valid @RequestBody UserRegisterIDT request) {
-        User registeredUser = userService.registerUser(request.getEmail(), request.getPassword(), request.getGrade(), request.getRole());
+        User registeredUser = userService.registerUser(request.getEmail(), request.getPassword(), request.getGrade(),
+                request.getRole());
         return ApiResponse.ok(registeredUser);
     }
 
@@ -79,8 +85,10 @@ public class UserController {
      * @return 수정된 회원 정보
      */
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<User>> updateUser(@PathVariable Long id, @Valid @RequestBody UserUpdateIDT request) {
-        return userService.updateUser(id, request.getEmail(), request.getStatus(), request.getGrade(), request.getRole())
+    public ResponseEntity<ApiResponse<User>> updateUser(@PathVariable Long id,
+            @Valid @RequestBody UserUpdateIDT request) {
+        return userService
+                .updateUser(id, request.getEmail(), request.getStatus(), request.getGrade(), request.getRole())
                 .map(user -> ApiResponse.ok(user))
                 .orElse(ApiResponse.notFound("User not found"));
     }
@@ -93,7 +101,8 @@ public class UserController {
      * @return 갱신된 회원 지갑 정보
      */
     @PostMapping("/{id}/assets/adjust")
-    public ResponseEntity<ApiResponse<Wallet>> adjustAsset(@PathVariable Long id, @Valid @RequestBody AssetAdjustIDT request) {
+    public ResponseEntity<ApiResponse<Wallet>> adjustAsset(@PathVariable Long id,
+            @Valid @RequestBody AssetAdjustIDT request) {
         try {
             Wallet updatedWallet = userService.adjustAsset(id, request.getCurrency(), request.getAmount());
             return ApiResponse.ok(updatedWallet);
@@ -107,7 +116,7 @@ public class UserController {
     /**
      * 특정 회원의 거래 체결 내역 조회.
      * 
-     * @param id   회원 ID
+     * @param id  회원 ID
      * @param idt 조회할 페이지 번호 및 사이즈 등 공통 IDT
      * @return 체결 정보 페이징 객체
      */
@@ -115,7 +124,7 @@ public class UserController {
     public ResponseEntity<ApiResponse<Page<UserTradeODT>>> getUserTrades(
             @PathVariable Long id,
             @ModelAttribute DateRangePageIDT idt) {
-        
+
         Page<UserTradeODT> pageResult = userService.getUserTrades(id, idt);
         return ApiResponse.ok(pageResult);
     }
@@ -123,7 +132,7 @@ public class UserController {
     /**
      * 특정 회원의 상세 원장 변동 내역 조회.
      * 
-     * @param id   회원 ID
+     * @param id  회원 ID
      * @param idt 페이징 및 날짜 검색 파라미터
      * @return 자산 변동 상세 내역 페이징 객체
      */
@@ -131,7 +140,7 @@ public class UserController {
     public ResponseEntity<ApiResponse<Page<DetailedLedgerODT>>> getUserLedgers(
             @PathVariable Long id,
             @ModelAttribute DateRangePageIDT idt) {
-            
+
         Page<DetailedLedgerODT> pageResult = userService.getUserLedgers(id, idt);
         return ApiResponse.ok(pageResult);
     }
@@ -146,7 +155,8 @@ public class UserController {
     @GetMapping("/me/trades")
     public ResponseEntity<ApiResponse<Page<UserTradeODT>>> getMyTrades(
             @ModelAttribute DateRangePageIDT idt) {
-        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication()
+                .getName();
         Optional<User> userOpt = userService.getUserByEmail(email);
         if (userOpt.isPresent()) {
             Long userId = userOpt.get().getUserId();
@@ -166,10 +176,11 @@ public class UserController {
     @GetMapping("/me/ledgers")
     public ResponseEntity<ApiResponse<Page<DetailedLedgerODT>>> getMyLedgers(
             @ModelAttribute DateRangePageIDT idt) {
-            
-        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication()
+                .getName();
         Optional<User> userOpt = userService.getUserByEmail(email);
-        
+
         if (userOpt.isPresent()) {
             Long userId = userOpt.get().getUserId();
             Page<DetailedLedgerODT> pageResult = userService.getUserLedgers(userId, idt);

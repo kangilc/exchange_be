@@ -2,29 +2,34 @@ import React, { useState } from 'react';
 import { useExchangeStore } from '../../store/useExchangeStore';
 import { Users, Plus, Search, X } from 'lucide-react';
 
-export const UserManagementTab: React.FC = () => {
-    const {
-        users,
-        registerUser,
-        updateUser,
-        adjustUserAsset,
-        fetchUsers,
-        searchUsersEs,
-        autocompleteEs,
-        fetchUserLedgers,
-        fetchUserTrades,
-        getScaleFactor
-    } = useExchangeStore();
-
-    React.useEffect(() => {
-        fetchUsers();
-    }, [fetchUsers]);
+// 실시간 데이터 갱신으로 인한 불필요한 리렌더링 방지를 위해 memo로 감싸서 메모이제이션함.
+export const UserManagementTab: React.FC = React.memo(() => {
+    // 한 페이지당 출력할 회원 수 상수를 정의함.
+    const USER_PAGE_SIZE = 10;
+    // 개별 셀렉터를 사용하여 실시간 데이터 갱신으로 인한 불필요한 리렌더링 차단
+    const users = useExchangeStore(state => state.users);
+    const usersTotalElements = useExchangeStore(state => state.usersTotalElements || 0);
+    const usersTotalPages = useExchangeStore(state => state.usersTotalPages || 1);
+    const registerUser = useExchangeStore(state => state.registerUser);
+    const updateUser = useExchangeStore(state => state.updateUser);
+    const adjustUserAsset = useExchangeStore(state => state.adjustUserAsset);
+    const fetchUsers = useExchangeStore(state => state.fetchUsers);
+    const searchUsersEs = useExchangeStore(state => state.searchUsersEs);
+    const autocompleteEs = useExchangeStore(state => state.autocompleteEs);
+    const fetchUserLedgers = useExchangeStore(state => state.fetchUserLedgers);
+    const fetchUserTrades = useExchangeStore(state => state.fetchUserTrades);
+    const getScaleFactor = useExchangeStore(state => state.getScaleFactor);
 
     // Local filter/search states
     const [userSearch, setUserSearch] = useState('');
     const [userPage, setUserPage] = useState(0);
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+
+    React.useEffect(() => {
+        fetchUsers(userPage, USER_PAGE_SIZE);
+        // 페이지 번호가 변경될 때마다 해당 페이지의 회원 목록을 서버로부터 조회함.
+    }, [userPage]);
 
     // Debounce/ES Search Handler
     const searchTimeoutRef = React.useRef<any>(null);
@@ -33,10 +38,10 @@ export const UserManagementTab: React.FC = () => {
         if (searchTimeoutRef.current) {
             clearTimeout(searchTimeoutRef.current);
         }
-        
+
         searchTimeoutRef.current = setTimeout(async () => {
             if (val.trim() === '') {
-                fetchUsers();
+                fetchUsers(0, USER_PAGE_SIZE);
                 setSuggestions([]);
             } else {
                 searchUsersEs(val);
@@ -98,7 +103,7 @@ export const UserManagementTab: React.FC = () => {
             setRegEmail('');
             setRegPassword('');
             setRegGrade('STANDARD');
-            fetchUsers();
+            fetchUsers(userPage, USER_PAGE_SIZE); // 등록 후 현재 페이지의 회원 목록을 갱신함.
         } else {
             alert('가입에 실패했습니다. 중복 계정인지 확인해주세요.');
         }
@@ -111,7 +116,7 @@ export const UserManagementTab: React.FC = () => {
         if (ok) {
             alert('회원 상태 및 등급이 정상 변경되었습니다.');
             setShowEditUserModal(false);
-            fetchUsers();
+            fetchUsers(userPage, USER_PAGE_SIZE); // 수정 후 현재 페이지의 회원 목록을 갱신함.
         } else {
             alert('정보 수정에 실패했습니다.');
         }
@@ -123,7 +128,7 @@ export const UserManagementTab: React.FC = () => {
         const ok = await updateUser(user.userId, user.email, user.grade, 'ACTIVE');
         if (ok) {
             alert('회원 가입 승인이 완료되었습니다.');
-            fetchUsers();
+            fetchUsers(userPage, USER_PAGE_SIZE); // 승인 후 현재 페이지의 회원 목록을 갱신함.
         } else {
             alert('가입 승인 처리에 실패했습니다.');
         }
@@ -144,7 +149,7 @@ export const UserManagementTab: React.FC = () => {
             alert('회원 자산 정보가 원장에 정상 가감 반영되었습니다.');
             setShowAdjustAssetModal(false);
             setAdjustAmount('');
-            fetchUsers();
+            fetchUsers(userPage, USER_PAGE_SIZE); // 자산 조정 후 현재 페이지의 회원 목록을 갱신함.
         } else {
             alert('자산 조작 처리에 실패했습니다. 잔고가 부족하거나 서버 에러일 수 있습니다.');
         }
@@ -167,11 +172,11 @@ export const UserManagementTab: React.FC = () => {
         setShowUserTradesModal(true);
     };
 
-    // Filtered & Paginated Users
+    // console.log("[UserManagementTab] 현재 users 데이터 상태:", users);
+    // 서버사이드 페이징이 반영되었으므로 클라이언트 슬라이싱 없이 그대로 사용함.
     const filteredUsers = users;
-    const USER_PAGE_SIZE = 10;
-    const userTotalPages = Math.ceil(filteredUsers.length / USER_PAGE_SIZE);
-    const paginatedUsers = filteredUsers.slice(userPage * USER_PAGE_SIZE, (userPage + 1) * USER_PAGE_SIZE);
+    const paginatedUsers = filteredUsers;
+    const userTotalPages = usersTotalPages;
 
     return (
         <div className="tab-panel animate-fade-in flex flex-col gap-6">
@@ -180,7 +185,7 @@ export const UserManagementTab: React.FC = () => {
                     <Users size={20} className="text-[#8a2be2]" />
                     <span>회원 통합 관리 원장</span>
                 </div>
-                <button 
+                <button
                     onClick={() => setShowRegisterModal(true)}
                     className="btn-primary flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#8a2be2] to-[#6366f1] shadow-[0_4px_15px_rgba(138,43,226,0.3)] hover:scale-[1.02] transition-all"
                 >
@@ -195,9 +200,9 @@ export const UserManagementTab: React.FC = () => {
                     <div className="relative flex flex-col items-end" onClick={(e) => e.stopPropagation()}>
                         <div className="relative flex items-center">
                             <Search size={14} className="absolute left-3 text-slate-500" />
-                            <input 
-                                type="text" 
-                                placeholder="이메일 검색 (초성/부분)..." 
+                            <input
+                                type="text"
+                                placeholder="이메일 검색 (초성/부분)..."
                                 value={userSearch}
                                 onChange={(e) => {
                                     const val = e.target.value;
@@ -212,7 +217,7 @@ export const UserManagementTab: React.FC = () => {
                         {showSuggestions && suggestions.length > 0 && (
                             <div className="absolute top-10 right-0 w-[250px] bg-[#0d1426]/95 border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] z-50 max-h-[200px] overflow-y-auto divide-y divide-white/5 animate-fade-in backdrop-blur-md">
                                 {suggestions.map((s, idx) => (
-                                    <div 
+                                    <div
                                         key={idx}
                                         onClick={() => {
                                             setUserSearch(s);
@@ -265,26 +270,26 @@ export const UserManagementTab: React.FC = () => {
                                         <td className="px-5 py-4">
                                             <div className="flex justify-end gap-2 text-[10px] font-bold">
                                                 {u.status === 'PENDING' && (
-                                                    <button 
+                                                    <button
                                                         onClick={() => handleApproveUser(u)}
                                                         className="px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all font-black"
                                                     >
                                                         ✔️ 가입 승인
                                                     </button>
                                                 )}
-                                                <button 
+                                                <button
                                                     onClick={() => openAssetModal(u)}
                                                     className="px-3 py-1.5 rounded-lg border border-emerald-500/25 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/12 transition-all"
                                                 >
                                                     💸 자산 관리
                                                 </button>
-                                                <button 
+                                                <button
                                                     onClick={() => openTradesModal(u)}
                                                     className="px-3 py-1.5 rounded-lg border border-[#8a2be2]/25 bg-[#8a2be2]/5 text-[#c084fc] hover:bg-[#8a2be2]/12 transition-all"
                                                 >
                                                     📈 거래 내역
                                                 </button>
-                                                <button 
+                                                <button
                                                     onClick={() => {
                                                         setEditTargetUser(u);
                                                         setEditGrade(u.grade);
@@ -305,17 +310,17 @@ export const UserManagementTab: React.FC = () => {
                 </div>
                 <div className="p-4 flex justify-between items-center border-t border-white/5 bg-black/10 text-xs">
                     <div className="text-slate-400">
-                        Page <span className="text-white font-bold">{userPage + 1}</span> of <span className="text-white font-bold">{userTotalPages || 1}</span> (Total {filteredUsers.length} users)
+                        Page <span className="text-white font-bold">{userPage + 1}</span> of <span className="text-white font-bold">{userTotalPages || 1}</span> (Total {usersTotalElements} users)
                     </div>
                     <div className="flex gap-2">
-                        <button 
+                        <button
                             disabled={userPage === 0}
                             onClick={() => setUserPage(prev => Math.max(prev - 1, 0))}
                             className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
                         >
                             ◀ 이전
                         </button>
-                        <button 
+                        <button
                             disabled={userPage + 1 >= userTotalPages}
                             onClick={() => setUserPage(prev => Math.min(prev + 1, userTotalPages - 1))}
                             className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 hover:text-white font-bold transition-all"
@@ -338,8 +343,8 @@ export const UserManagementTab: React.FC = () => {
                             <div className="p-6 flex flex-col gap-4 text-xs font-semibold">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-slate-400 uppercase text-[10px]">이메일 주소</label>
-                                    <input 
-                                        type="email" 
+                                    <input
+                                        type="email"
                                         value={regEmail}
                                         onChange={(e) => setRegEmail(e.target.value)}
                                         placeholder="example@exchange.com"
@@ -349,8 +354,8 @@ export const UserManagementTab: React.FC = () => {
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-slate-400 uppercase text-[10px]">임시 비밀번호</label>
-                                    <input 
-                                        type="password" 
+                                    <input
+                                        type="password"
                                         value={regPassword}
                                         onChange={(e) => setRegPassword(e.target.value)}
                                         placeholder="비밀번호 설정"
@@ -360,7 +365,7 @@ export const UserManagementTab: React.FC = () => {
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-slate-400 uppercase text-[10px]">보안 등급</label>
-                                    <select 
+                                    <select
                                         value={regGrade}
                                         onChange={(e) => setRegGrade(e.target.value as any)}
                                         className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white outline-none"
@@ -391,8 +396,8 @@ export const UserManagementTab: React.FC = () => {
                             <div className="p-6 flex flex-col gap-4 text-xs font-semibold">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-slate-400 uppercase text-[10px]">회원 이메일</label>
-                                    <input 
-                                        type="email" 
+                                    <input
+                                        type="email"
                                         value={editTargetUser.email}
                                         disabled
                                         className="w-full p-3 bg-slate-950/50 border border-white/5 rounded-lg text-slate-400 outline-none cursor-not-allowed"
@@ -400,7 +405,7 @@ export const UserManagementTab: React.FC = () => {
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-slate-400 uppercase text-[10px]">원장 거래 상태</label>
-                                    <select 
+                                    <select
                                         value={editStatus}
                                         onChange={(e) => setEditStatus(e.target.value as any)}
                                         className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white outline-none"
@@ -412,7 +417,7 @@ export const UserManagementTab: React.FC = () => {
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-slate-400 uppercase text-[10px]">보안 등급</label>
-                                    <select 
+                                    <select
                                         value={editGrade}
                                         onChange={(e) => setEditGrade(e.target.value as any)}
                                         className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white outline-none"
@@ -443,8 +448,8 @@ export const UserManagementTab: React.FC = () => {
                             <div className="p-6 flex flex-col gap-4 text-xs font-semibold">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-slate-400 uppercase text-[10px]">회원 이메일 계정</label>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         value={adjustTargetUser.email}
                                         disabled
                                         className="w-full p-3 bg-slate-950/50 border border-white/5 rounded-lg text-slate-400 outline-none cursor-not-allowed"
@@ -453,7 +458,7 @@ export const UserManagementTab: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-slate-400 uppercase text-[10px]">통화 (Asset)</label>
-                                        <select 
+                                        <select
                                             value={adjustCurrency}
                                             onChange={(e) => setAdjustCurrency(e.target.value)}
                                             className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white outline-none"
@@ -467,7 +472,7 @@ export const UserManagementTab: React.FC = () => {
                                     </div>
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-slate-400 uppercase text-[10px]">조작 유형</label>
-                                        <select 
+                                        <select
                                             value={adjustType}
                                             onChange={(e) => setAdjustType(e.target.value as any)}
                                             className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white outline-none"
@@ -479,8 +484,8 @@ export const UserManagementTab: React.FC = () => {
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-slate-400 uppercase text-[10px]">조작 금액 (Amount)</label>
-                                    <input 
-                                        type="number" 
+                                    <input
+                                        type="number"
                                         step="any"
                                         value={adjustAmount}
                                         onChange={(e) => setAdjustAmount(e.target.value)}
@@ -571,7 +576,7 @@ export const UserManagementTab: React.FC = () => {
                                                 const displayPrice = t.price / scale;
                                                 const displayVolume = t.qty * (displayPrice);
                                                 const unit = t.symbol === 'BTC-USD' ? '$' : '₩';
-                                                
+
                                                 return (
                                                     <tr key={t.tradeId} className="text-slate-300">
                                                         <td className="px-4 py-3 font-mono font-bold text-[#00f2fe]">{t.tradeId}</td>
@@ -605,4 +610,5 @@ export const UserManagementTab: React.FC = () => {
             )}
         </div>
     );
-};
+});
+UserManagementTab.displayName = 'UserManagementTab';
