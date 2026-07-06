@@ -1,4 +1,4 @@
--- =========================================================================
+그럼 -- =========================================================================
 -- Flyway DB Seed Data Migration (DML 전용)
 -- =========================================================================
 
@@ -218,11 +218,13 @@ INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
 (2, 'JAF', '0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
 
 -- 7. 초기 마켓 데이터 주입
+-- price_decimals를 매칭 엔진의 실재 연산 자릿수(BTC 8, ADA 4, JAF-KRW 4, JAF-USD 8)로 일치시킴.
+-- listing_price를 사람이 인식하는 정상 가격(65000, 500, 1500, 1)으로 설정
 INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, status, created_by, updated_by) VALUES
-('BTC-USD', 'BTC', 'USD', 0.001000, 2, 0.00010000, 6500000, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
+('BTC-USD', 'BTC', 'USD', 0.001000, 8, 0.00010000, 65000, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
 INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, status, created_by, updated_by) VALUES
-('ADA-KRW', 'ADA', 'KRW', 0.001500, 2, 0.00010000, 50000, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
+('ADA-KRW', 'ADA', 'KRW', 0.001500, 4, 0.00010000, 500, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
 INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, status, created_by, updated_by) VALUES
-('JAF-KRW', 'JAF', 'KRW', 0.002000, 2, 1.00000000, 1500, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
+('JAF-KRW', 'JAF', 'KRW', 0.002000, 4, 1.00000000, 1500, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
 INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, status, created_by, updated_by) VALUES
-('JAF-USD', 'JAF', 'USD', 0.002000, 2, 0.01000000, 1, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
+('JAF-USD', 'JAF', 'USD', 0.002000, 8, 0.01000000, 1, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;

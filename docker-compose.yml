@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # =========================================================================
   # 1. 핵심 데이터베이스 및 로컬 EVM (PostgreSQL & Ganache)
@@ -294,16 +292,16 @@ services:
       dockerfile: engine-core/Dockerfile
     container_name: matching-engine-jaf-krw
     environment:
-      - SYMBOL=JAF-KRW             # 타겟 마켓 심볼 지정
-      - COMMAND_PORT=9995          # JAF-KRW 엔진 커맨드 입력 포트
-      - ENGINE_PORT=9996           # JAF-KRW 엔진 이벤트 출력 포트
-      - METRICS_ENABLED=true       # 메트릭 노출 활성화
-      - METRICS_PORT=9103          # JAF-KRW 엔진 전용 메트릭 포트
+      - SYMBOL=JAF-KRW # 타겟 마켓 심볼 지정
+      - COMMAND_PORT=9995 # JAF-KRW 엔진 커맨드 입력 포트
+      - ENGINE_PORT=9996 # JAF-KRW 엔진 이벤트 출력 포트
+      - METRICS_ENABLED=true # 메트릭 노출 활성화
+      - METRICS_PORT=9103 # JAF-KRW 엔진 전용 메트릭 포트
       - JAVA_OPTS=-XX:+UseSerialGC -Xms128m -Xmx256m
     ports:
-      - "9995:9995"                # 주문 수신 커맨드 포트
-      - "9104:9996"                # 이벤트 출력 포트 (호스트 포트 충돌 방지를 위해 9104로 매핑)
-      - "9103:9103"                # Prometheus 메트릭 포트
+      - "9995:9995" # 주문 수신 커맨드 포트
+      - "9104:9996" # 이벤트 출력 포트 (호스트 포트 충돌 방지를 위해 9104로 매핑)
+      - "9103:9103" # Prometheus 메트릭 포트
     deploy:
       resources:
         limits:
@@ -318,11 +316,11 @@ services:
     container_name: kafka-adapter-jaf-krw
     depends_on:
       - engine-jaf-krw # JAF-KRW 매칭 엔진 구동 후 실행
-      - kafka           # 카프카 브로커 구동 후 실행
+      - kafka # 카프카 브로커 구동 후 실행
     environment:
       - KAFKA_BROKER=kafka:9092
       - ENGINE_HOST=engine-jaf-krw # JAF-KRW 엔진 호스트명
-      - ENGINE_PORT=9996           # JAF-KRW 엔진 이벤트 출력 포트
+      - ENGINE_PORT=9996 # JAF-KRW 엔진 이벤트 출력 포트
       - JAVA_OPTS=-Xms64m -Xmx128m -XX:+UseSerialGC
     restart: on-failure
     deploy:
@@ -337,16 +335,16 @@ services:
       dockerfile: engine-core/Dockerfile
     container_name: matching-engine-jaf-usd
     environment:
-      - SYMBOL=JAF-USD             # 타겟 마켓 심볼 지정
-      - COMMAND_PORT=9994          # JAF-USD 엔진 커맨드 입력 포트
-      - ENGINE_PORT=9993           # JAF-USD 엔진 이벤트 출력 포트
-      - METRICS_ENABLED=true       # 메트릭 노출 활성화
-      - METRICS_PORT=9105          # JAF-USD 엔진 전용 메트릭 포트
+      - SYMBOL=JAF-USD # 타겟 마켓 심볼 지정
+      - COMMAND_PORT=9994 # JAF-USD 엔진 커맨드 입력 포트
+      - ENGINE_PORT=9993 # JAF-USD 엔진 이벤트 출력 포트
+      - METRICS_ENABLED=true # 메트릭 노출 활성화
+      - METRICS_PORT=9105 # JAF-USD 엔진 전용 메트릭 포트
       - JAVA_OPTS=-XX:+UseSerialGC -Xms128m -Xmx256m
     ports:
-      - "9994:9994"                # 주문 수신 커맨드 포트
-      - "9106:9993"                # 이벤트 출력 포트 (호스트 포트 충돌 방지를 위해 9106으로 매핑)
-      - "9105:9105"                # Prometheus 메트릭 포트
+      - "9994:9994" # 주문 수신 커맨드 포트
+      - "9106:9993" # 이벤트 출력 포트 (호스트 포트 충돌 방지를 위해 9106으로 매핑)
+      - "9105:9105" # Prometheus 메트릭 포트
     deploy:
       resources:
         limits:
@@ -361,11 +359,11 @@ services:
     container_name: kafka-adapter-jaf-usd
     depends_on:
       - engine-jaf-usd # JAF-USD 매칭 엔진 구동 후 실행
-      - kafka           # 카프카 브로커 구동 후 실행
+      - kafka # 카프카 브로커 구동 후 실행
     environment:
       - KAFKA_BROKER=kafka:9092
       - ENGINE_HOST=engine-jaf-usd # JAF-USD 엔진 호스트명
-      - ENGINE_PORT=9993           # JAF-USD 엔진 이벤트 출력 포트
+      - ENGINE_PORT=9993 # JAF-USD 엔진 이벤트 출력 포트
       - JAVA_OPTS=-Xms64m -Xmx128m -XX:+UseSerialGC
     restart: on-failure
     deploy:
@@ -511,8 +509,8 @@ services:
     env_file:
       - .env.dev
     depends_on:
-      - engine-btc     # BTC-USD 엔진 구동 후 주문 주입 시작
-      - engine-ada     # ADA-KRW 엔진 구동 후 주문 주입 시작
+      - engine-btc # BTC-USD 엔진 구동 후 주문 주입 시작
+      - engine-ada # ADA-KRW 엔진 구동 후 주문 주입 시작
       - engine-jaf-krw # JAF-KRW 엔진 구동 후 주문 주입 시작
       - engine-jaf-usd # JAF-USD 엔진 구동 후 주문 주입 시작
     restart: "no"

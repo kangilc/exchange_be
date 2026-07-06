@@ -262,11 +262,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 .sort((a, b) => a[0] - b[0])
                 .slice(0, 10);
 
+            const scale = get().getScaleFactor(currentSymbol);
             let mid = 0;
             let diff = 0;
             if (bidsArr.length > 0 && asksArr.length > 0) {
-                const topBid = bidsArr[0][0];
-                const topAsk = asksArr[0][0];
+                const topBid = bidsArr[0][0] / scale;
+                const topAsk = asksArr[0][0] / scale;
                 mid = (topBid + topAsk) / 2.0;
                 diff = topAsk - topBid;
             }
@@ -417,7 +418,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                             }
                         });
                     }
-                } catch (e) {}
+                } catch (e) { }
                 return;
             }
 
@@ -430,8 +431,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             const view = new DataView(buffer);
             // ⚡ 32바이트 바이너리 패킷 사양 상세 레이아웃 (Big-Endian):
             // - Offset [00 ~ 03] (4 bytes, Int32): Symbol ID (예: "BTC-USD"의 해시코드)
-            // - Offset [04 ~ 11] (8 bytes, Int64/BigInt64): Timestamp (매칭 서버 시각 - 프론트 미사용)
-            // - Offset [12 ~ 19] (8 bytes, BigInt64): 가격 (Price, 원본 x100 정수형태)
+            // - Offset [12 ~ 19] (8 bytes, BigInt64): 가격 (Price, 원본 정수 형태)
             // - Offset [20 ~ 27] (8 bytes, BigInt64): 수량 변화량 (Delta Qty)
             // - Offset [28 ~ 31] (4 bytes, Int32): 주문 방향 (Side: 0 = Bid/BUY, 1 = Ask/SELL)
             const symbolId = view.getInt32(0, false);
@@ -442,12 +442,25 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             const priceNum = Number(price);
             const qtyNum = Number(deltaQty);
 
+            // 심볼 해시코드를 기반으로 활성화된 마켓 목록 중에서 동적 타겟 심볼 검색
             let msgSymbol = '';
-            if (symbolId === BTC_SYMBOL_ID) msgSymbol = 'BTC-USD';
-            else if (symbolId === ADA_SYMBOL_ID) msgSymbol = 'ADA-KRW';
-            else {
-                console.warn(`[WS 에러] 일치하지 않는 심볼 ID 수신: ${symbolId} (BTC 기대값: ${BTC_SYMBOL_ID}, ADA 기대값: ${ADA_SYMBOL_ID})`);
-                return;
+            const activeMarkets = get().markets;
+            for (const m of activeMarkets) {
+                if (getHashCode(m.symbol) === symbolId) {
+                    msgSymbol = m.symbol;
+                    break;
+                }
+            }
+
+            // 마켓 목록 로드 전이거나 매칭되는 심볼을 찾지 못한 경우 하드코딩 폴백 지원
+            if (!msgSymbol) {
+                if (symbolId === BTC_SYMBOL_ID) msgSymbol = 'BTC-USD';
+                else if (symbolId === ADA_SYMBOL_ID) msgSymbol = 'ADA-KRW';
+                else if (symbolId === getHashCode('JAF-KRW')) msgSymbol = 'JAF-KRW';
+                else if (symbolId === getHashCode('JAF-USD')) msgSymbol = 'JAF-USD';
+                else {
+                    return; // 알 수 없는 마켓 데이터 무시
+                }
             }
 
             const currentSymbol = get().activeSymbol;
@@ -469,6 +482,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             // 2. 음수 잔량일 경우 매칭(체결) 발생에 해당하므로 체결 내역에도 적재
             if (qtyNum < 0) {
                 const scale = get().getScaleFactor(msgSymbol);
+                // 실시간 체결가 및 수량에 스케일 팩터를 적용하여 실제 소수점 값으로 변환
                 const actualQty = Math.abs(qtyNum) / scale;
                 const actualPrice = priceNum / scale;
 
@@ -514,7 +528,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         getScaleFactor: (symbol?: string) => {
             const activeSym = symbol || get().activeSymbol;
             const m = get().markets.find((x: any) => x.symbol === activeSym);
-            const decimals = m ? m.priceDecimals : 2;
+            const decimals = m ? m.priceDecimals : 2; // 마켓 테이블에서 price_decimals를 직접 읽어옴
             return Math.pow(10, decimals);
         },
 
@@ -537,7 +551,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     const rawJson = await res.json();
                     const tokens = rawJson.data !== undefined ? rawJson.data : rawJson;
                     setLocalTokens(tokens.accessToken, tokens.refreshToken);
-                    
+
                     let userId = 1;
                     try {
                         const base64Url = tokens.accessToken.split('.')[1];
@@ -552,9 +566,9 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
                     localStorage.setItem('user_auth_email', tokens.email);
                     localStorage.setItem('user_auth_id', userId.toString());
-                    
-                    set({ 
-                        isAuthenticated: true, 
+
+                    set({
+                        isAuthenticated: true,
                         authEmail: tokens.email,
                         authUserId: userId,
                         isLoginModalOpen: false
@@ -676,7 +690,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     if (config.API_BASE_URL) {
                         const configBase = config.API_BASE_URL;
                         const configHost = configBase.replace(/^https?:\/\//, '').split(':')[0];
-                        
+
                         // config.json에 완전히 다른 원격 IP가 명시되어 있는 경우에만 이를 따르고,
                         // 기본 로컬 환경일 경우 접속 주소 브라우저 IP(127.0.0.1/localhost 등)를 신뢰하여 바인딩
                         if (configHost !== 'localhost' && configHost !== '127.0.0.1') {
@@ -790,11 +804,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                     .sort((a, b) => a[0] - b[0])
                     .slice(0, 10);
 
+                const scale = get().getScaleFactor(symbol);
                 let mid = 0;
                 let diff = 0;
                 if (bidsArr.length > 0 && asksArr.length > 0) {
-                    const topBid = bidsArr[0][0];
-                    const topAsk = asksArr[0][0];
+                    const topBid = bidsArr[0][0] / scale;
+                    const topAsk = asksArr[0][0] / scale;
                     mid = (topBid + topAsk) / 2.0;
                     diff = topAsk - topBid;
                 }

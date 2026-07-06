@@ -73,7 +73,8 @@ public final class OrderGenerator {
         // 3. 자프 원화(JAF-KRW) 가상 주문 주입 담당 스레드 생성 (소수점 4자리 스케일 10,000, 기준가: 1500)
         long jafKrwScale = 10000L;
         Thread jafKrwThread = new Thread(
-                new GeneratorTask(jafKrwHost, jafKrwPort, 1500L * jafKrwScale, "JAF-KRW", jafKrwScale, sleepMin, sleepMax),
+                new GeneratorTask(jafKrwHost, jafKrwPort, 1500L * jafKrwScale, "JAF-KRW", jafKrwScale, sleepMin,
+                        sleepMax),
                 "generator-jaf-krw");
         // 4. 자프 달러(JAF-USD) 가상 주문 주입 담당 스레드 생성 (소수점 8자리 스케일 100,000,000, 기준가: 1)
         long jafUsdScale = 100000000L;
