@@ -9,6 +9,8 @@ export const UserManagementTab: React.FC = () => {
         updateUser,
         adjustUserAsset,
         fetchUsers,
+        searchUsersEs,
+        autocompleteEs,
         fetchUserLedgers,
         fetchUserTrades,
         getScaleFactor
@@ -21,6 +23,39 @@ export const UserManagementTab: React.FC = () => {
     // Local filter/search states
     const [userSearch, setUserSearch] = useState('');
     const [userPage, setUserPage] = useState(0);
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
+    // Debounce/ES Search Handler
+    const searchTimeoutRef = React.useRef<any>(null);
+
+    const handleSearchChange = (val: string) => {
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+        
+        searchTimeoutRef.current = setTimeout(async () => {
+            if (val.trim() === '') {
+                fetchUsers();
+                setSuggestions([]);
+            } else {
+                searchUsersEs(val);
+                const suggestList = await autocompleteEs(val);
+                setSuggestions(suggestList);
+            }
+        }, 200);
+    };
+
+    // Close suggestions dropdown when clicking outside
+    React.useEffect(() => {
+        const handleClickOutside = () => {
+            setTimeout(() => {
+                setShowSuggestions(false);
+            }, 150);
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
 
     // Register User Modal States
     const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -133,9 +168,7 @@ export const UserManagementTab: React.FC = () => {
     };
 
     // Filtered & Paginated Users
-    const filteredUsers = users.filter(u => 
-        u.email.toLowerCase().includes(userSearch.toLowerCase())
-    );
+    const filteredUsers = users;
     const USER_PAGE_SIZE = 10;
     const userTotalPages = Math.ceil(filteredUsers.length / USER_PAGE_SIZE);
     const paginatedUsers = filteredUsers.slice(userPage * USER_PAGE_SIZE, (userPage + 1) * USER_PAGE_SIZE);
@@ -159,18 +192,41 @@ export const UserManagementTab: React.FC = () => {
             <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl overflow-hidden flex flex-col">
                 <div className="p-5 border-b border-white/5 flex justify-between items-center">
                     <span className="text-sm font-bold text-white">등록 회원 상세 목록</span>
-                    <div className="relative flex items-center">
-                        <Search size={14} className="absolute left-3 text-slate-500" />
-                        <input 
-                            type="text" 
-                            placeholder="이메일 검색..." 
-                            value={userSearch}
-                            onChange={(e) => {
-                                setUserSearch(e.target.value);
-                                setUserPage(0);
-                            }}
-                            className="pl-9 pr-4 py-2 bg-slate-950/50 border border-white/10 rounded-xl text-xs font-medium text-white outline-none w-[250px] focus:border-[#00f2fe] focus:shadow-[0_0_10px_rgba(0,242,254,0.15)] transition-all"
-                        />
+                    <div className="relative flex flex-col items-end" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative flex items-center">
+                            <Search size={14} className="absolute left-3 text-slate-500" />
+                            <input 
+                                type="text" 
+                                placeholder="이메일 검색 (초성/부분)..." 
+                                value={userSearch}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setUserSearch(val);
+                                    setUserPage(0);
+                                    handleSearchChange(val);
+                                }}
+                                onFocus={() => setShowSuggestions(true)}
+                                className="pl-9 pr-4 py-2 bg-slate-950/50 border border-white/10 rounded-xl text-xs font-medium text-white outline-none w-[250px] focus:border-[#00f2fe] focus:shadow-[0_0_10px_rgba(0,242,254,0.15)] transition-all"
+                            />
+                        </div>
+                        {showSuggestions && suggestions.length > 0 && (
+                            <div className="absolute top-10 right-0 w-[250px] bg-[#0d1426]/95 border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] z-50 max-h-[200px] overflow-y-auto divide-y divide-white/5 animate-fade-in backdrop-blur-md">
+                                {suggestions.map((s, idx) => (
+                                    <div 
+                                        key={idx}
+                                        onClick={() => {
+                                            setUserSearch(s);
+                                            setUserPage(0);
+                                            setShowSuggestions(false);
+                                            searchUsersEs(s);
+                                        }}
+                                        className="px-4 py-2.5 hover:bg-[#8a2be2]/20 text-xs text-slate-200 hover:text-white cursor-pointer transition-colors font-semibold"
+                                    >
+                                        🔍 {s}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="overflow-x-auto w-full">

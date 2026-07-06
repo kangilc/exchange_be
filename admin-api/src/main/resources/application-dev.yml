@@ -9,6 +9,8 @@ spring:
       idle-timeout: 30000
       connection-timeout: 20000
       max-lifetime: 1800000
+  elasticsearch:
+    uris: ${ES_URIS:http://elasticsearch:9200}
   jpa:
     open-in-view: false
   flyway:

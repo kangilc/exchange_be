@@ -136,6 +136,8 @@ interface ExchangeState {
 
     // 어드민 전용 추가 메서드
     fetchUsers: () => Promise<void>;
+    searchUsersEs: (keyword: string) => Promise<void>;
+    autocompleteEs: (prefix: string) => Promise<string[]>;
     registerUser: (email: string, password: string, grade: string) => Promise<boolean>;
     updateUser: (userId: number, email: string, grade: string, status: string) => Promise<boolean>;
     fetchWallets: () => Promise<void>;
@@ -670,6 +672,33 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             } catch (err) {
                 console.error("Failed to fetch users", err);
             }
+        },
+
+        searchUsersEs: async (keyword: string) => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/search?keyword=${encodeURIComponent(keyword)}`);
+                if (res.ok) {
+                    const json = await res.json();
+                    const data = json.data || [];
+                    set({ users: data });
+                }
+            } catch (err) {
+                console.error("Failed to search users in ES", err);
+            }
+        },
+
+        autocompleteEs: async (prefix: string): Promise<string[]> => {
+            try {
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/users/autocomplete?prefix=${encodeURIComponent(prefix)}`);
+                if (res.ok) {
+                    const json = await res.json();
+                    const data = json.data || [];
+                    return data.map((item: any) => item.email);
+                }
+            } catch (err) {
+                console.error("Failed to autocomplete in ES", err);
+            }
+            return [];
         },
 
         registerUser: async (email, password, grade) => {

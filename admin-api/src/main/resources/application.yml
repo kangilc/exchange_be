@@ -6,6 +6,8 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:local}
   datasource:
     driver-class-name: org.postgresql.Driver
+  elasticsearch:
+    uris: ${ES_URIS:http://localhost:9200}
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     show-sql: false

@@ -10,6 +10,7 @@ import jakarta.persistence.*;
  */
 @Entity
 @Table(name = "users")
+@EntityListeners(exchange.admin.listener.UserEntityListener.class)
 public class User extends BaseEntity {
 
     @Id

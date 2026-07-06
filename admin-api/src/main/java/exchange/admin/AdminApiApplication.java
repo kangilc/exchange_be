@@ -6,6 +6,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import javax.sql.DataSource;
@@ -15,12 +16,13 @@ import java.sql.Statement;
 
 /**
  * 어드민 API 애플리케이션의 메인 진입점 클래스.
- * Spring Boot 애플리케이션을 구동하며, 스케줄링 기능을 활성화하고,
+ * Spring Boot 애플리케이션을 구동하며, 스케줄링 및 비동기 처리를 활성화하고,
  * 로컬/개발 환경에서의 초기 데이터베이스 유효성 검사 및 시딩(Seed) 작업을 처리합니다.
  */
 @Slf4j
 @SpringBootApplication
 @EnableScheduling
+@EnableAsync
 public class AdminApiApplication {
 
     public static void main(String[] args) {
