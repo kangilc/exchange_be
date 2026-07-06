@@ -15,7 +15,7 @@ public interface UserSearchRepository extends ElasticsearchRepository<UserDocume
 
     List<UserDocument> findByEmailStartingWith(String prefix);
 
-    // 이메일 필드에 대해 Match Query를 실행하여 부분/초성 검색을 지원함.
-    @org.springframework.data.elasticsearch.annotations.Query("{\"match\": {\"email\": \"?0\"}}")
+    // 이메일 필드에 대해 Match Query를 실행하며, 모든 토큰이 부합하도록 AND 연산자를 적용함.
+    @org.springframework.data.elasticsearch.annotations.Query("{\"match\": {\"email\": {\"query\": \"?0\", \"operator\": \"and\"}}}")
     List<UserDocument> findByEmail(String email);
 }
