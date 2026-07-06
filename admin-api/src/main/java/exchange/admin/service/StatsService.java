@@ -26,14 +26,14 @@ public class StatsService {
     private final exchange.admin.mapper.StatsMapper statsMapper;
 
     public StatsService(TradeRepository tradeRepository,
-                        exchange.admin.mapper.TradeMapper tradeMapper,
-                        LedgerJournalRepository ledgerJournalRepository,
-                        exchange.admin.repository.UserRepository userRepository,
-                        exchange.admin.repository.WalletRepository walletRepository,
-                        exchange.admin.repository.MarketRepository marketRepository,
-                        exchange.admin.mapper.UserMapper userMapper,
-                        exchange.admin.mapper.LedgerJournalMapper ledgerJournalMapper,
-                        exchange.admin.mapper.StatsMapper statsMapper) {
+            exchange.admin.mapper.TradeMapper tradeMapper,
+            LedgerJournalRepository ledgerJournalRepository,
+            exchange.admin.repository.UserRepository userRepository,
+            exchange.admin.repository.WalletRepository walletRepository,
+            exchange.admin.repository.MarketRepository marketRepository,
+            exchange.admin.mapper.UserMapper userMapper,
+            exchange.admin.mapper.LedgerJournalMapper ledgerJournalMapper,
+            exchange.admin.mapper.StatsMapper statsMapper) {
         this.tradeRepository = tradeRepository;
         this.tradeMapper = tradeMapper;
         this.ledgerJournalRepository = ledgerJournalRepository;
@@ -48,7 +48,8 @@ public class StatsService {
     /**
      * 지정된 해상도(resolution) 단위로 그룹핑된 거래 통계 목록을 조회함.
      */
-    public List<exchange.admin.dto.response.TradeStatsODT> getTradeStats(String resolution, java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
+    public List<exchange.admin.dto.response.TradeStatsODT> getTradeStats(String resolution,
+            java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
         String timeBucket = mapResolutionToBucket(resolution);
         return tradeMapper.selectTradeStats(timeBucket, startDate, endDate);
     }
@@ -56,7 +57,8 @@ public class StatsService {
     /**
      * 지정된 해상도 단위로 그룹핑된 원장 변경 통계 목록을 조회함.
      */
-    public List<exchange.admin.dto.response.LedgerStatsODT> getLedgerStats(String resolution, java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
+    public List<exchange.admin.dto.response.LedgerStatsODT> getLedgerStats(String resolution,
+            java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
         String timeBucket = mapResolutionToBucket(resolution);
         return ledgerJournalMapper.selectLedgerStats(timeBucket, startDate, endDate);
     }
@@ -64,7 +66,8 @@ public class StatsService {
     /**
      * 지정된 해상도 단위로 그룹핑된 유저 가입 통계 목록을 조회함.
      */
-    public List<exchange.admin.dto.response.UserStatsODT> getUserStats(String resolution, java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
+    public List<exchange.admin.dto.response.UserStatsODT> getUserStats(String resolution,
+            java.time.LocalDateTime startDate, java.time.LocalDateTime endDate) {
         String timeBucket = mapResolutionToBucket(resolution);
         return userMapper.selectUserStats(timeBucket, startDate, endDate);
     }
@@ -74,13 +77,19 @@ public class StatsService {
             return "day";
         }
         switch (resolution.toLowerCase()) {
-            case "hourly": return "hour";
-            case "weekly": return "week";
-            case "monthly": return "month";
-            case "quarterly": return "quarter";
-            case "annual": return "year";
+            case "hourly":
+                return "hour";
+            case "weekly":
+                return "week";
+            case "monthly":
+                return "month";
+            case "quarterly":
+                return "quarter";
+            case "annual":
+                return "year";
             case "daily":
-            default: return "day";
+            default:
+                return "day";
         }
     }
 
@@ -104,8 +113,9 @@ public class StatsService {
         return tradeRepository.findFirstBySymbolOrderByTradeIdDesc(symbol)
                 .map(exchange.admin.model.Trade::getPrice)
                 .orElseGet(() -> marketRepository.findById(symbol)
-                        .map(exchange.admin.model.Market::getListingPrice)
+                        .map(m -> m.getListingPrice() * (long) Math.pow(10, m.getPriceDecimals()))
                         .orElse(0L));
+
     }
 
     /**
@@ -132,8 +142,9 @@ public class StatsService {
 
         // 3. 그것도 없으면 DB markets 테이블의 listing_price 설정
         return marketRepository.findById(symbol)
-                .map(exchange.admin.model.Market::getListingPrice)
+                .map(m -> m.getListingPrice() * (long) Math.pow(10, m.getPriceDecimals()))
                 .orElse(0L);
+
     }
 
     /**
@@ -160,22 +171,37 @@ public class StatsService {
         long bucketSizeSeconds = 60; // 기본값은 1분 (60초)
         if (resolution != null) {
             switch (resolution.toLowerCase()) {
-                case "5m": bucketSizeSeconds = 300; break;
-                case "15m": bucketSizeSeconds = 900; break;
-                case "1h": bucketSizeSeconds = 3600; break;
-                case "1w": bucketSizeSeconds = 604800; break;
-                case "1mo": bucketSizeSeconds = 2592000; break;
-                case "1y": bucketSizeSeconds = 31536000; break;
+                case "5m":
+                    bucketSizeSeconds = 300;
+                    break;
+                case "15m":
+                    bucketSizeSeconds = 900;
+                    break;
+                case "1h":
+                    bucketSizeSeconds = 3600;
+                    break;
+                case "1w":
+                    bucketSizeSeconds = 604800;
+                    break;
+                case "1mo":
+                    bucketSizeSeconds = 2592000;
+                    break;
+                case "1y":
+                    bucketSizeSeconds = 31536000;
+                    break;
                 case "1m":
-                default: bucketSizeSeconds = 60; break;
+                default:
+                    bucketSizeSeconds = 60;
+                    break;
             }
         }
-        
+
         // MyBatis Mapper에 캔들(OHLCV) 집계 쿼리를 위임하여 결과를 조회함.
         // 캔들 생성 시 데이터가 방대해지는 것을 방지하기 위해 5만건 원천 데이터 제한을 파라미터로 주입함.
         int tradeLimit = 50000;
-        List<java.util.Map<String, Object>> candlesRaw = statsMapper.selectCandleStats(symbol, bucketSizeSeconds, limit, tradeLimit);
-        
+        List<java.util.Map<String, Object>> candlesRaw = statsMapper.selectCandleStats(symbol, bucketSizeSeconds, limit,
+                tradeLimit);
+
         List<exchange.admin.dto.response.CandleODT> candles = new java.util.ArrayList<>();
         if (candlesRaw != null) {
             for (java.util.Map<String, Object> map : candlesRaw) {
@@ -191,7 +217,7 @@ public class StatsService {
             // 캔들은 최신부터 과거 순으로 조회되므로, 차트 렌더링(과거->최신)을 위해 순서를 역순으로 정렬함.
             java.util.Collections.reverse(candles);
         }
-        
+
         return candles;
     }
 
@@ -199,7 +225,8 @@ public class StatsService {
      * 어드민 대시보드에서 활용하는 거래소 핵심 성능 및 재무 지표를 집계하여 산출함.
      */
     public exchange.admin.dto.response.PerformanceODT getPerformanceStats() {
-        exchange.admin.dto.response.PerformanceODT.PerformanceODTBuilder perf = exchange.admin.dto.response.PerformanceODT.builder();
+        exchange.admin.dto.response.PerformanceODT.PerformanceODTBuilder perf = exchange.admin.dto.response.PerformanceODT
+                .builder();
 
         // 1. 수수료 수익 (누적 및 24시간)
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
@@ -222,7 +249,7 @@ public class StatsService {
                 String symbol = (String) totalRow.get("symbol");
                 double currentFeeRate = AdminSettings.getFeeRate(symbol);
                 java.util.Map<String, Object> row24h = fees24hMap.get(symbol);
-                
+
                 feeRevenues.add(exchange.admin.dto.response.PerformanceODT.FeeRevenueODT.builder()
                         .symbol(symbol)
                         .quoteCurrency((String) totalRow.get("quote_currency"))
@@ -267,10 +294,14 @@ public class StatsService {
                 String curr = (String) map.get("currency");
                 double bal = convertDouble(map.get("totalbalance"));
                 double rate = 1.0;
-                if ("USD".equals(curr)) rate = 1350.0;
-                else if ("BTC".equals(curr)) rate = 87750000.0;
-                else if ("ADA".equals(curr)) rate = 500.0;
-                else if ("JAF".equals(curr)) rate = 1000.0;
+                if ("USD".equals(curr))
+                    rate = 1350.0;
+                else if ("BTC".equals(curr))
+                    rate = 87750000.0;
+                else if ("ADA".equals(curr))
+                    rate = 500.0;
+                else if ("JAF".equals(curr))
+                    rate = 1000.0;
                 totalBalanceKrw += (bal * rate);
             }
         }
@@ -282,7 +313,8 @@ public class StatsService {
                 String qCurrency = (String) map.get("quote_currency");
                 double vol = convertDouble(map.get("volume"));
                 double rate = 1.0;
-                if ("USD".equals(qCurrency)) rate = 1350.0;
+                if ("USD".equals(qCurrency))
+                    rate = 1350.0;
                 totalVolume30dKrw += (vol * rate);
             }
         }
@@ -300,7 +332,7 @@ public class StatsService {
         long activeCount = fillRate != null ? convertLong(fillRate.get("active")) : 0L;
         long totalOrders = filledCount + cancelledCount + activeCount;
         double fillRatePercent = totalOrders > 0 ? (filledCount * 100.0 / totalOrders) : 0.0;
-        
+
         perf.orderEfficiency(exchange.admin.dto.response.PerformanceODT.OrderEfficiencyODT.builder()
                 .filledCount(filledCount)
                 .cancelledCount(cancelledCount)
@@ -310,10 +342,19 @@ public class StatsService {
 
         // 6. 경쟁사 벤치마크 (핵심 경쟁 거래소 대비 모의 데이터 구성)
         java.util.List<exchange.admin.dto.response.PerformanceODT.CompetitorODT> competitors = new java.util.ArrayList<>();
-        competitors.add(exchange.admin.dto.response.PerformanceODT.CompetitorODT.builder().exchange("HFX (우리 거래소)").btcUsdFeeRatePercent(AdminSettings.getFeeRate("BTC-USD") * 100.0).adaKrwFeeRatePercent(AdminSettings.getFeeRate("ADA-KRW") * 100.0).avgLatencyMs(0.05).tps(100000).uptimePercent(99.999).build());
-        competitors.add(exchange.admin.dto.response.PerformanceODT.CompetitorODT.builder().exchange("Binance").btcUsdFeeRatePercent(0.1).adaKrwFeeRatePercent(0.1).avgLatencyMs(0.15).tps(1400000).uptimePercent(99.99).build());
-        competitors.add(exchange.admin.dto.response.PerformanceODT.CompetitorODT.builder().exchange("Upbit").btcUsdFeeRatePercent(0.05).adaKrwFeeRatePercent(0.05).avgLatencyMs(0.20).tps(50000).uptimePercent(99.95).build());
-        competitors.add(exchange.admin.dto.response.PerformanceODT.CompetitorODT.builder().exchange("Coinbase").btcUsdFeeRatePercent(0.60).adaKrwFeeRatePercent(0.60).avgLatencyMs(0.18).tps(30000).uptimePercent(99.99).build());
+        competitors.add(exchange.admin.dto.response.PerformanceODT.CompetitorODT.builder().exchange("HFX (우리 거래소)")
+                .btcUsdFeeRatePercent(AdminSettings.getFeeRate("BTC-USD") * 100.0)
+                .adaKrwFeeRatePercent(AdminSettings.getFeeRate("ADA-KRW") * 100.0).avgLatencyMs(0.05).tps(100000)
+                .uptimePercent(99.999).build());
+        competitors.add(exchange.admin.dto.response.PerformanceODT.CompetitorODT.builder().exchange("Binance")
+                .btcUsdFeeRatePercent(0.1).adaKrwFeeRatePercent(0.1).avgLatencyMs(0.15).tps(1400000)
+                .uptimePercent(99.99).build());
+        competitors.add(exchange.admin.dto.response.PerformanceODT.CompetitorODT.builder().exchange("Upbit")
+                .btcUsdFeeRatePercent(0.05).adaKrwFeeRatePercent(0.05).avgLatencyMs(0.20).tps(50000)
+                .uptimePercent(99.95).build());
+        competitors.add(exchange.admin.dto.response.PerformanceODT.CompetitorODT.builder().exchange("Coinbase")
+                .btcUsdFeeRatePercent(0.60).adaKrwFeeRatePercent(0.60).avgLatencyMs(0.18).tps(30000)
+                .uptimePercent(99.99).build());
         perf.competitors(competitors);
 
         return perf.build();
@@ -325,7 +366,7 @@ public class StatsService {
         }
         return 0.0;
     }
-    
+
     private long convertLong(Object value) {
         if (value instanceof Number) {
             return ((Number) value).longValue();
