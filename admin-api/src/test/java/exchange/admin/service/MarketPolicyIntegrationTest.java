@@ -35,13 +35,19 @@ class MarketPolicyIntegrationTest extends BaseIntegrationTest {
     private final MarketService marketService;
     private final MarketRepository marketRepository;
     private final MarketHistoryRepository marketHistoryRepository;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    private final jakarta.persistence.EntityManager entityManager;
 
     public MarketPolicyIntegrationTest(MarketService marketService,
                                        MarketRepository marketRepository,
-                                       MarketHistoryRepository marketHistoryRepository) {
+                                       MarketHistoryRepository marketHistoryRepository,
+                                       org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
+                                       jakarta.persistence.EntityManager entityManager) {
         this.marketService = marketService;
         this.marketRepository = marketRepository;
         this.marketHistoryRepository = marketHistoryRepository;
+        this.jdbcTemplate = jdbcTemplate;
+        this.entityManager = entityManager;
     }
 
     @Test
@@ -150,5 +156,41 @@ class MarketPolicyIntegrationTest extends BaseIntegrationTest {
     void test04_getMarket_NotFound() {
         Optional<Market> result = marketService.getMarket("FAKE-MARKET");
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    @Order(5)
+    @Transactional
+    @DisplayName("5. 마켓 생성 시 호가 단위 정책(TickSizeRule) 및 레벨 목록(TickSizeLevels) 매핑 및 조회가 성공하는지 검증")
+    void test05_marketTickSizeRule_Success() {
+        // 테스트 트랜잭션 내에서 임시 틱 정책 및 세부 레벨 수동 주입 (마이그레이션 격리 상태 대응)
+        jdbcTemplate.execute("INSERT INTO tick_size_rules (rule_id, name, created_at, updated_at) VALUES ('USD_STANDARD', 'USD Standard Rule', NOW(), NOW())");
+        jdbcTemplate.execute("INSERT INTO tick_size_levels (rule_id, price_above, tick_size, created_at, updated_at) VALUES ('USD_STANDARD', 0.00000000, 0.00010000, NOW(), NOW())");
+
+        // 테스트용 마켓 생성 및 저장 (기존 시드 데이터에 있는 'USD_STANDARD' 틱 정책 적용)
+        Market market = new Market();
+        market.setSymbol("TEST-USD");
+        market.setBaseCurrency("TEST");
+        market.setQuoteCurrency("USD");
+        market.setFeeRate(new BigDecimal("0.0015"));
+        market.setStatus("ACTIVE");
+        market.setTickSizeRuleId("USD_STANDARD");
+        marketRepository.save(market);
+        marketRepository.flush();
+        entityManager.clear();
+
+        // 1) DB 조회 검증
+        Market dbMarket = marketRepository.findById("TEST-USD").orElseThrow();
+        assertThat(dbMarket.getTickSizeRuleId()).isEqualTo("USD_STANDARD");
+
+        // 2) 연관관계(TickSizeRule) 및 상세 레벨 로딩 검증
+        assertThat(dbMarket.getTickSizeRule()).isNotNull();
+        assertThat(dbMarket.getTickSizeRule().getRuleId()).isEqualTo("USD_STANDARD");
+        assertThat(dbMarket.getTickSizeRule().getLevels()).isNotEmpty();
+
+        // USD_STANDARD의 첫 번째 틱 레벨 검증 (price_above = 0.00000000, tick_size = 0.00010000)
+        var firstLevel = dbMarket.getTickSizeRule().getLevels().get(0);
+        assertThat(firstLevel.getPriceAbove()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(firstLevel.getTickSize()).isEqualByComparingTo(new BigDecimal("0.0001"));
     }
 }

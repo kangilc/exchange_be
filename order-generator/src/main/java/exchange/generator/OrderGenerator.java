@@ -76,10 +76,11 @@ public final class OrderGenerator {
                 new GeneratorTask(jafKrwHost, jafKrwPort, 1500L * jafKrwScale, "JAF-KRW", jafKrwScale, sleepMin,
                         sleepMax),
                 "generator-jaf-krw");
-        // 4. 자프 달러(JAF-USD) 가상 주문 주입 담당 스레드 생성 (소수점 8자리 스케일 100,000,000, 기준가: 1)
+        // 4. 자프 달러(JAF-USD) 가상 주문 주입 담당 스레드 생성 (소수점 8자리 스케일 100,000,000, 기준가: 0.05)
         long jafUsdScale = 100000000L;
         Thread jafUsdThread = new Thread(
-                new GeneratorTask(jafUsdHost, jafUsdPort, 1L * jafUsdScale, "JAF-USD", jafUsdScale, sleepMin, sleepMax),
+                new GeneratorTask(jafUsdHost, jafUsdPort, (long) (0.05 * jafUsdScale), "JAF-USD", jafUsdScale, sleepMin,
+                        sleepMax),
                 "generator-jaf-usd");
 
         // 각 마켓별 주문 인젝터 스레드 동시 구동
@@ -111,6 +112,7 @@ public final class OrderGenerator {
         private final long scale; // 마켓 소수점 스케일 팩터
         private final int sleepMin; // 딜레이 최소값
         private final int sleepMax; // 딜레이 최대값
+        private final java.util.List<TickSizeLevel> tickSizeLevels; // 호가 단위 설정 목록
 
         public GeneratorTask(String host, int port, long referencePrice, String symbol, long scale, int sleepMin,
                 int sleepMax) {
@@ -121,6 +123,31 @@ public final class OrderGenerator {
             this.scale = scale;
             this.sleepMin = sleepMin;
             this.sleepMax = sleepMax;
+            this.tickSizeLevels = getFallbackLevels(symbol);
+        }
+
+        /**
+         * 💡 현재 가격 기준 최적의 호가 단위를 계산하여 반환함.
+         */
+        private long getTickSizeScaled(long scaledPrice) {
+            double humanPrice = (double) scaledPrice / scale;
+            double tickSizeVal = 1.0 / scale; // 기본값
+            if (tickSizeLevels != null && !tickSizeLevels.isEmpty()) {
+                double matched = -1;
+                for (TickSizeLevel level : tickSizeLevels) {
+                    if (humanPrice >= level.priceAbove) {
+                        matched = level.tickSize;
+                    } else {
+                        break;
+                    }
+                }
+                if (matched != -1) {
+                    tickSizeVal = matched;
+                } else {
+                    tickSizeVal = tickSizeLevels.get(0).tickSize;
+                }
+            }
+            return Math.round(tickSizeVal * scale);
         }
 
         @Override
@@ -146,23 +173,29 @@ public final class OrderGenerator {
                         // 1. 주문 유형 결정: 매수(BUY)와 매도(SELL) 확률을 정확히 50% 반반으로 나눔
                         String side = rand.nextBoolean() ? "BUY" : "SELL";
 
-                        // 2. 호가 격차(Price Offset) 산정: 호가창(OrderBook)의 물량 그룹핑을 위해 가격은 특정 틱 단위로 제한
+                        // 2. 호가 격차(Price Offset) 산정: 현재 기준가의 틱 단위를 기준으로 오프셋 생성
+                        long currentTickSizeScaled = getTickSizeScaled(referencePrice);
                         long priceOffset;
-                        if (symbol.equalsIgnoreCase("BTC-USD") || symbol.equalsIgnoreCase("JAF-USD")) {
-                            // BTC-USD / JAF-USD: -15 ~ +14 달러/센트 (정수 단위)
-                            priceOffset = (rand.nextInt(30) - 15) * scale;
+                        if (symbol.equalsIgnoreCase("BTC-USD")) {
+                            // BTC-USD: -15 ~ +14 ticks
+                            priceOffset = (rand.nextInt(30) - 15) * currentTickSizeScaled;
+                        } else if (symbol.equalsIgnoreCase("JAF-USD")) {
+                            // JAF-USD: -15 ~ +14 ticks
+                            priceOffset = (rand.nextInt(30) - 15) * currentTickSizeScaled;
                         } else {
-                            // ADA-KRW / JAF-KRW: -3 ~ +2 원 (정수 단위)
-                            priceOffset = (rand.nextInt(6) - 3) * scale;
+                            // ADA-KRW / JAF-KRW: -3 ~ +2 ticks
+                            priceOffset = (rand.nextInt(6) - 3) * currentTickSizeScaled;
                         }
                         long price = referencePrice + priceOffset;
+                        // 틱 단위 배수로 정합성 패치
+                        price = Math.round((double) price / currentTickSizeScaled) * currentTickSizeScaled;
 
                         // 3. 최저 호가 한계선(보호 가드) 산정: 호가가 음수 또는 비정상 가격으로 하락하지 않도록 제한
                         long minPrice;
                         if (symbol.equalsIgnoreCase("BTC-USD")) {
                             minPrice = 10000L * scale;
                         } else if (symbol.equalsIgnoreCase("JAF-USD")) {
-                            minPrice = (long) (0.1 * scale); // 최저 0.1 USD
+                            minPrice = (long) (0.001 * scale); // 최저 0.001 USD
                         } else if (symbol.equalsIgnoreCase("JAF-KRW")) {
                             minPrice = 100L * scale; // 최저 100 KRW
                         } else {
@@ -201,14 +234,17 @@ public final class OrderGenerator {
 
                         // 7. 기준값 트렌드 변동: 5% 확률로 시장의 대세 흐름 가격(Reference Price) 자체를 동적 이동시켜 차트 우상향/우하향 연출
                         if (rand.nextInt(100) < 5) {
+                            long tick = getTickSizeScaled(referencePrice);
                             if (symbol.equalsIgnoreCase("BTC-USD") || symbol.equalsIgnoreCase("JAF-USD")) {
-                                referencePrice += (rand.nextInt(10) - 5) * scale; // -5 ~ +4 달러/센트
+                                referencePrice += (rand.nextInt(10) - 5) * tick; // -5 ~ +4 ticks
                             } else {
-                                referencePrice += (rand.nextInt(4) - 2) * scale; // -2 ~ +1 원
+                                referencePrice += (rand.nextInt(4) - 2) * tick; // -2 ~ +1 ticks
                             }
                             if (referencePrice < minPrice) {
                                 referencePrice = minPrice;
                             }
+                            // 틱 단위 정합성 정렬
+                            referencePrice = Math.round((double) referencePrice / tick) * tick;
                         }
 
                         // 8. 초고속 주입 과부하 및 지연 제어 장치: 설정된 범위 내의 랜덤 슬립
@@ -246,7 +282,10 @@ public final class OrderGenerator {
 
             // 1. 매도(SELL) 대기열 25단계 생성: 기준가 위쪽으로 대량 물량 주입
             for (int i = 1; i <= 25; i++) {
-                long price = referencePrice + i * scale; // 정수 1틱(달러/원) 단위 깊이
+                long price = referencePrice + i * getTickSizeScaled(referencePrice);
+                long tick = getTickSizeScaled(price);
+                price = Math.round((double) price / tick) * tick;
+                
                 long qty;
                 if (symbol.equalsIgnoreCase("BTC-USD")) {
                     qty = (long) (scale * (0.01 + r.nextDouble() * 2.0)); // 0.01 ~ 2.0 BTC
@@ -263,7 +302,13 @@ public final class OrderGenerator {
 
             // 매수 25단계 깊이 주입 (현재가보다 낮게)
             for (int i = 1; i <= 25; i++) {
-                long price = referencePrice - i * scale;
+                long price = referencePrice - i * getTickSizeScaled(referencePrice);
+                if (price < getTickSizeScaled(referencePrice)) {
+                    price = getTickSizeScaled(referencePrice);
+                }
+                long tick = getTickSizeScaled(price);
+                price = Math.round((double) price / tick) * tick;
+                
                 long qty;
                 if (symbol.equalsIgnoreCase("BTC-USD")) {
                     qty = (long) (scale * (0.01 + r.nextDouble() * 2.0));
@@ -280,5 +325,39 @@ public final class OrderGenerator {
             writer.flush();
             System.out.println("[" + symbol + "] Seed book injection completed successfully for " + symbol);
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 호가 단위 정책 관련 헬퍼 클래스 및 폴백 세팅
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public static class TickSizeLevel {
+        public final double priceAbove;
+        public final double tickSize;
+
+        public TickSizeLevel(double priceAbove, double tickSize) {
+            this.priceAbove = priceAbove;
+            this.tickSize = tickSize;
+        }
+    }
+
+    private static java.util.List<TickSizeLevel> getFallbackLevels(String symbol) {
+        java.util.List<TickSizeLevel> list = new java.util.ArrayList<>();
+        if (symbol.toUpperCase().endsWith("USD")) {
+            list.add(new TickSizeLevel(0.0, 0.0001));
+            list.add(new TickSizeLevel(1.0, 0.01));
+            list.add(new TickSizeLevel(100.0, 0.1));
+            list.add(new TickSizeLevel(1000.0, 1.0));
+        } else { // KRW
+            list.add(new TickSizeLevel(0.0, 0.01));
+            list.add(new TickSizeLevel(10.0, 0.1));
+            list.add(new TickSizeLevel(100.0, 1.0));
+            list.add(new TickSizeLevel(1000.0, 5.0));
+            list.add(new TickSizeLevel(10000.0, 10.0));
+            list.add(new TickSizeLevel(100000.0, 50.0));
+            list.add(new TickSizeLevel(500000.0, 100.0));
+            list.add(new TickSizeLevel(1000000.0, 500.0));
+        }
+        return list;
     }
 }

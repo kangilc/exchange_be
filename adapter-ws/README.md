@@ -63,9 +63,9 @@ sequenceDiagram
 * 100만 TPS가 넘는 하이 트래픽 상황에서 동기 로깅(`System.out.println`)을 실행하면 Netty의 I/O 전담 스레드인 **이벤트 루프(Event Loop)가 블로킹**되어 네트워크 마비가 발생한다.
 * 이를 예방하기 위해 `logback.xml`에 **`AsyncAppender`**를 내장하여 모든 로그 작성을 비동기 스레드 풀로 위임, 게이트웨이의 패킷 중계 성능을 온전히 유지한다.
 
-### 3) 동적 마켓 메타데이터 캐시 (`MarketConfigManager`)
-* 어드민 API 백엔드([admin-api](file:///d:/exchange_be/admin-api))의 `/admin/stats/markets` 엔드포인트를 **60초 주기**로 비동기 HTTP 호출하여 마켓별 가격 소수점 자릿수(`priceDecimals`) 및 최소 주문금액(`minAmt`) 정보를 갱신한다.
-* 클라이언트가 웹소켓을 통해 주문을 제출할 때 백엔드 DB 조회 없이 메모리 캐시 데이터를 활용하여 즉각 유효성을 검증하고 비정상 주문을 차단한다.
+### 3) 동적 마켓 메타데이터 및 호가 단위(Tick Size) 캐시 (`MarketConfigManager`)
+* 어드민 API 백엔드([admin-api](file:///d:/exchange_be/admin-api))의 `/admin/stats/markets` 엔드포인트를 **60초 주기**로 비동기 HTTP 호출하여 마켓별 가격 소수점 자릿수(`priceDecimals`), 최소 주문금액(`minAmt`), 그리고 가격대별 호가 단위 정책 목록(`tickSizeLevels`) 정보를 갱신한다.
+* 클라이언트가 웹소켓을 통해 주문을 제출할 때 백엔드 DB 조회 없이 메모리 캐시 데이터를 활용하여 가격이 해당 틱 크기의 정확한 배수인지 실시간 유효성을 검증하고 비정상 주문을 차단한다.
 
 ### 4) 게이트웨이 성능 계측기 (`WsMetricsServer`)
 * 프로메테우스(Prometheus) Scraper와 통합하기 위해 내장 초경량 HTTP 서버를 구동한다.
@@ -100,4 +100,7 @@ sequenceDiagram
 
 # 어플리케이션 기동
 ./gradlew :adapter-ws:run
+
+# 단위 테스트 실행 (JUnit 5 + AssertJ)
+./gradlew :adapter-ws:test
 ```

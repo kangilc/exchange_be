@@ -7,10 +7,16 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import org.springframework.boot.test.mock.mockito.MockBean;
+import exchange.admin.repository.es.UserSearchRepository;
+
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 public abstract class BaseIntegrationTest {
+
+    @MockBean
+    protected UserSearchRepository userSearchRepository;
 
     // 테스트 클래스 전체에서 공유할 싱글톤 PostgreSQL 컨테이너 정의 (JVM 수명 주기 동안 단 1회만 구동)
     static final PostgreSQLContainer<?> postgres;

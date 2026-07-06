@@ -65,6 +65,12 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
     minAmt = 0
 }) => {
     const scale = useExchangeStore(state => state.getScaleFactor());
+    const activeSymbol = useExchangeStore(state => state.activeSymbol);
+    const getTickSize = useExchangeStore(state => state.getTickSize);
+
+    // 입력 가격 기준 현재 호가 단위(Tick Size) 동적 계산
+    const currentPriceNum = parseFloat(orderPrice) || 0;
+    const tickSize = getTickSize(activeSymbol, currentPriceNum);
 
     return (
         /* 모바일 탭 상태 분기에 따라 노출 여부 스위칭 */
@@ -132,6 +138,7 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
                         <div className="relative flex items-center">
                             <input
                                 type="number"
+                                step={tickSize}
                                 value={orderType === 'STOP' ? stopPrice : ''}
                                 disabled={orderType !== 'STOP'}
                                 placeholder={orderType === 'STOP' ? '' : '지정가/시장가 주문 (감시가 없음)'}
@@ -150,6 +157,7 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
                         <div className="relative flex items-center">
                             <input
                                 type="number"
+                                step={tickSize}
                                 value={orderType !== 'MARKET' ? orderPrice : ''}
                                 disabled={orderType === 'MARKET'}
                                 placeholder={orderType !== 'MARKET' ? '' : '시장가 체결 (최적가로 즉시 실행)'}
@@ -158,6 +166,11 @@ export const OrderConsole: React.FC<OrderConsoleProps> = React.memo(({
                             />
                             <span className={`absolute right-3 font-bold ${orderType !== 'MARKET' ? 'text-slate-400' : 'text-slate-600'}`}>{fiat}</span>
                         </div>
+                        {orderType !== 'MARKET' && (
+                            <div className="text-[9px] text-slate-400 px-1">
+                                호가 단위 (Tick Size): <span className="text-[#00f2fe] font-mono">{tickSize}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 

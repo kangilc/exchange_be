@@ -111,7 +111,7 @@ SELECT
     floor(random() * 999 + 1)::bigint, -- 임의의 회원 ID (1~1000)
     'BTC-USD',
     'BUY',
-    (6500000000000 + floor(sin(i::double precision / 200.0) * 120000000000) + floor(random() * 3000000000))::bigint,
+    (6500000000000 + floor(sin(i::double precision / 200.0) * 1200) * 100000000 + floor(random() * 30) * 100000000)::bigint,
     floor(random() * 500 + 1)::bigint, -- 수량 랜덤 주입
     0,
     'FILLED',
@@ -153,7 +153,7 @@ SELECT
     floor(random() * 999 + 1)::bigint,
     'ADA-KRW',
     'BUY',
-    (5000000 + floor(sin(i::double precision / 500.0) * 250000) + floor(random() * 15000))::bigint,
+    (5000000 + floor(sin(i::double precision / 500.0) * 25) * 10000 + floor(random() * 15) * 10000)::bigint,
     floor(random() * 10000 + 100)::bigint,
     0,
     'FILLED',
@@ -217,14 +217,37 @@ INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
 INSERT INTO user_crypto_addresses (user_id, currency, crypto_address) VALUES
 (2, 'JAF', '0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b') ON CONFLICT ON CONSTRAINT uq_user_crypto DO NOTHING;
 
+-- 7-1. 호가 단위 정책 그룹 데이터 주입
+INSERT INTO tick_size_rules (rule_id, name, created_by, updated_by) VALUES
+('USD_STANDARD', 'USD 표준 호가 단위 정책', 'SYSTEM', 'SYSTEM'),
+('KRW_STANDARD', 'KRW 표준 호가 단위 정책', 'SYSTEM', 'SYSTEM')
+ON CONFLICT (rule_id) DO NOTHING;
+
+-- 7-2. 가격대별 호가 단위 세부 설정 데이터 주입
+INSERT INTO tick_size_levels (rule_id, price_above, tick_size, created_by, updated_by) VALUES
+('USD_STANDARD', 0.0, 0.0001, 'SYSTEM', 'SYSTEM'),
+('USD_STANDARD', 1.0, 0.01, 'SYSTEM', 'SYSTEM'),
+('USD_STANDARD', 100.0, 0.1, 'SYSTEM', 'SYSTEM'),
+('USD_STANDARD', 1000.0, 1.0, 'SYSTEM', 'SYSTEM'),
+
+('KRW_STANDARD', 0.0, 0.01, 'SYSTEM', 'SYSTEM'),
+('KRW_STANDARD', 10.0, 0.1, 'SYSTEM', 'SYSTEM'),
+('KRW_STANDARD', 100.0, 1.0, 'SYSTEM', 'SYSTEM'),
+('KRW_STANDARD', 1000.0, 5.0, 'SYSTEM', 'SYSTEM'),
+('KRW_STANDARD', 10000.0, 10.0, 'SYSTEM', 'SYSTEM'),
+('KRW_STANDARD', 100000.0, 50.0, 'SYSTEM', 'SYSTEM'),
+('KRW_STANDARD', 500000.0, 100.0, 'SYSTEM', 'SYSTEM'),
+('KRW_STANDARD', 1000000.0, 500.0, 'SYSTEM', 'SYSTEM')
+ON CONFLICT (rule_id, price_above) DO NOTHING;
+
 -- 7. 초기 마켓 데이터 주입
 -- price_decimals를 매칭 엔진의 실재 연산 자릿수(BTC 8, ADA 4, JAF-KRW 4, JAF-USD 8)로 일치시킴.
 -- listing_price를 사람이 인식하는 정상 가격(65000, 500, 1500, 1)으로 설정
-INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, status, created_by, updated_by) VALUES
-('BTC-USD', 'BTC', 'USD', 0.001500, 8, 1, 65000, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
-INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, status, created_by, updated_by) VALUES
-('JAF-USD', 'JAF', 'USD', 0.001500, 8, 1, 1, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
-INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, status, created_by, updated_by) VALUES
-('ADA-KRW', 'ADA', 'KRW', 0.001500, 4, 1000, 500, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
-INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, status, created_by, updated_by) VALUES
-('JAF-KRW', 'JAF', 'KRW', 0.001500, 4, 1000, 1500, 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
+INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, tick_size_rule_id, status, created_by, updated_by) VALUES
+('BTC-USD', 'BTC', 'USD', 0.001500, 8, 1, 65000, 'USD_STANDARD', 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
+INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, tick_size_rule_id, status, created_by, updated_by) VALUES
+('JAF-USD', 'JAF', 'USD', 0.001500, 8, 1, 1, 'USD_STANDARD', 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
+INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, tick_size_rule_id, status, created_by, updated_by) VALUES
+('ADA-KRW', 'ADA', 'KRW', 0.001500, 4, 1000, 500, 'KRW_STANDARD', 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;
+INSERT INTO markets (symbol, base_currency, quote_currency, fee_rate, price_decimals, min_amt, listing_price, tick_size_rule_id, status, created_by, updated_by) VALUES
+('JAF-KRW', 'JAF', 'KRW', 0.001500, 4, 1000, 1500, 'KRW_STANDARD', 'ACTIVE', 'SYSTEM', 'SYSTEM') ON CONFLICT (symbol) DO NOTHING;

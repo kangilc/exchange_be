@@ -1,13 +1,16 @@
 package exchange.admin.controller;
 
 import exchange.admin.dto.ApiResponse;
+import exchange.admin.dto.response.MarketODT;
+import exchange.admin.dto.request.stats.MarketUpdateIDT;
 import exchange.admin.model.Market;
 import exchange.admin.service.MarketService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 /**
  * ⚙️ 마켓 관리 컨트롤러 (MarketController)
@@ -27,12 +30,13 @@ public class MarketController {
     }
 
     /**
-     * 전체 상장된 활성 마켓 목록을 조회합니다.
+     * 전체 상장된 활성 마켓 목록을 페이징 조회합니다.
      * 일반 유저/어드민 누구나 조회할 수 있도록 SecurityConfig에서 permitAll 설정합니다.
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<Market>>> getActiveMarkets() {
-        return ApiResponse.ok(marketService.getActiveMarkets());
+    public ResponseEntity<ApiResponse<Page<MarketODT>>> getActiveMarkets(@PageableDefault(size = 10) Pageable pageable) {
+        Page<Market> markets = marketService.getActiveMarkets(pageable);
+        return ApiResponse.ok(markets.map(MarketODT::new));
     }
 
     /**
@@ -45,12 +49,12 @@ public class MarketController {
      * - status: 마켓의 활성 상태 제어 (ACTIVE, INACTIVE 등)
      */
     @PutMapping("/{symbol}")
-    public ResponseEntity<ApiResponse<Market>> updateMarket(
+    public ResponseEntity<ApiResponse<MarketODT>> updateMarket(
             @PathVariable("symbol") String symbol,
-            @RequestBody Market updateData) {
+            @RequestBody MarketUpdateIDT updateData) {
         Market updated = marketService.updateMarket(symbol, updateData);
         if (updated != null) {
-            return ApiResponse.ok(updated);
+            return ApiResponse.ok(new MarketODT(updated));
         }
         return ApiResponse.notFound("Market not found");
     }

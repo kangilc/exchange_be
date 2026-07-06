@@ -9,7 +9,7 @@
         WITH RAW_SUMS AS (		<!-- 거래 테이블 스캔 시 조인 부하를 방지하기 위해 단독으로 먼저 합산함 -->
             SELECT
                 SYMBOL,		<!-- 마켓 종목 심볼 -->
-                SUM(PRICE * QTY) AS RAW_VOL		<!-- 소수점 보정 전 가격 기준 총 거래 대금 합계 -->
+                SUM(CAST(PRICE AS NUMERIC) * CAST(QTY AS NUMERIC)) AS RAW_VOL		<!-- 소수점 보정 전 가격 기준 총 거래 대금 합계 -->
             FROM TRADES		<!-- 체결 내역 테이블 -->
             WHERE CREATED_AT &gt;= #{since}		<!-- 파라미터로 전달된 기준 시간(since) 이후 체결된 거래만 필터링함 -->
             GROUP BY SYMBOL		<!-- 종목 심볼별로 합산함 -->
@@ -30,7 +30,7 @@
         WITH RAW_SUMS AS (		<!-- 데이터 전체 스캔 시 조인 부하를 없애기 위해 TRADES 단독 합산을 수행함 -->
             SELECT
                 SYMBOL,		<!-- 마켓 종목 심볼 -->
-                SUM(PRICE * QTY) AS RAW_VOL		<!-- 소수점 보정 전 가격 기준 총 거래 대금 합계 -->
+                SUM(CAST(PRICE AS NUMERIC) * CAST(QTY AS NUMERIC)) AS RAW_VOL		<!-- 소수점 보정 전 가격 기준 총 거래 대금 합계 -->
             FROM TRADES		<!-- 체결 내역 테이블 -->
             GROUP BY SYMBOL		<!-- 종목 심볼별로 합산함 -->
         )
@@ -87,7 +87,7 @@
         WITH RAW_SUMS AS (		<!-- 30일치 데이터 전체 스캔 시 조인 부하를 없애기 위해 단독 합산 수행 -->
             SELECT
                 SYMBOL,		<!-- 마켓 종목 심볼 -->
-                SUM(PRICE * QTY) AS RAW_VOL		<!-- 소수점 보정 전 가격 기준 총 거래 대금 합계 -->
+                SUM(CAST(PRICE AS NUMERIC) * CAST(QTY AS NUMERIC)) AS RAW_VOL		<!-- 소수점 보정 전 가격 기준 총 거래 대금 합계 -->
             FROM TRADES		<!-- 체결 내역 테이블 -->
             WHERE CREATED_AT &gt;= NOW() - INTERVAL '30 days'		<!-- 최근 30일 데이터만 필터링 -->
             GROUP BY SYMBOL		<!-- 종목 심볼별로 그룹핑 -->

@@ -751,18 +751,20 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             try {
                 // 두 API 요청을 병렬로 동시에 날려 레이턴시를 50% 감축시킵니다.
                 const [walletsRes, usersRes] = await Promise.all([
-                    fetchWithAuth(`${get().apiBaseUrl}/admin/wallets`),
-                    fetchWithAuth(`${get().apiBaseUrl}/admin/users`)
+                    fetchWithAuth(`${get().apiBaseUrl}/admin/wallets?page=0&size=10000`),
+                    fetchWithAuth(`${get().apiBaseUrl}/admin/users?page=0&size=10000`)
                 ]);
 
                 if (walletsRes.ok && usersRes.ok) {
                     const _json__json_wallets = await walletsRes.json();
                     const _json_wallets = _json__json_wallets.data !== undefined ? _json__json_wallets.data : _json__json_wallets;
-                    const wallets = _json_wallets.data !== undefined ? _json_wallets.data : _json_wallets;
+                    const walletsData = _json_wallets.data !== undefined ? _json_wallets.data : _json_wallets;
+                    const wallets = walletsData.content || walletsData;
+                    
                     const _json__json_users = await usersRes.json();
                     const _json_users = _json__json_users.data !== undefined ? _json__json_users.data : _json__json_users;
                     // 페이징 객체 혹은 일반 배열 형태의 회원 데이터를 안전하게 목록으로 정규화함.
-                    const users = Array.isArray(_json_users) ? _json_users : (_json_users.content || []);
+                    const users = Array.isArray(_json_users) ? _json_users : ((_json_users.content || _json_users.data?.content) || []);
                     const userMap = new Map(users.map((u: any) => [u.userId, u.email]));
                     const mappedWallets = wallets.map((w: any) => ({
                         ...w,
@@ -772,7 +774,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 } else if (walletsRes.ok) {
                     const _json__json_wallets = await walletsRes.json();
                     const _json_wallets = _json__json_wallets.data !== undefined ? _json__json_wallets.data : _json__json_wallets;
-                    const wallets = _json_wallets.data !== undefined ? _json_wallets.data : _json_wallets;
+                    const walletsData = _json_wallets.data !== undefined ? _json_wallets.data : _json_wallets;
+                    const wallets = walletsData.content || walletsData;
                     set({ wallets });
                 }
             } catch (err) {
@@ -1043,12 +1046,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         fetchCryptoWithdrawals: async () => {
             try {
-                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/withdrawals`);
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/withdrawals?page=0&size=10000`);
                 if (res.ok) {
                     const _json__json_data = await res.json();
                     const _json_data = _json__json_data.data !== undefined ? _json__json_data.data : _json__json_data;
                     const data = _json_data.data !== undefined ? _json_data.data : _json_data;
-                    set({ cryptoWithdrawals: data });
+                    set({ cryptoWithdrawals: data.content || data });
                 }
             } catch (err) {
                 console.error("Failed to fetch crypto withdrawals", err);
@@ -1057,12 +1060,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         fetchHotWallets: async () => {
             try {
-                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/hot-wallets`);
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/hot-wallets?page=0&size=10000`);
                 if (res.ok) {
                     const _json__json_data = await res.json();
                     const _json_data = _json__json_data.data !== undefined ? _json__json_data.data : _json__json_data;
                     const data = _json_data.data !== undefined ? _json_data.data : _json_data;
-                    set({ hotWallets: data });
+                    set({ hotWallets: data.content || data });
                 }
             } catch (err) {
                 console.error("Failed to fetch hot wallets", err);
@@ -1071,12 +1074,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         fetchUserCryptoAddresses: async () => {
             try {
-                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/addresses`);
+                const res = await fetchWithAuth(`${get().apiBaseUrl}/admin/crypto/addresses?page=0&size=10000`);
                 if (res.ok) {
                     const _json__json_data = await res.json();
                     const _json_data = _json__json_data.data !== undefined ? _json__json_data.data : _json__json_data;
                     const data = _json_data.data !== undefined ? _json_data.data : _json_data;
-                    set({ userCryptoAddresses: data });
+                    set({ userCryptoAddresses: data.content || data });
                 }
             } catch (err) {
                 console.error("Failed to fetch user crypto addresses", err);
@@ -1187,10 +1190,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 const res = await fetch(`${get().apiBaseUrl}/admin/stats/markets`);
                 if (res.ok) {
                     const body = await res.json();
-                    const data = body.data !== undefined ? body.data : body;
-                    set({ markets: data || [] });
+                    let data = body.data !== undefined ? body.data : body;
+                    if (data && data.content) { data = data.content; }
+                    if (!Array.isArray(data)) { data = []; }
+                    set({ markets: data });
 
-                    if (data) {
+                    if (data.length > 0) {
                         const prices: Record<string, { lastPrice: number; prevClosePrice: number }> = { ...get().tickerPrices };
                         try {
                             const tickersRes = await fetch(`${get().apiBaseUrl}/admin/stats/tickers`);
@@ -1198,14 +1203,17 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                                 const _json__json_tBody = await tickersRes.json();
                                 const _json_tBody = _json__json_tBody.data !== undefined ? _json__json_tBody.data : _json__json_tBody;
                                 const tBody = _json_tBody.data !== undefined ? _json_tBody.data : _json_tBody;
-                                const tickersData = tBody.data !== undefined ? tBody.data : tBody;
-                                tickersData.forEach((t: any) => {
-                                    const scale = get().getScaleFactor(t.symbol);
-                                    prices[t.symbol] = {
-                                        lastPrice: t.lastPrice / scale,
-                                        prevClosePrice: t.prevClosePrice / scale
-                                    };
-                                });
+                                let tickersData = tBody.data !== undefined ? tBody.data : tBody;
+                                if (tickersData && tickersData.content) { tickersData = tickersData.content; }
+                                if (Array.isArray(tickersData)) {
+                                    tickersData.forEach((t: any) => {
+                                        const scale = get().getScaleFactor(t.symbol);
+                                        prices[t.symbol] = {
+                                            lastPrice: t.lastPrice / scale,
+                                            prevClosePrice: t.prevClosePrice / scale
+                                        };
+                                    });
+                                }
                             }
                         } catch (e) {
                             console.error("Failed to fetch tickers", e);

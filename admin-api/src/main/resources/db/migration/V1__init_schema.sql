@@ -37,6 +37,29 @@ COMMENT ON COLUMN common_codes.display_order IS '화면 표시 순서';
 COMMENT ON COLUMN common_codes.is_active IS '사용 여부 활성화 상태';
 
 
+-- 0-2. 호가 단위 정책 그룹 테이블 (Tick Size Rules)
+CREATE TABLE IF NOT EXISTS tick_size_rules (
+    rule_id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100)
+);
+
+-- 0-3. 가격대별 호가 단위 세부 설정 테이블 (Tick Size Levels)
+CREATE TABLE IF NOT EXISTS tick_size_levels (
+    rule_id VARCHAR(50) NOT NULL REFERENCES tick_size_rules(rule_id) ON DELETE CASCADE,
+    price_above NUMERIC(36, 18) NOT NULL,
+    tick_size NUMERIC(36, 18) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100),
+    PRIMARY KEY (rule_id, price_above)
+);
+
+
 -- 0. 마켓 메타데이터 테이블 (Markets Settings)
 CREATE TABLE IF NOT EXISTS markets (
     symbol VARCHAR(20) PRIMARY KEY,
@@ -46,6 +69,7 @@ CREATE TABLE IF NOT EXISTS markets (
     price_decimals INT DEFAULT 2,
     min_amt NUMERIC(20, 8) DEFAULT 0.0001, -- 최소 주문 금액 (min_qty에서 컬럼명 변경)
     listing_price BIGINT DEFAULT 0, -- 상장 기준 가격 추가
+    tick_size_rule_id VARCHAR(50) REFERENCES tick_size_rules(rule_id), -- 연동된 호가 단위 정책 ID
     status VARCHAR(20) DEFAULT 'ACTIVE',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -240,7 +264,17 @@ COMMENT ON COLUMN markets.fee_rate IS '마켓 수수료율';
 COMMENT ON COLUMN markets.price_decimals IS '가격 표시 소수점 자릿수';
 COMMENT ON COLUMN markets.min_amt IS '최소 주문 금액';
 COMMENT ON COLUMN markets.listing_price IS '상장 기준 가격';
+COMMENT ON COLUMN markets.tick_size_rule_id IS '연동된 호가 단위 정책 ID';
 COMMENT ON COLUMN markets.status IS '마켓 활성 상태';
+
+COMMENT ON TABLE tick_size_rules IS '호가 단위 정책 그룹 테이블';
+COMMENT ON COLUMN tick_size_rules.rule_id IS '정책 식별자 ID';
+COMMENT ON COLUMN tick_size_rules.name IS '정책 명칭';
+
+COMMENT ON TABLE tick_size_levels IS '가격대별 호가 단위 세부 설정 테이블';
+COMMENT ON COLUMN tick_size_levels.rule_id IS '정책 식별자 ID (tick_size_rules.rule_id 참조)';
+COMMENT ON COLUMN tick_size_levels.price_above IS '적용 시작 가격 경계값';
+COMMENT ON COLUMN tick_size_levels.tick_size IS '해당 구간의 호가 단위 크기';
 
 COMMENT ON TABLE market_histories IS '마켓 변경 이력 테이블';
 COMMENT ON COLUMN market_histories.history_id IS '이력 고유 일련번호';

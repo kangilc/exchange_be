@@ -90,7 +90,7 @@ class StatsServiceIntegrationTest extends BaseIntegrationTest {
 
         // 첫 번째 현재가 호출 (DB에서 조회하여 캐시 적재)
         Long price1 = statsService.getLastPrice(symbol);
-        assertThat(price1).isEqualTo(50000L);
+        assertThat(price1).isEqualTo(5000000L);
 
         // 캐시 매니저에 "lastPrice" 캐시가 존재하고 값이 적재되었는지 검증
         assertThat(cacheManager.getCache("lastPrice")).isNotNull();
@@ -114,7 +114,7 @@ class StatsServiceIntegrationTest extends BaseIntegrationTest {
 
         // 거래 내역이 없을 경우 상장 기준가인 3000달러를 종가로 반환하는지 검증
         Long closePrice = statsService.getPrevClosePrice(symbol);
-        assertThat(closePrice).isEqualTo(3000L);
+        assertThat(closePrice).isEqualTo(300000L);
     }
 
     @Test
@@ -136,7 +136,7 @@ class StatsServiceIntegrationTest extends BaseIntegrationTest {
         List<TickerODT> tickers = statsService.getTickers();
 
         // 등록한 마켓의 티커 정보가 포함되어 있는지 검증
-        assertThat(tickers).anyMatch(t -> t.getSymbol().equals("ADA-USD") && t.getLastPrice() == 500L);
+        assertThat(tickers).anyMatch(t -> t.getSymbol().equals("ADA-USD") && t.getLastPrice() == 50000L);
     }
 
     @Test

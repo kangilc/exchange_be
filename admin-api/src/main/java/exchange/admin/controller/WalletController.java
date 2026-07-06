@@ -1,14 +1,19 @@
 package exchange.admin.controller;
 
-import lombok.RequiredArgsConstructor;
 import exchange.admin.dto.ApiResponse;
+import exchange.admin.dto.response.WalletODT;
 import exchange.admin.model.Wallet;
 import exchange.admin.repository.WalletRepository;
+import exchange.admin.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 어드민 자산 지갑 관리 컨트롤러.
@@ -17,20 +22,27 @@ import java.util.List;
 @RestController
 @RequestMapping("/admin/wallets")
 @CrossOrigin(origins = "*")
-@RequiredArgsConstructor
 public class WalletController {
 
     private final WalletRepository walletRepository;
-    private final exchange.admin.repository.UserRepository userRepository;
+    private final UserRepository userRepository;
+
+    // 수동 생성자 주입 방식 적용 (Autowired 금지 규칙)
+    public WalletController(WalletRepository walletRepository, UserRepository userRepository) {
+        this.walletRepository = walletRepository;
+        this.userRepository = userRepository;
+    }
 
     /**
-     * 전체 회원 보유 지갑 목록 조회.
+     * 전체 회원 보유 지갑 목록 페이징 조회.
      * 
-     * @return 지갑 리스트
+     * @param pageable 페이징 정보
+     * @return 지갑 목록 페이징 데이터
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<Wallet>>> getAllWallets() {
-        return ApiResponse.ok(walletRepository.findAll());
+    public ResponseEntity<ApiResponse<Page<WalletODT>>> getAllWallets(@PageableDefault(size = 10) Pageable pageable) {
+        Page<Wallet> wallets = walletRepository.findAll(pageable);
+        return ApiResponse.ok(wallets.map(WalletODT::new));
     }
 
     /**
@@ -40,8 +52,10 @@ public class WalletController {
      * @return 해당 회원의 지갑 리스트
      */
     @GetMapping("/user/{userId}")
-    public ResponseEntity<ApiResponse<List<Wallet>>> getWalletsByUserId(@PathVariable Long userId) {
-        return ApiResponse.ok(walletRepository.findByUserId(userId));
+    public ResponseEntity<ApiResponse<List<WalletODT>>> getWalletsByUserId(@PathVariable Long userId) {
+        List<Wallet> wallets = walletRepository.findByUserId(userId);
+        List<WalletODT> odtList = wallets.stream().map(WalletODT::new).collect(Collectors.toList());
+        return ApiResponse.ok(odtList);
     }
 
     /**
@@ -51,11 +65,13 @@ public class WalletController {
      * @return 지갑 리스트 또는 401 Unauthorized
      */
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<List<Wallet>>> getMyWallets() {
+    public ResponseEntity<ApiResponse<List<WalletODT>>> getMyWallets() {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
         java.util.Optional<exchange.admin.model.User> userOpt = userRepository.findByEmail(email);
         if (userOpt.isPresent()) {
-            return ApiResponse.ok(walletRepository.findByUserId(userOpt.get().getUserId()));
+            List<Wallet> wallets = walletRepository.findByUserId(userOpt.get().getUserId());
+            List<WalletODT> odtList = wallets.stream().map(WalletODT::new).collect(Collectors.toList());
+            return ApiResponse.ok(odtList);
         }
         return ApiResponse.unauthorized("Unauthorized");
     }

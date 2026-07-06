@@ -32,6 +32,15 @@ public class Market extends BaseEntity {
     @Column(name = "listing_price")
     private Long listingPrice = 0L;
 
+    // 호가 단위 정책 그룹 ID
+    @Column(name = "tick_size_rule_id", length = 50)
+    private String tickSizeRuleId;
+
+    // 연동된 호가 단위 정책 엔티티
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "tick_size_rule_id", referencedColumnName = "rule_id", insertable = false, updatable = false)
+    private TickSizeRule tickSizeRule;
+
     public Market() {}
 
     public String getSymbol() { return symbol; }
@@ -57,4 +66,10 @@ public class Market extends BaseEntity {
 
     public Long getListingPrice() { return listingPrice; }
     public void setListingPrice(Long listingPrice) { this.listingPrice = listingPrice; }
+
+    public String getTickSizeRuleId() { return tickSizeRuleId; }
+    public void setTickSizeRuleId(String tickSizeRuleId) { this.tickSizeRuleId = tickSizeRuleId; }
+
+    public TickSizeRule getTickSizeRule() { return tickSizeRule; }
+    public void setTickSizeRule(TickSizeRule tickSizeRule) { this.tickSizeRule = tickSizeRule; }
 }

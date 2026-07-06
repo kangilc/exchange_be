@@ -242,15 +242,44 @@ export const TradingTerminal: React.FC = React.memo(() => {
             return;
         }
 
+        const storeState = useExchangeStore.getState();
+        const getTickSize = storeState.getTickSize;
+
+        // 호가 단위(Tick Size) 정책 정합성 검증
+        if (orderType !== 'MARKET') {
+            if (isNaN(priceVal) || priceVal <= 0) {
+                alert('올바른 가격을 입력해주세요.');
+                return;
+            }
+            const tickSize = getTickSize(activeSymbol, priceVal);
+            const rawRatio = priceVal / tickSize;
+            const roundedRatio = Math.round(rawRatio);
+            if (Math.abs(rawRatio - roundedRatio) > 1e-7) {
+                alert(`주문 가격이 해당 가격대 호가 단위(${tickSize})의 배수가 아닙니다.`);
+                return;
+            }
+        }
+
+        if (orderType === 'STOP') {
+            const stopPriceVal = parseFloat(stopPrice);
+            if (isNaN(stopPriceVal) || stopPriceVal <= 0) {
+                alert('올바른 감시 가격(Stop Price)을 설정해주세요.');
+                return;
+            }
+            const stopTickSize = getTickSize(activeSymbol, stopPriceVal);
+            const stopRawRatio = stopPriceVal / stopTickSize;
+            const stopRoundedRatio = Math.round(stopRawRatio);
+            if (Math.abs(stopRawRatio - stopRoundedRatio) > 1e-7) {
+                alert(`감시 가격이 해당 가격대 호가 단위(${stopTickSize})의 배수가 아닙니다.`);
+                return;
+            }
+        }
+
         let finalPrice = priceVal;
         if (orderType === 'MARKET') {
-            const storeState = useExchangeStore.getState();
             const midPriceVal = storeState.midPrice;
             const tradesLogVal = storeState.tradesLog;
             finalPrice = midPriceVal > 0 ? midPriceVal : (tradesLogVal.find(t => t.symbol === activeSymbol)?.price || 0);
-        } else if (isNaN(priceVal) || priceVal <= 0) {
-            alert('올바른 가격을 입력해주세요.');
-            return;
         }
 
         const totalCost = finalPrice * qtyVal;

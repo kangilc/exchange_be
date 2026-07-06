@@ -157,19 +157,34 @@ public final class WsHandler extends SimpleChannelInboundHandler<Object> {
 
                 // side, price, qty 모두 유효한 경우에만 주문 처리 진행
                 if (!side.isEmpty() && price > 0 && qty > 0) {
-                    // 2-1. 해당 마켓의 최소 주문 금액(minAmt) 조회
+                    // 2-1. 해당 마켓의 최소 주문 금액(minAmt) 및 틱 규격 검증
                     java.math.BigDecimal minAmt = MarketConfigManager.getInstance().getMinAmt(symbol);
+                    int decimals = MarketConfigManager.getInstance().getDecimals(symbol);
+                    java.math.BigDecimal scaleFactor = java.math.BigDecimal.TEN.pow(decimals);
+
+                    // 2-2. 호가 단위(Tick Size) 정책 정합성 검증
+                    java.math.BigDecimal humanPrice = java.math.BigDecimal.valueOf(price).divide(scaleFactor);
+                    java.math.BigDecimal tickSize = MarketConfigManager.getInstance().getTickSize(symbol, humanPrice);
+                    java.math.BigDecimal scaledTickSize = tickSize.multiply(scaleFactor);
+
+                    if (java.math.BigDecimal.valueOf(price).remainder(scaledTickSize).compareTo(java.math.BigDecimal.ZERO) != 0) {
+                        String rejectMsg = String.format(
+                                "{\"action\":\"REJECT\",\"symbol\":\"%s\",\"side\":\"%s\"," +
+                                "\"price\":%d,\"qty\":%d,\"reason\":\"Order price does not match the tick size requirement (%s).\"}",
+                                symbol, side.toUpperCase(), price, qty, tickSize.toPlainString()
+                        );
+                        ctx.channel().writeAndFlush(new TextWebSocketFrame(rejectMsg));
+                        return;
+                    }
 
                     if (minAmt.compareTo(java.math.BigDecimal.ZERO) > 0) {
-                        // 2-2. 마켓 소수점 자릿수(decimals) 기반으로 실제 주문 총액 산출
+                        // 2-3. 마켓 소수점 자릿수(decimals) 기반으로 실제 주문 총액 산출
                         //      공식: totalAmt = (price × qty) ÷ (10 ^ decimals)
-                        int decimals = MarketConfigManager.getInstance().getDecimals(symbol);
-                        java.math.BigDecimal scaleFactor = java.math.BigDecimal.TEN.pow(decimals);
                         java.math.BigDecimal totalAmt = java.math.BigDecimal.valueOf(price)
                                 .multiply(java.math.BigDecimal.valueOf(qty))
                                 .divide(scaleFactor);
 
-                        // 2-3. 최소 주문 금액 미달 시 REJECT 메시지를 클라이언트에 반환하고 주문 중단
+                        // 2-4. 최소 주문 금액 미달 시 REJECT 메시지를 클라이언트에 반환하고 주문 중단
                         if (totalAmt.compareTo(minAmt) < 0) {
                             String rejectMsg = String.format(
                                     "{\"action\":\"REJECT\",\"symbol\":\"%s\",\"side\":\"%s\"," +

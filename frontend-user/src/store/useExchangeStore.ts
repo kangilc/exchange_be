@@ -217,6 +217,7 @@ interface ExchangeState {
     } | null;
     clearRejectEvent: () => void;
     getScaleFactor: (symbol?: string) => number;
+    getTickSize: (symbol: string, humanPrice: number) => number;
 }
 
 // 심볼 해시코드 상수
@@ -531,6 +532,28 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             const decimals = m ? m.priceDecimals : 2; // 마켓 테이블에서 price_decimals를 직접 읽어옴
             return Math.pow(10, decimals);
         },
+        // 마켓의 현재 가격대에 해당하는 호가 단위(Tick Size)를 구함
+        getTickSize: (symbol: string, humanPrice: number): number => {
+            const m = get().markets.find((x: any) => x.symbol === symbol);
+            // 호가 정책이 없으면 소수점 자릿수 기준 기본 단위를 사용함
+            if (!m || !m.tickSizeLevels || m.tickSizeLevels.length === 0) {
+                const decimals = m ? m.priceDecimals : 2;
+                return Math.pow(10, -decimals);
+            }
+            let matchedTickSize = null;
+            // 각 구간별 호가 크기를 탐색함
+            for (const level of m.tickSizeLevels) {
+                if (humanPrice >= level.priceAbove) {
+                    matchedTickSize = level.tickSize;
+                } else {
+                    break;
+                }
+            }
+            if (matchedTickSize === null) {
+                matchedTickSize = m.tickSizeLevels[0].tickSize;
+            }
+            return matchedTickSize;
+        },
 
         // 인증 상태 초기화 값 설정
         isAuthenticated: !!getLocalAccessToken(),
@@ -841,23 +864,28 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
                 const res = await fetch(`${get().apiBaseUrl}/admin/stats/markets`);
                 if (res.ok) {
                     const json = await res.json();
-                    const data = json.data || json;
-                    set({ markets: data || [] });
+                    let data = json.data || json;
+                    if (data && data.content) { data = data.content; }
+                    if (!Array.isArray(data)) { data = []; }
+                    set({ markets: data });
 
-                    if (data) {
+                    if (data.length > 0) {
                         const prices: Record<string, { lastPrice: number; prevClosePrice: number }> = { ...get().tickerPrices };
                         try {
                             const tickersRes = await fetch(`${get().apiBaseUrl}/admin/stats/tickers`);
                             if (tickersRes.ok) {
                                 const tickersJson = await tickersRes.json();
-                                const tickersData = tickersJson.data || tickersJson;
-                                tickersData.forEach((t: any) => {
-                                    const scale = get().getScaleFactor(t.symbol);
-                                    prices[t.symbol] = {
-                                        lastPrice: t.lastPrice / scale,
-                                        prevClosePrice: t.prevClosePrice / scale
-                                    };
-                                });
+                                let tickersData = tickersJson.data || tickersJson;
+                                if (tickersData && tickersData.content) { tickersData = tickersData.content; }
+                                if (Array.isArray(tickersData)) {
+                                    tickersData.forEach((t: any) => {
+                                        const scale = get().getScaleFactor(t.symbol);
+                                        prices[t.symbol] = {
+                                            lastPrice: t.lastPrice / scale,
+                                            prevClosePrice: t.prevClosePrice / scale
+                                        };
+                                    });
+                                }
                             }
                         } catch (e) {
                             console.error("Failed to fetch tickers", e);

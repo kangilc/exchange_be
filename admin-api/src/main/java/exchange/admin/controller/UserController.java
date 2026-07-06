@@ -8,6 +8,8 @@ import exchange.admin.dto.request.user.UserRegisterIDT;
 import exchange.admin.dto.request.user.UserUpdateIDT;
 import exchange.admin.dto.response.DetailedLedgerODT;
 import exchange.admin.dto.response.UserTradeODT;
+import exchange.admin.dto.response.UserODT;
+import exchange.admin.dto.response.WalletODT;
 import exchange.admin.model.User;
 import exchange.admin.model.Wallet;
 import exchange.admin.service.UserService;
@@ -47,7 +49,9 @@ public class UserController {
     public ResponseEntity<ApiResponse<Object>> getAllUsers(
             @RequestParam(name = "page", defaultValue = "0") Integer page,
             @RequestParam(name = "size", defaultValue = "10") Integer size) {
-        return ApiResponse.<Object>ok(userService.getAllUsers(PageRequest.of(page, size)));
+        Page<User> userPage = userService.getAllUsers(PageRequest.of(page, size));
+        Page<UserODT> odtPage = userPage.map(UserODT::new);
+        return ApiResponse.<Object>ok(odtPage);
     }
 
     /**
@@ -57,9 +61,9 @@ public class UserController {
      * @return 회원 정보 데이터
      */
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<User>> getUserById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<UserODT>> getUserById(@PathVariable Long id) {
         return userService.getUserById(id)
-                .map(user -> ApiResponse.ok(user))
+                .map(user -> ApiResponse.ok(new UserODT(user)))
                 .orElse(ApiResponse.notFound("User not found"));
     }
 
@@ -71,10 +75,10 @@ public class UserController {
      * @return 가입 완료된 회원 정보
      */
     @PostMapping(value = { "", "/register" })
-    public ResponseEntity<ApiResponse<User>> registerUser(@Valid @RequestBody UserRegisterIDT request) {
+    public ResponseEntity<ApiResponse<UserODT>> registerUser(@Valid @RequestBody UserRegisterIDT request) {
         User registeredUser = userService.registerUser(request.getEmail(), request.getPassword(), request.getGrade(),
                 request.getRole());
-        return ApiResponse.ok(registeredUser);
+        return ApiResponse.ok(new UserODT(registeredUser));
     }
 
     /**
@@ -85,11 +89,11 @@ public class UserController {
      * @return 수정된 회원 정보
      */
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<User>> updateUser(@PathVariable Long id,
+    public ResponseEntity<ApiResponse<UserODT>> updateUser(@PathVariable Long id,
             @Valid @RequestBody UserUpdateIDT request) {
         return userService
                 .updateUser(id, request.getEmail(), request.getStatus(), request.getGrade(), request.getRole())
-                .map(user -> ApiResponse.ok(user))
+                .map(user -> ApiResponse.ok(new UserODT(user)))
                 .orElse(ApiResponse.notFound("User not found"));
     }
 
@@ -101,11 +105,11 @@ public class UserController {
      * @return 갱신된 회원 지갑 정보
      */
     @PostMapping("/{id}/assets/adjust")
-    public ResponseEntity<ApiResponse<Wallet>> adjustAsset(@PathVariable Long id,
+    public ResponseEntity<ApiResponse<WalletODT>> adjustAsset(@PathVariable Long id,
             @Valid @RequestBody AssetAdjustIDT request) {
         try {
             Wallet updatedWallet = userService.adjustAsset(id, request.getCurrency(), request.getAmount());
-            return ApiResponse.ok(updatedWallet);
+            return ApiResponse.ok(new WalletODT(updatedWallet));
         } catch (IllegalArgumentException e) {
             return ApiResponse.badRequest(e.getMessage());
         } catch (Exception e) {
