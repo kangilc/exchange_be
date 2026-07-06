@@ -8,7 +8,6 @@ import exchange.admin.repository.UserRepository;
 import exchange.admin.security.JwtTokenProvider;
 import exchange.admin.model.constant.UserGrade;
 import exchange.admin.model.constant.UserRole;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,8 +28,8 @@ public class AuthService {
      * AuthService 생성자 주입.
      */
     public AuthService(UserRepository userRepository,
-                       JwtTokenProvider tokenProvider,
-                       PasswordEncoder passwordEncoder) {
+            JwtTokenProvider tokenProvider,
+            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.tokenProvider = tokenProvider;
         this.passwordEncoder = passwordEncoder;
@@ -88,7 +87,8 @@ public class AuthService {
         // 토큰 발급
         String refreshToken = tokenProvider.generateRefreshToken(user.getEmail());
         // JWT 토큰에 관리자 권한(Role)을 명시적으로 주입함
-        String accessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), user.getRole().name(), refreshToken);
+        String accessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), user.getRole().name(),
+                refreshToken);
 
         // 중복 로그인 확인
         boolean priorLoginExisted = AdminSettings.isDuplicateLoginBlockEnabled()
@@ -142,7 +142,8 @@ public class AuthService {
 
         // 3. 토큰 회전(RTR) 및 재발급 (권한 주입 포함)
         String newRefreshToken = tokenProvider.generateRefreshToken(user.getEmail());
-        String newAccessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(), user.getRole().name(), newRefreshToken);
+        String newAccessToken = tokenProvider.generateAccessToken(user.getUserId(), user.getEmail(),
+                user.getRole().name(), newRefreshToken);
 
         // 토큰 저장 (토큰 갱신에 따른 신규 리프레시 토큰 정보 영속화 처리함)
         user.setRefreshToken(newRefreshToken);

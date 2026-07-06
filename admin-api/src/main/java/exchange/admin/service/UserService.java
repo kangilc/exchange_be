@@ -7,7 +7,6 @@ import exchange.admin.model.constant.UserGrade;
 import exchange.admin.repository.LedgerJournalRepository;
 import exchange.admin.repository.UserRepository;
 import exchange.admin.repository.WalletRepository;
-import exchange.admin.repository.WalletRepository;
 import exchange.admin.mapper.LedgerJournalMapper;
 import exchange.admin.mapper.TradeMapper;
 import exchange.admin.dto.request.common.DateRangePageIDT;
@@ -16,7 +15,6 @@ import exchange.admin.dto.response.UserTradeODT;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,9 +64,9 @@ public class UserService {
     /**
      * 신규 회원을 등록합니다. (하위 호환성 유지용)
      *
-     * @param email 가입 이메일
+     * @param email    가입 이메일
      * @param password 비밀번호
-     * @param grade 회원 등급
+     * @param grade    회원 등급
      * @return 등록 완료된 회원 객체
      */
     @Transactional
@@ -80,10 +78,10 @@ public class UserService {
     /**
      * 신규 회원을 등록합니다. (역할 권한 추가 버전)
      *
-     * @param email 가입 이메일
+     * @param email    가입 이메일
      * @param password 비밀번호
-     * @param grade 회원 등급
-     * @param role 역할 권한
+     * @param grade    회원 등급
+     * @param role     역할 권한
      * @return 등록 완료된 회원 객체
      */
     @Transactional
@@ -99,19 +97,20 @@ public class UserService {
         // String 타입을 UserGrade Enum 타입으로 변환하여 저장
         user.setGrade(grade != null ? UserGrade.valueOf(grade.toUpperCase()) : UserGrade.STANDARD);
         // String 타입을 UserRole Enum 타입으로 변환하여 저장
-        user.setRole(role != null ? exchange.admin.model.constant.UserRole.valueOf(role.toUpperCase()) : exchange.admin.model.constant.UserRole.USER);
+        user.setRole(role != null ? exchange.admin.model.constant.UserRole.valueOf(role.toUpperCase())
+                : exchange.admin.model.constant.UserRole.USER);
         user.setStatus("ACTIVE");
-        
+
         return userRepository.save(user);
     }
 
     /**
      * 회원의 특정 정보(이메일, 상태, 등급)를 수정합니다. (하위 호환성 유지용)
      * 
-     * @param id 회원 ID
-     * @param email 변경할 이메일
+     * @param id     회원 ID
+     * @param email  변경할 이메일
      * @param status 변경할 상태
-     * @param grade 변경할 등급
+     * @param grade  변경할 등급
      * @return 수정 결과 User 객체 Optional
      */
     @Transactional
@@ -122,22 +121,26 @@ public class UserService {
     /**
      * 회원의 특정 정보(이메일, 상태, 등급, 역할)를 수정합니다. (역할 권한 추가 버전)
      * 
-     * @param id 회원 ID
-     * @param email 변경할 이메일
+     * @param id     회원 ID
+     * @param email  변경할 이메일
      * @param status 변경할 상태
-     * @param grade 변경할 등급
-     * @param role 변경할 역할 권한
+     * @param grade  변경할 등급
+     * @param role   변경할 역할 권한
      * @return 수정 결과 User 객체 Optional
      */
     @Transactional
     public Optional<User> updateUser(Long id, String email, String status, String grade, String role) {
         return userRepository.findById(id).map(user -> {
-            if (email != null) user.setEmail(email);
-            if (status != null) user.setStatus(status);
+            if (email != null)
+                user.setEmail(email);
+            if (status != null)
+                user.setStatus(status);
             // String 타입을 UserGrade Enum 타입으로 변환하여 저장
-            if (grade != null) user.setGrade(UserGrade.valueOf(grade.toUpperCase()));
+            if (grade != null)
+                user.setGrade(UserGrade.valueOf(grade.toUpperCase()));
             // String 타입을 UserRole Enum 타입으로 변환하여 저장
-            if (role != null) user.setRole(exchange.admin.model.constant.UserRole.valueOf(role.toUpperCase()));
+            if (role != null)
+                user.setRole(exchange.admin.model.constant.UserRole.valueOf(role.toUpperCase()));
             return userRepository.save(user);
         });
     }
@@ -146,7 +149,7 @@ public class UserService {
      * 회원의 특정 통화 자산 지갑을 조회하며, 없을 경우 잔고 0원의 지갑을 동적(Lazy)으로 생성하여 반환하는 공통 메서드입니다.
      * 물리 외래키가 없는 테이블 구조이므로, 존재하지 않는 회원의 유령 지갑 생성을 방지하기 위해 사용자 존재 여부를 사전에 검증함.
      * 
-     * @param userId 회원 ID
+     * @param userId   회원 ID
      * @param currency 대상 통화 코드
      * @return 기존에 존재하거나 새로 생성된 Wallet 객체
      */
@@ -171,9 +174,9 @@ public class UserService {
     /**
      * 회원의 특정 통화 자산 잔고를 수동으로 조정(가산/감산)하고, 원장 분개장(LedgerJournal)에 변경 이력을 기록합니다.
      * 
-     * @param userId 회원 ID
+     * @param userId   회원 ID
      * @param currency 대상 통화 코드
-     * @param amount 조정할 금액 (음수 가능)
+     * @param amount   조정할 금액 (음수 가능)
      * @return 잔고 조정이 반영된 최종 Wallet 객체
      * @throws IllegalArgumentException 차감액이 가용 잔고보다 클 경우 예외 발생
      */
@@ -183,9 +186,10 @@ public class UserService {
 
         BigDecimal newBalance = wallet.getBalance().add(amount);
         if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("Insufficient balance: adjustment would result in a negative balance (" + newBalance + ")");
+            throw new IllegalArgumentException(
+                    "Insufficient balance: adjustment would result in a negative balance (" + newBalance + ")");
         }
-        
+
         wallet.setBalance(newBalance);
         wallet.setUpdatedAt(LocalDateTime.now());
         Wallet savedWallet = walletRepository.save(wallet);
@@ -211,7 +215,7 @@ public class UserService {
                 userId, idt.getFinalStartDate(), idt.getFinalEndDate(), offset, idt.getSize());
         long total = ledgerJournalMapper.countDetailedLedgersByUserId(
                 userId, idt.getFinalStartDate(), idt.getFinalEndDate());
-                
+
         return new PageImpl<>(list, PageRequest.of(idt.getPage(), idt.getSize()), total);
     }
 
@@ -222,11 +226,9 @@ public class UserService {
         int offset = idt.getPage() * idt.getSize();
         List<UserTradeODT> list = tradeMapper.selectUserTrades(userId, offset, idt.getSize());
         long total = tradeMapper.countUserTrades(userId);
-                
+
         return new PageImpl<>(list, PageRequest.of(idt.getPage(), idt.getSize()), total);
     }
-
-
 
     private String hashPassword(String password) {
         try {
@@ -235,7 +237,8 @@ public class UserService {
             StringBuilder hexString = new StringBuilder();
             for (byte b : hash) {
                 String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
+                if (hex.length() == 1)
+                    hexString.append('0');
                 hexString.append(hex);
             }
             return hexString.toString();

@@ -42,11 +42,18 @@ admin-api/
 │   │   ├── SettingsController.java # 글로벌 중복 로그인 차단, 온체인 모니터링, 지갑 시뮬레이션 및 수수료 등 전역 설정 변경 제어
 │   │   ├── StatsController.java    # 거래/자산/유저 통계 조회, 종목별 현재가(티커) 및 OHLCV 캔들 데이터 조회
 │   │   ├── UserController.java     # 회원 조회, 정보 수정, 회원별 체결/원장 내역 조회 및 모의 자산 수동 조정
+│   │   ├── UserSearchController.java # 🔍 엘라스틱서치 기반 회원 검색 및 자동완성 제공
 │   │   └── WalletController.java   # 법정화폐(Fiat) 및 가상자산 지갑 CRUD
+│   ├── document/                   # 엘라스틱서치 문서 모델 (UserDocument)
 │   ├── dto/                        # 요청/응답 페이로드 변환용 데이터 전송 객체(DTO)
 │   ├── exception/                  # API 예외 통합 제어를 위한 GlobalExceptionHandler
+│   ├── listener/                   # 엔티티 라이프사이클 이벤트 리스너 및 초기화 데몬
+│   │   ├── ElasticsearchIndexInitializer.java # 애플리케이션 시작 시 DB 유저 데이터 ES 벌크 색인 동기화
+│   │   ├── UserEntityListener.java # 회원 생성/변경/삭제 감지하여 Spring Event 발행
+│   │   └── UserIndexEventListener.java # 비동기적으로 Spring Event 수신하여 ES 인덱스 갱신
 │   ├── model/                      # 데이터베이스 맵핑 JPA 엔티티 (User, Wallet, Ledger, Market, MarketHistory 등)
 │   ├── repository/                 # 데이터 조회를 위한 Spring Data JPA Repository 인터페이스
+│   │   └── es/                     # 엘라스틱서치 전용 리포지토리 레이어 (UserSearchRepository)
 │   ├── security/                   # JWT 검증 필터, 암호화 인코더 및 Security 설정
 │   └── service/                    # 핵심 비즈니스 로직 구현 서비스 계층
 │       ├── CoinNetworkService.java # 코인별 온체인 네트워크 입출금 연동 공통 인터페이스
@@ -56,6 +63,7 @@ admin-api/
 │       ├── MarketService.java      # 마켓 구성 수정, 캐시 갱신 및 이력 저장 서비스
 │       ├── StatsService.java       # 시간 해상도별 캔들 데이터 집계, 대시보드 요약 및 KPI 성능 지표 분석 서비스
 │       ├── UserService.java        # 회원 등록, 정보 수정, 가상 지갑 수동 조정 및 원장 기록 서비스
+│       ├── UserSearchService.java  # 🔍 엘라스틱서치 기반 회원 검색 및 자동완성 비즈니스 로직
 │       └── WalletDaemonService.java# 블록체인 가상 입출금 트랜잭션 동기화 모니터링 및 배치 작업 데몬
 ├── build.gradle                    # 의존성 빌드 구성
 └── Dockerfile                      # 컨테이너화 명세서
@@ -151,7 +159,30 @@ sequenceDiagram
 
 ---
 
-## 🛠️ 6. 개발 및 배포 가이드
+## 🔍 6. Elasticsearch 기반 고성능 회원 검색 및 자동완성 시스템
+
+회원 이메일 검색 시 DB 부하 및 LIKE 검색 성능 저하를 방지하기 위해 Elasticsearch 8.12.2를 도입하여 역색인 구조의 검색 및 자동완성 기능을 제공한다.
+
+* **동작 흐름**:
+  1. **초기 동기화**: `ElasticsearchIndexInitializer`가 애플리케이션 구동 시 DB의 전체 유저 데이터를 읽어 Elasticsearch 인덱스에 벌크 색인한다 (`local`, `dev` 프로파일 적용).
+  2. **실시간 변경 감지**: JPA 엔티티 이벤트 리스너인 `UserEntityListener`가 회원의 가입, 수정, 삭제 상태를 감지하여 `UserIndexedEvent`를 발행한다.
+  3. **비동기 인덱싱**: `UserIndexEventListener`가 트랜잭션 커밋 완료(`AFTER_COMMIT`) 시점에 이벤트를 수신하여 비동기(`@Async`)로 Elasticsearch 인덱스를 동기화한다.
+  4. **검색 및 자동완성 API**:
+     - `GET /admin/users/search`: 이메일 키워드에 부합하는 회원을 검색한다 (`edge_ngram` 분석기를 타는 Match Query 사용).
+     - `GET /admin/users/autocomplete`: 입력된 접두사 기준 최대 10개의 이메일 추천 검색어를 제공한다.
+
+* **검색 엔진 데이터 추가 가이드**:
+  새로운 엔티티나 필드를 검색엔진에 동기화하고 색인하기 위해 다음 단계를 적용한다.
+  1. **도큐먼트 클래스 정의**: `exchange.admin.document` 패키지에 `@Document(indexName = "인덱스명")`을 사용한 도큐먼트 클래스를 추가한다. 필요한 경우 형태소 분석 및 자동완성을 위해 `@Setting(settingPath = "elasticsearch/settings.json")` 및 `@Field` 어노테이션에 분석기를 매핑한다.
+  2. **레포지토리 생성**: `exchange.admin.repository.es` 패키지에 `ElasticsearchRepository`를 상속하는 인터페이스를 생성한다.
+  3. **변경 이벤트 연동**:
+     - JPA 엔티티 클래스에 `@EntityListeners`를 지정하여 저장/수정/삭제 라이프사이클을 감지하고 이벤트를 발행한다.
+     - 트랜잭션 커밋 완료 후 색인 부하를 격리하기 위해 `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)`와 `@Async`를 활용하여 비동기로 Elasticsearch 레포지토리에 데이터를 변경 저장/삭제한다.
+  4. **초기 벌크 적재 설정**: `ElasticsearchIndexInitializer`에 새 도큐먼트에 대한 벌크 저장 로직을 통합하여 로컬/개발 서버 구동 시 전체 DB 데이터가 자동으로 색인 동기화되도록 한다.
+
+---
+
+## 🛠️ 7. 개발 및 배포 가이드
 
 ### 로컬 개발 환경 실행
 ```bash

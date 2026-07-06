@@ -10,12 +10,12 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Date;
-import java.util.List;
 import java.util.logging.Logger;
 
 /**
  * JWT(JSON Web Token)를 생성하고 유효성을 검증하며, 토큰 내의 각종 클레임(Claim) 정보를 파싱하는 공급자 클래스입니다.
- * application.properties의 `app.jwt.secret` 키를 기반으로 서명하며, 보안 키 미제공 시 실시간 임시 키를 자동 발급합니다.
+ * application.properties의 `app.jwt.secret` 키를 기반으로 서명하며, 보안 키 미제공 시 실시간 임시 키를
+ * 자동 발급합니다.
  * Access Token(1시간) 및 Refresh Token(7일) 정책이 구현되어 있습니다.
  */
 @Component
@@ -24,7 +24,7 @@ public class JwtTokenProvider {
     private static final Logger logger = Logger.getLogger(JwtTokenProvider.class.getName());
 
     private final SecretKey jwtSecretKey;
-    
+
     // Access Token: 1시간
     private final long accessTokenExpirationMs = 3600000L;
     // Refresh Token: 7일
@@ -37,7 +37,8 @@ public class JwtTokenProvider {
      */
     public JwtTokenProvider(@Value("${app.jwt.secret:}") String secret) {
         if (secret == null || secret.trim().isEmpty() || secret.length() < 32) {
-            logger.warning("WARN(Security): JWT 시크릿 키가 누락되었거나 너무 짧습니다(최소 32자 필요). 동적 임시 보안키를 생성합니다. 인스턴스 간 수평 확장을 위해서 시크릿 키 설정이 필수적입니다.");
+            logger.warning(
+                    "WARN(Security): JWT 시크릿 키가 누락되었거나 너무 짧습니다(최소 32자 필요). 동적 임시 보안키를 생성합니다. 인스턴스 간 수평 확장을 위해서 시크릿 키 설정이 필수적입니다.");
             // Generate dynamic key
             byte[] ephemeralKey = new byte[32];
             new SecureRandom().nextBytes(ephemeralKey);
@@ -50,9 +51,9 @@ public class JwtTokenProvider {
     /**
      * 사용자 식별 정보 및 등급, 리프레시 토큰 식별 클레임을 포함하는 Access Token을 발급합니다.
      * 
-     * @param userId 회원 일련번호
-     * @param email 회원 이메일
-     * @param role 회원 보안 등급 (ADMIN, USER 등)
+     * @param userId       회원 일련번호
+     * @param email        회원 이메일
+     * @param role         회원 보안 등급 (ADMIN, USER 등)
      * @param refreshToken 연계된 리프레시 토큰 문자열
      * @return 생성된 JWT Access Token
      */
@@ -103,7 +104,8 @@ public class JwtTokenProvider {
         return Jwts.builder()
                 .subject(email)
                 .claim("type", "refresh")
-                .claim("uuid", java.util.UUID.randomUUID().toString()) // 동일한 시간대(초 단위)에 토큰이 재생성될 때 토큰 문자열이 중복 발급되는 현상을 방어하기 위해 고유 UUID를 추가 클레임으로 주입함.
+                .claim("uuid", java.util.UUID.randomUUID().toString()) // 동일한 시간대(초 단위)에 토큰이 재생성될 때 토큰 문자열이 중복 발급되는 현상을
+                                                                       // 방어하기 위해 고유 UUID를 추가 클레임으로 주입함.
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(jwtSecretKey, Jwts.SIG.HS256)

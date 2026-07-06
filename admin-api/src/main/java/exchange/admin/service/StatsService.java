@@ -17,7 +17,6 @@ public class StatsService {
 
     private final TradeRepository tradeRepository;
     private final exchange.admin.mapper.TradeMapper tradeMapper;
-    private final LedgerJournalRepository ledgerJournalRepository;
     private final exchange.admin.repository.UserRepository userRepository;
     private final exchange.admin.repository.WalletRepository walletRepository;
     private final exchange.admin.repository.MarketRepository marketRepository;
@@ -36,7 +35,6 @@ public class StatsService {
             exchange.admin.mapper.StatsMapper statsMapper) {
         this.tradeRepository = tradeRepository;
         this.tradeMapper = tradeMapper;
-        this.ledgerJournalRepository = ledgerJournalRepository;
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.marketRepository = marketRepository;

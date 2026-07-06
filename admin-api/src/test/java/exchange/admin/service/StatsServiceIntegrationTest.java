@@ -22,8 +22,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestConstructor;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,20 +38,18 @@ class StatsServiceIntegrationTest extends BaseIntegrationTest {
 
     private final StatsService statsService;
     private final UserService userService;
-    private final UserRepository userRepository;
     private final TradeRepository tradeRepository;
     private final MarketRepository marketRepository;
     private final CacheManager cacheManager;
 
     public StatsServiceIntegrationTest(StatsService statsService,
-                                       UserService userService,
-                                       UserRepository userRepository,
-                                       TradeRepository tradeRepository,
-                                       MarketRepository marketRepository,
-                                       CacheManager cacheManager) {
+            UserService userService,
+            UserRepository userRepository,
+            TradeRepository tradeRepository,
+            MarketRepository marketRepository,
+            CacheManager cacheManager) {
         this.statsService = statsService;
         this.userService = userService;
-        this.userRepository = userRepository;
         this.tradeRepository = tradeRepository;
         this.marketRepository = marketRepository;
         this.cacheManager = cacheManager;
@@ -82,7 +78,7 @@ class StatsServiceIntegrationTest extends BaseIntegrationTest {
     @DisplayName("2. 현재가 조회 시 Caffeine Cache(@Cacheable)의 캐싱 및 동적 갱신 정책 검증")
     void test02_getLastPrice_Caching_Success() {
         String symbol = "BTC-USD";
-        
+
         // 마켓 기초정보 주입
         Market market = new Market();
         market.setSymbol(symbol);
@@ -160,7 +156,8 @@ class StatsServiceIntegrationTest extends BaseIntegrationTest {
         market.setStatus("ACTIVE");
         marketRepository.save(market);
 
-        // 캔들 집계 쿼리 실행 시 소수점 자릿수 보정 연산(/ 10^price_decimals)이 수행되므로, 이를 감안하여 100배 스케일링된 체결 가격(4500000L)을 데이터베이스에 등록함.
+        // 캔들 집계 쿼리 실행 시 소수점 자릿수 보정 연산(/ 10^price_decimals)이 수행되므로, 이를 감안하여 100배 스케일링된
+        // 체결 가격(4500000L)을 데이터베이스에 등록함.
         Trade trade = new Trade();
         trade.setTradeId(101L);
         trade.setSymbol(symbol);
@@ -169,7 +166,7 @@ class StatsServiceIntegrationTest extends BaseIntegrationTest {
         trade.setPrice(4500000L);
         trade.setQty(2L);
         tradeRepository.save(trade);
-        
+
         marketRepository.flush();
         tradeRepository.flush();
 

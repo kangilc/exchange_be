@@ -32,16 +32,14 @@ class UserAuthIntegrationTest extends BaseIntegrationTest {
     private final AuthService authService;
     private final UserService userService;
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
 
     public UserAuthIntegrationTest(AuthService authService,
-                                   UserService userService,
-                                   UserRepository userRepository,
-                                   PasswordEncoder passwordEncoder) {
+            UserService userService,
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder) {
         this.authService = authService;
         this.userService = userService;
         this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
     }
 
     @Test
@@ -72,7 +70,8 @@ class UserAuthIntegrationTest extends BaseIntegrationTest {
     void test02_login_WrongPassword_Throws() {
         userService.registerUser("auth_fail@example.com", "correct_pass", "STANDARD");
 
-        // 가입 정보와 일치하지 않는 비정상적인 비밀번호로 로그인을 시도할 경우, 인증 실패 처리와 함께 AuthException이 상위로 던져지는지 검증함.
+        // 가입 정보와 일치하지 않는 비정상적인 비밀번호로 로그인을 시도할 경우, 인증 실패 처리와 함께 AuthException이 상위로 던져지는지
+        // 검증함.
         assertThrows(AuthException.class, () -> {
             authService.login("auth_fail@example.com", "wrong_pass");
         });
@@ -115,7 +114,8 @@ class UserAuthIntegrationTest extends BaseIntegrationTest {
         // 최초 로그인으로 획득했던 리프레시 토큰을 사용하여 1차 토큰 갱신 작업을 정상 완료함.
         authService.refresh(usedRefreshToken);
 
-        // 1차 갱신 완료로 인해 이미 사용 및 만료 처리된 구형 리프레시 토큰을 해커가 가로채어 재갱신(Replay Attack)을 시도할 때, DB 대조를 통해 공격을 탐지하고 차단하는지 검증함.
+        // 1차 갱신 완료로 인해 이미 사용 및 만료 처리된 구형 리프레시 토큰을 해커가 가로채어 재갱신(Replay Attack)을 시도할 때,
+        // DB 대조를 통해 공격을 탐지하고 차단하는지 검증함.
         assertThrows(AuthException.class, () -> {
             authService.refresh(usedRefreshToken);
         });
@@ -130,11 +130,12 @@ class UserAuthIntegrationTest extends BaseIntegrationTest {
 
         // 로그인
         AuthResponseODT loginResp = authService.login("auth_logout@example.com", "correct_pass");
-        
+
         // 로그아웃 실행
         authService.logout("auth_logout@example.com");
 
-        // 로그아웃 메서드 호출 결과, 사용자의 DB 레코드 내 리프레시 토큰 필드 데이터가 안전하게 비워져(null) 토큰이 정상적으로 무효화되었는지 검증함.
+        // 로그아웃 메서드 호출 결과, 사용자의 DB 레코드 내 리프레시 토큰 필드 데이터가 안전하게 비워져(null) 토큰이 정상적으로
+        // 무효화되었는지 검증함.
         User dbUser = userRepository.findById(loginResp.getUserId()).orElseThrow();
         assertThat(dbUser.getRefreshToken()).isNull();
     }
@@ -172,7 +173,8 @@ class UserAuthIntegrationTest extends BaseIntegrationTest {
     @DisplayName("8. 위조되거나 유효하지 않은 리프레시 토큰으로 갱신 시도 시 예외 발생 검증")
     void test08_refresh_InvalidToken_Throws() {
         // 임의로 위조되었거나 유효성 형식을 만족하지 못하는 문자열을 리프레시 토큰으로 전달하여 갱신을 시도함.
-        // tokenProvider.validateToken() 검증 과정을 통해 비정상 토큰임이 감지되어 최종적으로 AuthException이 터지는지 확인함.
+        // tokenProvider.validateToken() 검증 과정을 통해 비정상 토큰임이 감지되어 최종적으로 AuthException이
+        // 터지는지 확인함.
         assertThrows(AuthException.class, () -> {
             authService.refresh("completely_fake_invalid_token_value_xyz123");
         });
@@ -184,7 +186,8 @@ class UserAuthIntegrationTest extends BaseIntegrationTest {
     @DisplayName("9. 존재하지 않는 사용자 이메일로 로그아웃 시도 시 예외 없이 무시(Silent)되는지 검증")
     void test09_logout_NonExistentUser_SilentlyIgnores() {
         // 가입되지 않은 이메일 주소 정보로 로그아웃 메서드를 직접 호출함.
-        // 내부 조회 결과 유저 데이터가 없더라도 NullPointerException이나 기타 런타임 예외가 전파되지 않고 내부적으로 안전하게 무시 처리가 완료되는지 검증함.
+        // 내부 조회 결과 유저 데이터가 없더라도 NullPointerException이나 기타 런타임 예외가 전파되지 않고 내부적으로 안전하게 무시
+        // 처리가 완료되는지 검증함.
         org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> {
             authService.logout("no_such_user_email_exists@example.com");
         });
