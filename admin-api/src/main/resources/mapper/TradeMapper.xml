@@ -12,7 +12,7 @@
                 SYMBOL,		<!-- 마켓 종목 심볼 -->
                 COUNT(TRADE_ID) AS TRADECOUNT,		<!-- 체결 건수 -->
                 SUM(QTY) AS TOTALQTY,		<!-- 체결 총 수량 -->
-                SUM(PRICE * QTY) AS RAW_VOL,		<!-- 소수점 보정 전 총 거래 대금 합계 -->
+                SUM(PRICE::NUMERIC * QTY::NUMERIC) AS RAW_VOL,		<!-- 소수점 보정 전 총 거래 대금 합계 -->
                 SUM(PRICE) AS SUM_PRICE		<!-- 평균 단가 계산용 가격 합계 -->
             FROM TRADES		<!-- 체결 내역 테이블 -->
             WHERE CREATED_AT &gt;= #{startDate} AND CREATED_AT &lt;= #{endDate}		<!-- 조회 기간 필터링 -->
@@ -83,7 +83,7 @@
         WITH RAW_SUMS AS (		<!-- 거래 테이블 스캔 시 조인 부하를 방지하기 위해 심볼별로 단독 합산함 -->
             SELECT
                 SYMBOL,		<!-- 마켓 종목 심볼 -->
-                SUM(PRICE * QTY) AS RAW_VOL		<!-- 소수점 보정 전 총 거래 대금 합계 -->
+                SUM(PRICE::NUMERIC * QTY::NUMERIC) AS RAW_VOL		<!-- 소수점 보정 전 총 거래 대금 합계 -->
             FROM TRADES		<!-- 체결 내역 테이블 -->
             GROUP BY SYMBOL		<!-- 종목 심볼별로 1차 그룹핑 -->
         )
