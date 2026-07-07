@@ -138,3 +138,154 @@ sequenceDiagram
 
 3. **테스트 결과 리포트 확인**
    * 테스트 완료 시 생성되는 HTML 리포트(`adapter-kafka/build/reports/tests/test/index.html`)를 브라우저로 열어 상세한 성공/실패 원인을 파악할 수 있습니다.
+
+---
+
+## 🧪 6. `DbPersisterRunnerTest` 통합 테스트 상세 명세
+
+### 개요
+
+`DbPersisterRunnerTest`는 `DbPersisterRunner`의 핵심 정산 로직이 다양한 시나리오에서 DB 자산 및 원장을 올바르게 변경하는지 검증하는 **통합(Integration) 테스트 클래스**다.
+
+실제 Kafka 컨슈머 루프를 동작시키지 않고, `DbPersisterRunner` 내부의 `private static processMessage(String)` 메서드를 리플렉션으로 직접 호출하여 이벤트 처리 로직만 순수하게 격리 검증한다.
+
+---
+
+### 테스트 인프라 구성
+
+#### Testcontainers + PostgreSQL 자동 기동
+
+```text
+@BeforeAll (클래스 최초 1회)
+  └─ PostgreSQLContainer("postgres:15-alpine") 기동
+       ├─ DB명: exchange_test
+       ├─ 동적 포트 매핑으로 JDBC URL 획득
+       └─ System.setProperty("DB_URL" / "DB_USER" / "DB_PASSWORD")
+            └─ ConfigLoader가 환경 변수 대신 해당 값을 읽어 DB 연결
+
+  └─ Flyway.migrate()
+       └─ ../admin-api/src/main/resources/db/migration 내 DDL 순차 적용
+            └─ 컨테이너에 최신 운영 스키마(markets, orders, wallets, trades, ledger_journal 등)를 자동 구성
+```
+
+#### @BeforeEach — 테스트 케이스 격리 보장
+
+각 테스트 메서드 실행 전 아래 두 가지 작업을 수행하여 이전 테스트의 잔재가 다음 테스트에 영향을 주지 않도록 차단한다.
+
+1. **인메모리 캐시 강제 초기화**: 리플렉션으로 `DbPersisterRunner.marketConfigCache` (ConcurrentHashMap)를 비우고, `lastMarketConfigsLoadTs`를 0으로 리셋하여 마켓 설정을 반드시 DB에서 재조회하도록 유도한다.
+2. **DB 전체 초기화 + 기초 데이터 재적재**:
+   * `TRUNCATE TABLE ledger_journal, trades, orders, wallets, markets, users RESTART IDENTITY CASCADE`로 모든 테이블을 초기화한다.
+   * 테스트에 공통으로 필요한 마켓 2개, 사용자 4명(일반 2명 + 시스템 수수료 2명), 지갑 4개를 재삽입한다.
+
+```
+공통 시드 데이터
+  markets: BTC-USD (fee_rate=0.001, price_decimals=2), ADA-KRW (fee_rate=0.0015, price_decimals=0)
+  users:   100(buyer), 200(seller), 1001(sys-fee-btc-usd), 1002(sys-fee-ada-krw)
+  wallets: buyer USD 100,000 / seller BTC 10 / buyer KRW 500,000 / seller ADA 10,000
+```
+
+---
+
+### 테스트 케이스 목록
+
+| # | 메서드명 | 검증 시나리오 |
+|---|----------|--------------|
+| 1 | `testBasicOrderAcceptBuy` | 매수(BUY) ACCEPT 이벤트 처리 |
+| 2 | `testBasicOrderAcceptSell` | 매도(SELL) ACCEPT 이벤트 처리 |
+| 3 | `testBasicOrderCancel` | 매수 주문 CANCEL 이벤트 처리 |
+| 4 | `testBasicOrderCancelSell` | 매도 주문 CANCEL 이벤트 처리 |
+| 5 | `testBasicTradeSettlementAndFees` | 기본 BTC-USD 체결 정산 및 수수료 분배 |
+| 6 | `testDynamicPriceDecimals` | ADA-KRW 마켓 동적 소수점 처리 |
+| 7 | `testIdempotentEventHandling` | 동일 이벤트 중복 수신 멱등성 |
+| 8 | `testTransactionRollbackOnError` | DB 오류 시 트랜잭션 원자적 롤백 |
+| 9 | `testPartialFillTrade` | 부분 체결(Partial Fill) 처리 |
+| 10 | `testTradeWithTakerSell` | Taker가 매도인 체결 정산 |
+
+---
+
+### 테스트 케이스 상세
+
+#### TC-1: `testBasicOrderAcceptBuy` — 매수 주문 접수
+
+* **이벤트**: `ACCEPT` / userId=100 / BTC-USD / BUY / price=6,000,000(→ $60,000) / qty=1
+* **검증 항목**:
+  * `orders` 테이블에 status=`NEW`, remaining_qty=1 로 주문이 생성됨
+  * 구매자(user=100) USD 지갑 잔고: 100,000 → **40,000** (60,000 차감)
+  * 구매자 USD `locked_balance`: 0 → **60,000** (결제 화폐 잠금)
+
+#### TC-2: `testBasicOrderAcceptSell` — 매도 주문 접수
+
+* **이벤트**: `ACCEPT` / userId=200 / BTC-USD / SELL / price=6,000,000 / qty=2
+* **검증 항목**:
+  * `orders` 테이블에 status=`NEW`, remaining_qty=2 로 주문이 생성됨
+  * 판매자(user=200) BTC 지갑 잔고: 10 → **8** (2 BTC 차감)
+  * 판매자 BTC `locked_balance`: 0 → **2** (기초 자산 잠금)
+
+#### TC-3: `testBasicOrderCancel` — 매수 주문 취소
+
+* **사전 데이터**: order_id=5, BUY, $60,000 잠금 상태
+* **이벤트**: `CANCEL` / orderId=5
+* **검증 항목**:
+  * `orders` status → `CANCELLED`, remaining_qty=0
+  * 구매자 USD 잔고: 40,000 → **100,000** 복구
+  * 구매자 USD `locked_balance`: 60,000 → **0** 해제
+
+#### TC-4: `testBasicOrderCancelSell` — 매도 주문 취소
+
+* **사전 데이터**: order_id=6, SELL, 2 BTC 잠금 상태
+* **이벤트**: `CANCEL` / orderId=6
+* **검증 항목**:
+  * 판매자 BTC 잔고: 8 → **10** 복구
+  * 판매자 BTC `locked_balance`: 2 → **0** 해제
+
+#### TC-5: `testBasicTradeSettlementAndFees` — 체결 정산 및 수수료
+
+* **사전 데이터**: BUY order_id=10 / SELL order_id=20, 각 1 BTC @ $60,000 잠금 상태
+* **이벤트**: `TRADE` / taker=BUY(100) / maker=SELL(200) / price=6,000,000 / qty=1
+* **수수료 계산**: 60,000 × 0.001 = **$60** (BTC-USD fee_rate=0.1%)
+* **검증 항목**:
+  * order 10, 20 모두 status=`FILLED`, remaining_qty=0
+  * 구매자(100) USD 잔고: 40,000 - 60 = **39,940** / `locked_balance`=0
+  * 구매자(100) BTC 잔고: 0 → **1** (BTC 수령)
+  * 판매자(200) USD 잔고: 0 → **60,000** (대금 수령)
+  * 시스템 수수료 계정(1001) USD 잔고: **60** 적립
+
+#### TC-6: `testDynamicPriceDecimals` — 동적 소수점 처리
+
+* **목적**: `price_decimals=0`인 ADA-KRW 마켓에서도 price 스케일 계산이 올바른지 검증
+* **사전 데이터**: BUY order_id=11 / SELL order_id=21, 10 ADA @ 500원 잠금
+* **이벤트**: `TRADE` / ADA-KRW / price=500 / qty=10
+* **수수료 계산**: 5,000 × 0.0015 = **7.5원** (ADA-KRW fee_rate=0.15%)
+* **검증 항목**:
+  * 구매자(100) KRW 잔고: 495,000 - 7.5 = **494,992.5**
+  * 시스템 수수료 계정(1002) KRW 잔고: **7.5원** 적립
+
+#### TC-7: `testIdempotentEventHandling` — 멱등성
+
+* **목적**: 네트워크 재전송 등으로 동일 이벤트가 2회 수신되어도 데이터가 1건만 생성되는지 검증
+* **이벤트**: `ACCEPT` / orderId=100 을 연속 2회 전송
+* **검증 항목**: `orders` 테이블에 order_id=100 레코드가 **정확히 1건**만 존재 (중복 INSERT ON CONFLICT 방어)
+
+#### TC-8: `testTransactionRollbackOnError` — 트랜잭션 롤백
+
+* **목적**: DB 제약 위반(VARCHAR 초과 등) 발생 시 트랜잭션이 롤백되어 데이터 정합성이 유지되는지 검증
+* **이벤트**: `ACCEPT` / symbol=`BTC-USD-TOO-LONG-SYMBOL-THAT-WILL-EXCEED-VARCHAR-LIMIT-AND-TRIGGER-DB-ERROR` / userId=999 (존재하지 않는 유저)
+* **검증 항목**: `orders` 테이블에 order_id=9999 레코드가 **0건** (롤백으로 잔재 없음)
+
+#### TC-9: `testPartialFillTrade` — 부분 체결
+
+* **목적**: 매수 3 BTC 주문에 1 BTC만 체결될 때 주문 상태가 `PARTIALLY_FILLED`가 되는지 검증
+* **사전 데이터**: BUY order_id=30(qty=3) / SELL order_id=40(qty=1)
+* **이벤트**: `TRADE` / qty=1 체결
+* **검증 항목**:
+  * BUY order_id=30: remaining_qty=**2**, status=`PARTIALLY_FILLED`
+  * SELL order_id=40: remaining_qty=**0**, status=`FILLED`
+
+#### TC-10: `testTradeWithTakerSell` — Taker가 매도인 체결
+
+* **목적**: Taker가 SELL, Maker가 BUY인 역방향 체결에서도 자산 정산 방향이 정확한지 검증
+* **사전 데이터**: BUY order_id=50(maker/100) / SELL order_id=60(taker/200)
+* **이벤트**: `TRADE` / takerOrderId=60(SELL) / makerOrderId=50(BUY) / price=6,000,000 / qty=1
+* **검증 항목**:
+  * 구매자(Maker/100) USD: 40,000 - 60(수수료) = **39,940** / BTC: 0 → **1**
+  * 판매자(Taker/200) USD: **60,000** 수령 / BTC `locked_balance`: **0**
