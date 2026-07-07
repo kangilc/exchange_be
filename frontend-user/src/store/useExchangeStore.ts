@@ -730,7 +730,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             // 불필요한 콘솔 출력을 억제하여 로깅 오버헤드를 완화함.
             // console.log(`[환경 구성 적용] API: ${base}, WS: ${wsUrl}`);
 
-            // 최초 활성 심볼 스냅샷 적재
+            // 최초 활성 심볼 스냅샷 적재 전에 마켓 메타데이터를 먼저 동기적으로 로드함
+            await get().fetchMarkets();
             await get().fetchFullSnapshot(get().activeSymbol);
 
             // ⚡ 이미 웹소켓이 연결 중이거나 연결된 상태이면 중복 연결 실행을 차단
@@ -796,7 +797,10 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
 
         // ⚡ 풀 오더북 스냅샷 연동 (스토어 내부화)
         fetchFullSnapshot: async (symbol) => {
-            const port = symbol === 'BTC-USD' ? 9100 : 9101;
+            // markets 상태에 등록된 마켓 정보에서 포트 정보를 찾아 사용하고 없을 시 9101로 폴백함
+            const m = get().markets.find((x: any) => x.symbol === symbol);
+            const port = m && m.snapshotPort ? m.snapshotPort : 9101;
+
             const rawHost = window.location.hostname || '127.0.0.1';
             const host = rawHost === 'localhost' ? '127.0.0.1' : rawHost;
             const url = `http://${host}:${port}/snapshot`;

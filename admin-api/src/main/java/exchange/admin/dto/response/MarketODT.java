@@ -28,6 +28,8 @@ public class MarketODT {
     private String tickSizeRuleId;
     // 가격대별 상세 호가 단위 설정 목록
     private java.util.List<TickSizeLevelODT> tickSizeLevels;
+    // 매칭 엔진 오더북 스냅샷 포트 번호
+    private Integer snapshotPort;
 
     public MarketODT() {
     }
@@ -56,6 +58,14 @@ public class MarketODT {
                         .collect(java.util.stream.Collectors.toList());
             }
         }
+    }
+
+    /**
+     * 마켓 엔티티와 동적 포트 번호를 함께 받아 DTO 객체를 생성함.
+     */
+    public MarketODT(Market market, Integer snapshotPort) {
+        this(market);
+        this.snapshotPort = snapshotPort;
     }
 
     /**

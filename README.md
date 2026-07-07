@@ -138,6 +138,32 @@ graph TD
 | **`loki`** | 중앙집중형 실시간 로그 저장소 | **`3100`**                     | **`3100`**                     | 그라파나 로키 로그 수집 서버 포트.                                                                                                            |
 | **`kafka-exporter`** | 카프카 브로커 성능/지연 계측 어댑터 | **`9308`**                     | **`9308`**                     | 카프카 메트릭 노출용 포트 (Prometheus 연동).                                                                                                 |
 
+### 🔄 백엔드 및 프론트엔드 동적 포트 연동 가이드
+
+마켓별 스냅샷 포트를 조회하고 호출하는 과정에서 백엔드와 프론트엔드가 협력하는 동적 매핑 방식에 대한 명세이다.
+
+#### 1. 백엔드 (admin-api) 설정 구조
+* 백엔드는 각 마켓 메타데이터 및 스냅샷 조회를 위해 동적 스냅샷 포트(`snapshotPort`) 정보를 프론트엔드에 API로 제공함.
+* 설정 파일인 `admin-api/src/main/resources/application.yml` 파일 내부의 `app.market-ports` 맵 속성에 심볼별 스냅샷 포트가 정의되어 있음:
+  ```yaml
+  app:
+    market-ports:
+      BTC-USD: 9100
+      ADA-KRW: 9101
+      JAF-KRW: 9103
+      JAF-USD: 9105
+  ```
+* 마켓 목록 조회 API(`GET /admin/stats/markets`) 호출 시, 데이터베이스에 등록된 마켓 정보와 이 설정을 조인하여 DTO(`MarketODT`)에 `snapshotPort`를 실어 반환함.
+
+#### 2. 프론트엔드 (frontend-user / frontend-admin) 동작 구조
+* 프론트엔드는 기존의 마켓별 포트 하드코딩 분기문을 전면 제거하고 API 기반으로 동적 작동함.
+* 스토어 초기화(`initStore`) 시점에 백엔드 API인 `/admin/stats/markets`를 먼저 **동기적으로 호출하여 완벽하게 로드(`fetchMarkets`)**한 뒤, 그 정보가 담긴 `markets` 상태를 참조하여 해당 활성 마켓의 스냅샷 포트로 HTTP 요청(`fetchFullSnapshot`)을 전송함.
+* 이 선행 동기화가 보장되어야만, 마켓 로드 전 비어있는 상태에서 잘못된 포트(예: 9101)로 스냅샷을 호출하여 화면 호가창이 빈 상태로 남아있는 레이스 컨디션 문제를 방지할 수 있음.
+
+#### 3. 포트 설정 변경 또는 신규 마켓 추가 시 수정 사항
+* **백엔드**: `/home/administrator/exchange_be/admin-api/src/main/resources/application.yml`의 `app.market-ports`에 새로운 마켓 심볼과 해당 엔진의 Prometheus/Snapshot 포트 매핑을 반드시 추가해야 함.
+* **프론트엔드**: 개별 스토어(`useExchangeStore.ts`)의 `fetchFullSnapshot`에서 하드코딩 분기문을 절대 사용하지 말고, 항상 `get().markets`에서 찾아낸 `snapshotPort`를 기반으로 호출하도록 유지해야 함.
+
 ---
 
 ## 🪙 신규 코인/마켓 추가 확장 가이드 (Market Expansion Checklist)

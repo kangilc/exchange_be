@@ -83,9 +83,10 @@ export const TradingTerminal: React.FC = React.memo(() => {
     const getScaleFactor = useExchangeStore(state => state.getScaleFactor);
 
     // 1. 거래 터미널 로컬 코어 상태
-    const activeTicker = tickerPrices[activeSymbol];
-    const basePrice = activeTicker ? activeTicker.prevClosePrice : (activeSymbol === 'BTC-USD' ? 65000 : 500);
     const currentMarket = useMemo(() => markets.find((m: any) => m.symbol === activeSymbol), [markets, activeSymbol]);
+    const activeTicker = tickerPrices[activeSymbol];
+    // 활성 티커가 없으면 DB 마켓 테이블의 listingPrice 정보를 스케일 보정하여 기본 기준가로 사용함
+    const basePrice = activeTicker ? activeTicker.prevClosePrice : (currentMarket && currentMarket.listingPrice ? currentMarket.listingPrice / getScaleFactor(activeSymbol) : (activeSymbol === 'BTC-USD' ? 65000 : 500));
     const minAmt = currentMarket ? currentMarket.minAmt : 0;
     const [activeTab, setActiveTab] = useState<'trade' | 'custody' | 'investment'>('trade');
     const [isLiveMode, setIsLiveMode] = useState<boolean>(true);
@@ -131,16 +132,24 @@ export const TradingTerminal: React.FC = React.memo(() => {
     // 실제 유저의 거래 내역 보관 상태
     const [userTrades, setUserTrades] = useState<any[]>([]);
 
-    // 심볼별 기본 디폴트 금액 세팅
+    // 심볼별 기본 디폴트 가격 및 수량을 입력란에 세팅함
     useEffect(() => {
         if (activeSymbol === 'BTC-USD') {
             setOrderPrice('65000');
             setOrderQty('2');
             setStopPrice('64000');
+        } else if (activeSymbol === 'JAF-USD') {
+            setOrderPrice('0.05');
+            setOrderQty('100');
+            setStopPrice('0.04');
+        } else if (activeSymbol === 'JAF-KRW') {
+            setOrderPrice('1500');
+            setOrderQty('100');
+            setStopPrice('1400');
         } else {
-            setOrderPrice('1200');
+            setOrderPrice('500');
             setOrderQty('500');
-            setStopPrice('1100');
+            setStopPrice('450');
         }
     }, [activeSymbol]);
 
@@ -197,8 +206,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
     useEffect(() => {
         if (lastRejectEvent) {
             const { symbol, side, price, qty, reason } = lastRejectEvent;
-            const coin = symbol === 'BTC-USD' ? 'BTC' : 'ADA';
-            const fiat = symbol === 'BTC-USD' ? 'USD' : 'KRW';
+            // 대상 심볼명(예: BTC-USD)을 구분자 기준으로 분할하여 코인명과 fiat 통화명을 구함
+            const [coin, fiat] = symbol.split('-');
             const scale = getScaleFactor(symbol);
             const actualPrice = price / scale;
             const totalCost = actualPrice * qty;
@@ -234,8 +243,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
 
         const priceVal = parseFloat(orderPrice);
         const qtyVal = parseFloat(orderQty);
-        const coin = activeSymbol === 'BTC-USD' ? 'BTC' : 'ADA';
-        const fiat = activeSymbol === 'BTC-USD' ? 'USD' : 'KRW';
+        // 마켓 구분자를 기준으로 코인과 fiat 통화 단위를 구함
+        const [coin, fiat] = activeSymbol.split('-');
 
         if (isNaN(qtyVal) || qtyVal <= 0) {
             alert('올바른 수량을 입력해주세요.');
@@ -452,9 +461,8 @@ export const TradingTerminal: React.FC = React.memo(() => {
         setModalAmount('');
     };
 
-    const isBtc = activeSymbol === 'BTC-USD';
-    const fiat = isBtc ? 'USD' : 'KRW';
-    const coin = isBtc ? 'BTC' : 'ADA';
+    // 현재 활성화된 마켓 심볼 기준으로 코인명 및 fiat 화폐 단위를 구함
+    const [coin, fiat] = activeSymbol.split('-');
 
     // 총 평가금액 환산
     const totalAssetEvalValue = useMemo(() => {

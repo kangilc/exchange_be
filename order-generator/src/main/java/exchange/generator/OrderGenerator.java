@@ -22,6 +22,16 @@ public final class OrderGenerator {
     private static final int ENV_SLEEP_MIN_MS = ConfigLoader.getInt("GENERATOR_SLEEP_MIN", 50);
     private static final int ENV_SLEEP_MAX_MS = ConfigLoader.getInt("GENERATOR_SLEEP_MAX", 250);
 
+    // --- 시뮬레이션용 마켓별 고정 기준가 상수 정의 ---
+    private static final long BTC_USD_REF_PRICE = 65000L;
+    private static final long ADA_KRW_REF_PRICE = 500L;
+    private static final long JAF_KRW_REF_PRICE = 1500L;
+    private static final long JAF_USD_REF_PRICE = 1L; // 0.05달러에서 1.0달러로 수정
+
+    // --- 소수점 자릿수별 스케일 팩터 상수 정의 ---
+    private static final long SCALE_8_DECIMALS = 100000000L; // 소수점 8자리 마켓용 (BTC-USD, JAF-USD)
+    private static final long SCALE_4_DECIMALS = 10000L;     // 소수점 4자리 마켓용 (ADA-KRW, JAF-KRW)
+
     public static void main(String[] args) {
         int sleepMin = ENV_SLEEP_MIN_MS;
         int sleepMax = ENV_SLEEP_MAX_MS;
@@ -60,27 +70,21 @@ public final class OrderGenerator {
         System.out.println(
                 " - Max orders limit: " + (MAX_ORDERS == Integer.MAX_VALUE ? "UNLIMITED" : MAX_ORDERS + " orders"));
 
-        // 1. 비트코인(BTC-USD) 가상 주문 주입을 담당하는 스레드 생성 (BTC 소수점 8자리 스케일 100,000,000)
-        long btcScale = 100000000L;
+        // 1. 비트코인(BTC-USD) 가상 주문 주입을 담당하는 스레드 생성 (BTC 소수점 8자리)
         Thread btcThread = new Thread(
-                new GeneratorTask(btcHost, btcPort, 65000L * btcScale, "BTC-USD", btcScale, sleepMin, sleepMax),
+                new GeneratorTask(btcHost, btcPort, BTC_USD_REF_PRICE * SCALE_8_DECIMALS, "BTC-USD", SCALE_8_DECIMALS, sleepMin, sleepMax),
                 "generator-btc");
-        // 2. 에이다(ADA-KRW) 가상 주문 주입을 담당하는 스레드 생성 (ADA 소수점 4자리 스케일 10,000)
-        long adaScale = 10000L;
+        // 2. 에이다(ADA-KRW) 가상 주문 주입을 담당하는 스레드 생성 (ADA 소수점 4자리)
         Thread adaThread = new Thread(
-                new GeneratorTask(adaHost, adaPort, 500L * adaScale, "ADA-KRW", adaScale, sleepMin, sleepMax),
+                new GeneratorTask(adaHost, adaPort, ADA_KRW_REF_PRICE * SCALE_4_DECIMALS, "ADA-KRW", SCALE_4_DECIMALS, sleepMin, sleepMax),
                 "generator-ada");
-        // 3. 자프 원화(JAF-KRW) 가상 주문 주입 담당 스레드 생성 (소수점 4자리 스케일 10,000, 기준가: 1500)
-        long jafKrwScale = 10000L;
+        // 3. 자프 원화(JAF-KRW) 가상 주문 주입 담당 스레드 생성 (소수점 4자리)
         Thread jafKrwThread = new Thread(
-                new GeneratorTask(jafKrwHost, jafKrwPort, 1500L * jafKrwScale, "JAF-KRW", jafKrwScale, sleepMin,
-                        sleepMax),
+                new GeneratorTask(jafKrwHost, jafKrwPort, JAF_KRW_REF_PRICE * SCALE_4_DECIMALS, "JAF-KRW", SCALE_4_DECIMALS, sleepMin, sleepMax),
                 "generator-jaf-krw");
-        // 4. 자프 달러(JAF-USD) 가상 주문 주입 담당 스레드 생성 (소수점 8자리 스케일 100,000,000, 기준가: 0.05)
-        long jafUsdScale = 100000000L;
+        // 4. 자프 달러(JAF-USD) 가상 주문 주입 담당 스레드 생성 (소수점 8자리)
         Thread jafUsdThread = new Thread(
-                new GeneratorTask(jafUsdHost, jafUsdPort, (long) (0.05 * jafUsdScale), "JAF-USD", jafUsdScale, sleepMin,
-                        sleepMax),
+                new GeneratorTask(jafUsdHost, jafUsdPort, JAF_USD_REF_PRICE * SCALE_8_DECIMALS, "JAF-USD", SCALE_8_DECIMALS, sleepMin, sleepMax),
                 "generator-jaf-usd");
 
         // 각 마켓별 주문 인젝터 스레드 동시 구동
@@ -231,6 +235,9 @@ public final class OrderGenerator {
                         // 프로토콜 규격: "NEW,[BUY/SELL],[가격(long)],[수량(long)],[유저 UID(long)]"
                         writer.println(String.format("NEW,%s,%d,%d,%d", side, price, qty, userId));
                         writer.flush(); // 즉시 소켓 버퍼 비우기(실시간 스트리밍 지연 방지)
+                        if (writer.checkError()) {
+                            throw new java.io.IOException("Socket write failed (PrintWriter error flag set)");
+                        }
 
                         // 7. 기준값 트렌드 변동: 5% 확률로 시장의 대세 흐름 가격(Reference Price) 자체를 동적 이동시켜 차트 우상향/우하향 연출
                         if (rand.nextInt(100) < 5) {
@@ -323,6 +330,9 @@ public final class OrderGenerator {
                 writer.println(String.format("NEW,BUY,%d,%d,%d", price, qty, userId));
             }
             writer.flush();
+            if (writer.checkError()) {
+                throw new RuntimeException("Socket write failed during seed book generation");
+            }
             System.out.println("[" + symbol + "] Seed book injection completed successfully for " + symbol);
         }
     }

@@ -24,9 +24,12 @@ import org.springframework.web.bind.annotation.*;
 public class MarketController {
 
     private final MarketService marketService;
+    private final exchange.admin.config.AppProperties appProperties;
 
-    public MarketController(MarketService marketService) {
+    // 생성자 주입 방식으로 서비스와 설정 정보 빈을 전달받음
+    public MarketController(MarketService marketService, exchange.admin.config.AppProperties appProperties) {
         this.marketService = marketService;
+        this.appProperties = appProperties;
     }
 
     /**
@@ -36,7 +39,8 @@ public class MarketController {
     @GetMapping
     public ResponseEntity<ApiResponse<Page<MarketODT>>> getActiveMarkets(@PageableDefault(size = 10) Pageable pageable) {
         Page<Market> markets = marketService.getActiveMarkets(pageable);
-        return ApiResponse.ok(markets.map(MarketODT::new));
+        // 각 마켓의 심볼에 설정된 포트를 찾아 DTO 생성자에 전달함
+        return ApiResponse.ok(markets.map(m -> new MarketODT(m, appProperties.getMarketPorts().getOrDefault(m.getSymbol(), 9101))));
     }
 
     /**
@@ -54,7 +58,8 @@ public class MarketController {
             @RequestBody MarketUpdateIDT updateData) {
         Market updated = marketService.updateMarket(symbol, updateData);
         if (updated != null) {
-            return ApiResponse.ok(new MarketODT(updated));
+            // 수정 완료 시 해당 마켓 심볼의 포트를 DTO 생성자에 함께 전달함
+            return ApiResponse.ok(new MarketODT(updated, appProperties.getMarketPorts().getOrDefault(symbol, 9101)));
         }
         return ApiResponse.notFound("Market not found");
     }

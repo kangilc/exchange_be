@@ -522,7 +522,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
             set({ apiBaseUrl: base, wsUrl });
             // console.log(`[환경 구성 적용] API: ${base}, WS: ${wsUrl}`);
 
-            // 최초 활성 심볼 스냅샷 적재
+            // 최초 활성 심볼 스냅샷 적재 전에 마켓 정보를 먼저 로드함
+            await get().fetchMarkets();
             await get().fetchFullSnapshot(get().activeSymbol);
 
             // 웹소켓 자동 접속 트리거
@@ -538,7 +539,10 @@ export const useExchangeStore = create<ExchangeState>((set, get) => {
         },
 
         fetchFullSnapshot: async (symbol) => {
-            const port = symbol === 'BTC-USD' ? 9100 : 9101;
+            // markets 상태에 등록된 마켓 정보에서 포트 정보를 찾아 사용하고 없을 시 9101로 폴백함
+            const m = get().markets.find((x: any) => x.symbol === symbol);
+            const port = m && m.snapshotPort ? m.snapshotPort : 9101;
+
             const rawHost = window.location.hostname || '127.0.0.1';
             const host = rawHost === 'localhost' ? '127.0.0.1' : rawHost;
             const url = `http://${host}:${port}/snapshot`;

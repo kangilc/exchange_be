@@ -25,7 +25,9 @@ const OrderBookRow: React.FC<{
     onClick?: () => void;
     /** 마켓 소수점 스케일 팩터 */
     scale: number;
-}> = React.memo(({ price, qty, side, barWidth, cumVal, lastChanged = 0, onClick, scale }) => {
+    priceDecimals: number;
+    qtyDecimals: number;
+}> = React.memo(({ price, qty, side, barWidth, cumVal, lastChanged = 0, onClick, scale, priceDecimals, qtyDecimals }) => {
     const prevChanged = useRef<number>(lastChanged);
     const [flashClass, setFlashClass] = useState<string>('');
 
@@ -48,7 +50,7 @@ const OrderBookRow: React.FC<{
     return (
         <div
             onClick={onClick}
-            className="grid grid-cols-3 py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150 cursor-pointer"
+            className="grid grid-cols-[1.2fr_0.9fr_0.9fr] py-1.5 px-4 hover:bg-white/5 relative group items-center transition-all duration-150 cursor-pointer"
         >
             {/* 누적 잔량의 크기를 나타내는 배경 비율 게이지 바 */}
             <div
@@ -63,10 +65,10 @@ const OrderBookRow: React.FC<{
                 <div className={`absolute inset-0 pointer-events-none transition-all ${flashClass}`} />
             )}
             <div className={`text-[10px] font-bold z-10 ${side === 'ask' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {realPrice.toLocaleString(undefined, { minimumFractionDigits: Math.log10(scale) })}
+                {realPrice.toLocaleString(undefined, { minimumFractionDigits: priceDecimals, maximumFractionDigits: priceDecimals })}
             </div>
-            <div className="text-right text-slate-100 z-10 font-bold">{(qty / scale).toLocaleString(undefined, { minimumFractionDigits: Math.log10(scale), maximumFractionDigits: Math.log10(scale) })}</div>
-            <div className="text-right text-slate-400 z-10">{(cumVal / scale).toLocaleString(undefined, { minimumFractionDigits: Math.log10(scale), maximumFractionDigits: Math.log10(scale) })}</div>
+            <div className="text-right text-slate-100 z-10 font-bold">{(qty / scale).toLocaleString(undefined, { minimumFractionDigits: qtyDecimals, maximumFractionDigits: qtyDecimals })}</div>
+            <div className="text-right text-slate-400 z-10">{(cumVal / scale).toLocaleString(undefined, { minimumFractionDigits: qtyDecimals, maximumFractionDigits: qtyDecimals })}</div>
         </div>
     );
 });
@@ -107,6 +109,8 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
     mobileTab
 }) => {
     // Zustand 스토어에서 실시간 호가/시세 정보만 선별적 개별 구독
+    const activeSymbol = useExchangeStore(state => state.activeSymbol);
+    const getTickSize = useExchangeStore(state => state.getTickSize);
     const asksList = useExchangeStore(state => state.asks);
     const bidsList = useExchangeStore(state => state.bids);
     const volumePower = useExchangeStore(state => state.volumePower);
@@ -114,6 +118,15 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
     const spread = useExchangeStore(state => state.spread);
     const getScaleFactor = useExchangeStore(state => state.getScaleFactor);
     const scale = getScaleFactor();
+
+    // 호가 단위 기준 가격 노출 자릿수 동적 산출 도우미
+    const getDecimalsForPrice = (tick: number) => {
+        if (!tick) return 2;
+        if (tick % 1 === 0) return 0; // 1원, 5원, 10원 등 정수형 호가 단위는 소수점 제외
+        const tickStr = tick.toString();
+        const dotIdx = tickStr.indexOf('.');
+        return dotIdx === -1 ? 0 : tickStr.length - dotIdx - 1;
+    };
 
     // 깜빡임 처리를 위해 이전 가격별 잔량을 저장하는 Reference Map
     const asksFlashMapRef = useRef<Map<number, { qty: number; lastChanged: number }>>(new Map());
@@ -173,7 +186,7 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
                 <span className="text-[10px] text-[#00f2fe] font-extrabold font-mono">체결강도: {volumePower.toFixed(1)}%</span>
             </div>
 
-            <div className="grid grid-cols-3 px-4 py-2 text-[9px] uppercase tracking-wider font-extrabold text-slate-500 border-b border-white/5 bg-slate-950/20">
+            <div className="grid grid-cols-[1.2fr_0.9fr_0.9fr] px-4 py-2 text-[9px] uppercase tracking-wider font-extrabold text-slate-500 border-b border-white/5 bg-slate-950/20">
                 <span>가격 ({fiat})</span>
                 <span className="text-right">수량 ({coin})</span>
                 <span className="text-right">누적 ({coin})</span>
@@ -194,6 +207,10 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
                         return asksWithFlash.map(({ price, qty, lastChanged }) => {
                             const cumVal = cumList[asksWithFlash.findIndex(a => a.price === price)];
                             const barWidth = Math.min((qty / maxCum) * 350, 100);
+                            const realPrice = price / scale;
+                            const tickSize = getTickSize(activeSymbol, realPrice);
+                            const priceDecimals = getDecimalsForPrice(tickSize);
+                            const qtyDecimals = Math.log10(scale);
                             return (
                                 <OrderBookRow
                                     key={`ask-${price}`}
@@ -204,6 +221,8 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
                                     cumVal={cumVal}
                                     lastChanged={lastChanged}
                                     scale={scale}
+                                    priceDecimals={priceDecimals}
+                                    qtyDecimals={qtyDecimals}
                                     onClick={() => {
                                         setOrderPrice((price / scale).toString());
                                         if (orderType === 'MARKET') {
@@ -222,7 +241,7 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
                     <div className="flex flex-col items-center">
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-white font-black tracking-tight">
-                                {midPrice > 0 ? midPrice.toLocaleString(undefined, { minimumFractionDigits: Math.log10(scale) }) : '--'}
+                                {midPrice > 0 ? midPrice.toLocaleString(undefined, { minimumFractionDigits: getDecimalsForPrice(getTickSize(activeSymbol, midPrice)), maximumFractionDigits: getDecimalsForPrice(getTickSize(activeSymbol, midPrice)) }) : '--'}
                             </span>
                             {midPrice > 0 && (
                                 <span className={`text-[10px] font-black ${midPrice - basePrice >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -230,7 +249,7 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
                                 </span>
                             )}
                         </div>
-                        <span className="text-[9px] text-[#00f2fe] font-bold mt-0.5">갭: {spread.toLocaleString(undefined, { minimumFractionDigits: Math.log10(scale) })} {fiat}</span>
+                        <span className="text-[9px] text-[#00f2fe] font-bold mt-0.5">갭: {spread.toLocaleString(undefined, { minimumFractionDigits: getDecimalsForPrice(getTickSize(activeSymbol, midPrice)), maximumFractionDigits: getDecimalsForPrice(getTickSize(activeSymbol, midPrice)) })} {fiat}</span>
                     </div>
                     <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider">Bid Spread</span>
                 </div>
@@ -248,6 +267,10 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
                         return bidsWithFlash.map(({ price, qty, lastChanged }, idx) => {
                             const cumVal = cumList[idx];
                             const barWidth = Math.min((qty / maxCum) * 350, 100);
+                            const realPrice = price / scale;
+                            const tickSize = getTickSize(activeSymbol, realPrice);
+                            const priceDecimals = getDecimalsForPrice(tickSize);
+                            const qtyDecimals = Math.log10(scale);
                             return (
                                 <OrderBookRow
                                     key={`bid-${price}`}
@@ -258,6 +281,8 @@ export const OrderBook: React.FC<OrderBookProps> = React.memo(({
                                     cumVal={cumVal}
                                     lastChanged={lastChanged}
                                     scale={scale}
+                                    priceDecimals={priceDecimals}
+                                    qtyDecimals={qtyDecimals}
                                     onClick={() => {
                                         setOrderPrice((price / scale).toString());
                                         if (orderType === 'MARKET') {

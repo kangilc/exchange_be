@@ -194,4 +194,8 @@ docker compose up -d --build frontend-user
 2. **ResizeObserver 무한 루프 우회**: 차트 크기가 변할 때 브라우저가 레이아웃을 다시 연산하면서 `ResizeObserver loop completed with undelivered notifications` 에러를 뿜는 현상을 예방하기 위해, 차트 렌더 컨테이너의 부모 엘리먼트(`parentElement`) 크기를 동적 감시 및 제어하도록 안전 장치를 더함.
 3. **Zustand `.getState()` 사용**: 주문 전송 폼(`OrderConsole.tsx`)에서 주문 전송 등 단순 호출용 일회성 액션을 사용할 때는 컴포넌트 자체를 구독하지 않고 `useExchangeStore.getState().sendOrder(...)` 인터페이스를 직접 활용해 리렌더링 유발 점수를 0으로 통제하고 있음.
 4. **TypeScript verbatimModuleSyntax 준수 및 Lightweight Charts v5 최적화**: 타입스크립트의 엄격한 ESM 모듈 번들 컴파일 규격(`verbatimModuleSyntax`)을 충족하기 위해 value 임포트와 type-only 임포트를 완전 분리하고, Lightweight Charts v5 스펙에 부합하도록 통합 시리즈 API(`addSeries`)로 선언함으로써 컴파일 속도와 안정성을 대폭 끌어올림.
+5. **동적 호가 스냅샷 포트 및 화폐 단위 처리**:
+   - 기존의 특정 마켓 심볼에 따른 호가 스냅샷 수신 포트 하드코딩 분기를 제거하고, 백엔드(`admin-api`)의 `/admin/stats/markets` API와 `application.yml` 설정을 거쳐 각 마켓 정보(`MarketODT`)에 바인딩된 `snapshotPort`를 동적으로 가져오도록 수정함.
+   - `TradingTerminal.tsx` 내에서 코인 심볼(`coin`)과 기축 통화(`fiat`) 단위를 하드코딩 분기하지 않고 활성 마켓 심볼(`activeSymbol`)에서 `split('-')`으로 동적 파싱하도록 보완하여 신규 마켓(JAF-KRW 등) 추가 시 호가창 단위 표기가 꼬이는 현상을 해결함.
+
 
