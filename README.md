@@ -164,6 +164,15 @@ graph TD
 * **백엔드**: `/home/administrator/exchange_be/admin-api/src/main/resources/application.yml`의 `app.market-ports`에 새로운 마켓 심볼과 해당 엔진의 Prometheus/Snapshot 포트 매핑을 반드시 추가해야 함.
 * **프론트엔드**: 개별 스토어(`useExchangeStore.ts`)의 `fetchFullSnapshot`에서 하드코딩 분기문을 절대 사용하지 말고, 항상 `get().markets`에서 찾아낸 `snapshotPort`를 기반으로 호출하도록 유지해야 함.
 
+#### 4. 환경 변수 (.env) 설정 파일 정의 및 역할
+서비스 기동 시 `docker-compose.yml` 및 하위 모듈이 참조하는 각 환경별 `.env` 파일(`.env.dev`, `.env.qa` 등)에는 신규 매칭 엔진과 카프카 어댑터, 웹소켓 게이트웨이가 참조하는 아래 환경 변수들을 빠짐없이 세팅해 주어야 함.
+
+* **변수별 정의 및 연동 서비스**:
+  * `[SYMBOL]_COMMAND_PORT`: 매칭 엔진이 외부 주문 입력을 수신하는 TCP 포트 (예: `JAF_USD_COMMAND_PORT=9994`). `ws-gateway`와 `order-generator`에서 이 포트를 참조하여 엔진으로 직접 주문 CSV 명령을 송신함.
+  * `[SYMBOL]_ENGINE_PORT`: 매칭 엔진이 체결/호가 변경 이벤트를 실시간으로 외부 브로드캐스트하는 TCP 포트 (예: `JAF_USD_ENGINE_PORT=9993`). `kafka-adapter-[symbol]`가 이 포트에 접속하여 실시간 이벤트를 받아 카프카 토픽으로 전송함.
+  * `[SYMBOL]_ENGINE_HOST`: 매칭 엔진의 컨테이너명 혹은 호스트 IP (예: `JAF_USD_ENGINE_HOST=engine-jaf-usd`). `kafka-adapter` 및 `ws-gateway`가 타겟 엔진에 접속할 때 호스트명으로 참조함.
+  * `[SYMBOL]_REFERENCE_PRICE`: 가상 주문 생성기가 작동할 때 기준이 되는 실시간 최초 기준가 (예: `JAF_USD_REFERENCE_PRICE=1`). `order-generator`가 기동 시 이 값을 정수 스케일링하여 시드 호가를 구성함.
+
 ---
 
 ## 🪙 신규 코인/마켓 추가 확장 가이드 (Market Expansion Checklist)
