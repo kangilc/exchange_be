@@ -101,6 +101,17 @@ sequenceDiagram
 # 어플리케이션 기동
 ./gradlew :adapter-ws:run
 
-# 단위 테스트 실행 (JUnit 5 + AssertJ)
+### 🧪 테스트 (Test)
+
+단위 테스트는 JUnit 5와 AssertJ를 기반으로 작성되어 있으며, 아래 명령어를 통해 실행한다.
+
+```bash
+# 단위 테스트 실행
 ./gradlew :adapter-ws:test
 ```
+
+**주요 테스트 검증 내용:**
+- **`MarketConfigManagerTest`**: 
+  - 관리자 API로부터 갱신된 메타데이터(호가 단위, 최소 주문금액 등)의 캐싱 및 유효성 검증
+  - 소수점 자릿수(`priceDecimals`) 기반의 기본(Fallback) 호가 단위 반환 로직 검증
+  - **호가 단위 정책(`tickSizeLevels`) 검증**: 캐시에 주입된 가격대별 호가 단위 정책을 기반으로, 입력 가격 구간(Tier)에 맞는 정확한 틱 사이즈가 반환되는지 확인 (예: USD 표준 정책에 따른 구간별 틱 사이즈 산출)
