@@ -173,18 +173,18 @@ public final class OrderGenerator {
                         // 1. 주문 유형 결정: 매수(BUY)와 매도(SELL) 확률을 정확히 50% 반반으로 나눔
                         String side = rand.nextBoolean() ? "BUY" : "SELL";
 
-                        // 2. 호가 격차(Price Offset) 산정: 현재 기준가의 틱 단위를 기준으로 오프셋 생성
+                        // 2. 호가 격차(Price Offset) 산정: 매수/매도 방향에 맞춰 오프셋 생성 (스프레드 붕괴 방지)
                         long currentTickSizeScaled = getTickSizeScaled(referencePrice);
                         long priceOffset;
-                        if (symbol.equalsIgnoreCase("BTC-USD")) {
-                            // BTC-USD: -15 ~ +14 ticks
-                            priceOffset = (rand.nextInt(30) - 15) * currentTickSizeScaled;
-                        } else if (symbol.equalsIgnoreCase("JAF-USD")) {
-                            // JAF-USD: -15 ~ +14 ticks
-                            priceOffset = (rand.nextInt(30) - 15) * currentTickSizeScaled;
+                        
+                        int spreadRange = symbol.equalsIgnoreCase("BTC-USD") ? 15 : 5;
+                        
+                        if (side.equals("BUY")) {
+                            // 매수는 주로 기준가 아래쪽에 깔리되, 간혹 위쪽(+1틱)을 쳐서 체결 유도
+                            priceOffset = (rand.nextInt(spreadRange + 2) - spreadRange) * currentTickSizeScaled; 
                         } else {
-                            // ADA-KRW / JAF-KRW: -3 ~ +2 ticks
-                            priceOffset = (rand.nextInt(6) - 3) * currentTickSizeScaled;
+                            // 매도는 주로 기준가 위쪽에 깔리되, 간혹 아래쪽(-1틱)을 쳐서 체결 유도
+                            priceOffset = (rand.nextInt(spreadRange + 2) - 1) * currentTickSizeScaled; 
                         }
                         long price = referencePrice + priceOffset;
                         // 틱 단위 배수로 정합성 패치
