@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS code_groups (
 );
 
 CREATE TABLE IF NOT EXISTS common_codes (
-    group_code VARCHAR(50) NOT NULL REFERENCES code_groups(group_code) ON DELETE CASCADE,
+    group_code VARCHAR(50) NOT NULL, -- 그룹 코드 식별자 (code_groups.group_code 논리 참조)
     code_value VARCHAR(50) NOT NULL,
     code_name VARCHAR(100) NOT NULL,
     description VARCHAR(255),
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS tick_size_rules (
 
 -- 0-3. 가격대별 호가 단위 세부 설정 테이블 (Tick Size Levels)
 CREATE TABLE IF NOT EXISTS tick_size_levels (
-    rule_id VARCHAR(50) NOT NULL REFERENCES tick_size_rules(rule_id) ON DELETE CASCADE,
+    rule_id VARCHAR(50) NOT NULL, -- 정책 식별자 ID (tick_size_rules.rule_id 논리 참조)
     price_above NUMERIC(36, 18) NOT NULL,
     tick_size NUMERIC(36, 18) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS markets (
     price_decimals INT DEFAULT 2,
     min_amt NUMERIC(20, 8) DEFAULT 0.0001, -- 최소 주문 금액 (min_qty에서 컬럼명 변경)
     listing_price BIGINT DEFAULT 0, -- 상장 기준 가격 추가
-    tick_size_rule_id VARCHAR(50) REFERENCES tick_size_rules(rule_id), -- 연동된 호가 단위 정책 ID
+    tick_size_rule_id VARCHAR(50), -- 연동된 호가 단위 정책 ID (tick_size_rules.rule_id 논리 참조)
     status VARCHAR(20) DEFAULT 'ACTIVE',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
