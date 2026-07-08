@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { useExchangeStore } from '../../store/useExchangeStore';
-import { Users, Plus, Search, X } from 'lucide-react';
+import { Users, Plus, Search } from 'lucide-react';
+import { RegisterUserModal } from '../modals/RegisterUserModal';
+import { EditUserModal } from '../modals/EditUserModal';
+import { AdjustAssetModal } from '../modals/AdjustAssetModal';
+import { UserTradesModal } from '../modals/UserTradesModal';
+import type {User} from '../../types';
 
 // 실시간 데이터 갱신으로 인한 불필요한 리렌더링 방지를 위해 memo로 감싸서 메모이제이션함.
 export const UserManagementTab: React.FC = React.memo(() => {
@@ -9,27 +14,23 @@ export const UserManagementTab: React.FC = React.memo(() => {
     // 개별 셀렉터를 사용하여 실시간 데이터 갱신으로 인한 불필요한 리렌더링 차단
     const users = useExchangeStore(state => state.users);
     const usersTotalElements = useExchangeStore(state => state.usersTotalElements || 0);
-    const usersTotalPages = useExchangeStore(state => state.usersTotalPages || 1);
-    const registerUser = useExchangeStore(state => state.registerUser);
+    const userTotalPages = useExchangeStore(state => state.usersTotalPages || 1);
     const updateUser = useExchangeStore(state => state.updateUser);
-    const adjustUserAsset = useExchangeStore(state => state.adjustUserAsset);
     const fetchUsers = useExchangeStore(state => state.fetchUsers);
     const searchUsersEs = useExchangeStore(state => state.searchUsersEs);
     const autocompleteEs = useExchangeStore(state => state.autocompleteEs);
-    const fetchUserLedgers = useExchangeStore(state => state.fetchUserLedgers);
-    const fetchUserTrades = useExchangeStore(state => state.fetchUserTrades);
-    const getScaleFactor = useExchangeStore(state => state.getScaleFactor);
 
     // Local filter/search states
     const [userSearch, setUserSearch] = useState('');
     const [userPage, setUserPage] = useState(0);
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const searchContainerRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
         fetchUsers(userPage, USER_PAGE_SIZE);
         // 페이지 번호가 변경될 때마다 해당 페이지의 회원 목록을 서버로부터 조회함.
-    }, [userPage]);
+    }, [userPage, fetchUsers]);
 
     // Debounce/ES Search Handler
     const searchTimeoutRef = React.useRef<any>(null);
@@ -38,145 +39,74 @@ export const UserManagementTab: React.FC = React.memo(() => {
         if (searchTimeoutRef.current) {
             clearTimeout(searchTimeoutRef.current);
         }
-
         searchTimeoutRef.current = setTimeout(async () => {
-            if (val.trim() === '') {
-                fetchUsers(0, USER_PAGE_SIZE);
+            const trimmedVal = val.trim();
+            try {
+                if (trimmedVal === '') {
+                    await fetchUsers(0, USER_PAGE_SIZE);
+                    setSuggestions([]);
+                } else {
+                    searchUsersEs(trimmedVal);
+                    const suggestList = await autocompleteEs(trimmedVal);
+                    setSuggestions(suggestList || []);
+                }
+            } catch (error) {
+                console.error("검색 중 오류 발생:", error);
                 setSuggestions([]);
-            } else {
-                searchUsersEs(val);
-                const suggestList = await autocompleteEs(val);
-                setSuggestions(suggestList);
             }
-        }, 200);
+        }, 300);
     };
 
     // Close suggestions dropdown when clicking outside
     React.useEffect(() => {
-        const handleClickOutside = () => {
-            setTimeout(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
                 setShowSuggestions(false);
-            }, 150);
+            }
         };
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
 
-    // Register User Modal States
+    // Modal States
     const [showRegisterModal, setShowRegisterModal] = useState(false);
-    const [regEmail, setRegEmail] = useState('');
-    const [regPassword, setRegPassword] = useState('');
-    const [regGrade, setRegGrade] = useState<'STANDARD' | 'VIP'>('STANDARD');
-
-    // Edit User Modal States
     const [showEditUserModal, setShowEditUserModal] = useState(false);
-    const [editTargetUser, setEditTargetUser] = useState<any>(null);
-    const [editGrade, setEditGrade] = useState<any>('STANDARD');
-    const [editStatus, setEditStatus] = useState<any>('ACTIVE');
-
-    // Adjust Asset Modal States
     const [showAdjustAssetModal, setShowAdjustAssetModal] = useState(false);
-    const [adjustTargetUser, setAdjustTargetUser] = useState<any>(null);
-    const [adjustCurrency, setAdjustCurrency] = useState('KRW');
-    const [adjustAmount, setAdjustAmount] = useState('');
-    const [adjustType, setAdjustType] = useState<'DEPOSIT' | 'WITHDRAWAL'>('DEPOSIT');
-
-    // User Trades Modal States
     const [showUserTradesModal, setShowUserTradesModal] = useState(false);
-    const [tradeTargetUser, setTradeTargetUser] = useState<any>(null);
-
-    // Local lists for modals
-    const [userLedgerHistory, setUserLedgerHistory] = useState<any[]>([]);
-    const [userTrades, setUserTrades] = useState<any[]>([]);
+    
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
     // Helper functions
-    const handleRegisterUser = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!regEmail || !regPassword) {
-            alert('이메일과 비밀번호를 입력해주세요.');
-            return;
-        }
-        const ok = await registerUser(regEmail, regPassword, regGrade);
-        if (ok) {
-            alert('회원 계정이 개설되었으며, 기본 지갑이 자동으로 할당되었습니다.');
-            setShowRegisterModal(false);
-            setRegEmail('');
-            setRegPassword('');
-            setRegGrade('STANDARD');
-            fetchUsers(userPage, USER_PAGE_SIZE); // 등록 후 현재 페이지의 회원 목록을 갱신함.
-        } else {
-            alert('가입에 실패했습니다. 중복 계정인지 확인해주세요.');
-        }
-    };
-
-    const handleUpdateUser = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!editTargetUser) return;
-        const ok = await updateUser(editTargetUser.userId, editTargetUser.email, editGrade, editStatus);
-        if (ok) {
-            alert('회원 상태 및 등급이 정상 변경되었습니다.');
-            setShowEditUserModal(false);
-            fetchUsers(userPage, USER_PAGE_SIZE); // 수정 후 현재 페이지의 회원 목록을 갱신함.
-        } else {
-            alert('정보 수정에 실패했습니다.');
-        }
-    };
-
-    // 승인 대기 회원에 대한 가입 승인을 처리함
-    const handleApproveUser = async (user: any) => {
+    const handleApproveUser = async (user: User) => {
         if (!window.confirm(`${user.email} 회원의 가입 신청을 승인하시겠습니까?`)) return;
         const ok = await updateUser(user.userId, user.email, user.grade, 'ACTIVE');
         if (ok) {
             alert('회원 가입 승인이 완료되었습니다.');
-            fetchUsers(userPage, USER_PAGE_SIZE); // 승인 후 현재 페이지의 회원 목록을 갱신함.
+            fetchUsers(userPage, USER_PAGE_SIZE);
         } else {
             alert('가입 승인 처리에 실패했습니다.');
         }
     };
-
-    const handleAdjustAsset = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!adjustTargetUser) return;
-        const amountNum = parseFloat(adjustAmount);
-        if (isNaN(amountNum) || amountNum <= 0) {
-            alert('올바른 금액을 입력해 주세요.');
-            return;
-        }
-
-        const actualAmount = adjustType === 'DEPOSIT' ? amountNum : -amountNum;
-        const ok = await adjustUserAsset(adjustTargetUser.userId, adjustCurrency, actualAmount);
-        if (ok) {
-            alert('회원 자산 정보가 원장에 정상 가감 반영되었습니다.');
-            setShowAdjustAssetModal(false);
-            setAdjustAmount('');
-            fetchUsers(userPage, USER_PAGE_SIZE); // 자산 조정 후 현재 페이지의 회원 목록을 갱신함.
-        } else {
-            alert('자산 조작 처리에 실패했습니다. 잔고가 부족하거나 서버 에러일 수 있습니다.');
-        }
+    
+    const openModal = (modal: 'edit' | 'asset' | 'trades', user: User) => {
+        setSelectedUser(user);
+        if (modal === 'edit') setShowEditUserModal(true);
+        else if (modal === 'asset') setShowAdjustAssetModal(true);
+        else if (modal === 'trades') setShowUserTradesModal(true);
     };
 
-    const openAssetModal = async (user: any) => {
-        setAdjustTargetUser(user);
-        setAdjustCurrency('KRW');
-        setAdjustAmount('');
-        setAdjustType('DEPOSIT');
-        const history = await fetchUserLedgers(user.userId);
-        setUserLedgerHistory(history);
-        setShowAdjustAssetModal(true);
+    const closeModal = (modal: 'register' | 'edit' | 'asset' | 'trades') => {
+        if (modal === 'register') setShowRegisterModal(false);
+        else if (modal === 'edit') setShowEditUserModal(false);
+        else if (modal === 'asset') setShowAdjustAssetModal(false);
+        else if (modal === 'trades') setShowUserTradesModal(false);
+        setSelectedUser(null);
     };
 
-    const openTradesModal = async (user: any) => {
-        setTradeTargetUser(user);
-        const trades = await fetchUserTrades(user.userId);
-        setUserTrades(trades);
-        setShowUserTradesModal(true);
+    const handleSuccess = (modal: 'register' | 'edit' | 'asset') => {
+        closeModal(modal);
+        fetchUsers(userPage, USER_PAGE_SIZE);
     };
-
-    // console.log("[UserManagementTab] 현재 users 데이터 상태:", users);
-    // 서버사이드 페이징이 반영되었으므로 클라이언트 슬라이싱 없이 그대로 사용함.
-    const filteredUsers = users;
-    const paginatedUsers = filteredUsers;
-    const userTotalPages = usersTotalPages;
 
     return (
         <div className="tab-panel animate-fade-in flex flex-col gap-6">
@@ -197,7 +127,7 @@ export const UserManagementTab: React.FC = React.memo(() => {
             <div className="bg-[#0a1020]/45 border border-white/5 rounded-2xl overflow-hidden flex flex-col">
                 <div className="p-5 border-b border-white/5 flex justify-between items-center">
                     <span className="text-sm font-bold text-white">등록 회원 상세 목록</span>
-                    <div className="relative flex flex-col items-end" onClick={(e) => e.stopPropagation()}>
+                    <div ref={searchContainerRef} className="relative flex flex-col items-end">
                         <div className="relative flex items-center">
                             <Search size={14} className="absolute left-3 text-slate-500" />
                             <input
@@ -247,12 +177,12 @@ export const UserManagementTab: React.FC = React.memo(() => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {filteredUsers.length === 0 ? (
+                            {users.length === 0 ? (
                                 <tr>
                                     <td colSpan={6} className="text-center py-8 text-slate-500">가입된 회원이 존재하지 않습니다.</td>
                                 </tr>
                             ) : (
-                                paginatedUsers.map(u => (
+                                users.map(u => (
                                     <tr key={u.userId} className="hover:bg-white/2 transition-colors">
                                         <td className="px-5 py-4 font-mono font-bold text-[#00f2fe]">{u.userId}</td>
                                         <td className="px-5 py-4 font-semibold text-white">{u.email}</td>
@@ -278,24 +208,19 @@ export const UserManagementTab: React.FC = React.memo(() => {
                                                     </button>
                                                 )}
                                                 <button
-                                                    onClick={() => openAssetModal(u)}
+                                                    onClick={() => openModal('asset', u)}
                                                     className="px-3 py-1.5 rounded-lg border border-emerald-500/25 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/12 transition-all"
                                                 >
                                                     💸 자산 관리
                                                 </button>
                                                 <button
-                                                    onClick={() => openTradesModal(u)}
+                                                    onClick={() => openModal('trades', u)}
                                                     className="px-3 py-1.5 rounded-lg border border-[#8a2be2]/25 bg-[#8a2be2]/5 text-[#c084fc] hover:bg-[#8a2be2]/12 transition-all"
                                                 >
                                                     📈 거래 내역
                                                 </button>
                                                 <button
-                                                    onClick={() => {
-                                                        setEditTargetUser(u);
-                                                        setEditGrade(u.grade);
-                                                        setEditStatus(u.status);
-                                                        setShowEditUserModal(true);
-                                                    }}
+                                                    onClick={() => openModal('edit', u)}
                                                     className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/2 text-slate-300 hover:bg-white/5 hover:text-white transition-all"
                                                 >
                                                     ⚙️ 정보 수정
@@ -331,283 +256,31 @@ export const UserManagementTab: React.FC = React.memo(() => {
                 </div>
             </div>
 
-            {/* Modal 1: Register User */}
-            {showRegisterModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in">
-                    <div className="bg-[#0d1426] border border-[#8a2be2]/40 rounded-2xl w-[480px] shadow-2xl overflow-hidden">
-                        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-white/2">
-                            <span className="text-sm font-extrabold text-white">신규 회원 계정 등록</span>
-                            <button onClick={() => setShowRegisterModal(false)} className="text-slate-400 hover:text-white"><X size={18} /></button>
-                        </div>
-                        <form onSubmit={handleRegisterUser}>
-                            <div className="p-6 flex flex-col gap-4 text-xs font-semibold">
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-slate-400 uppercase text-[10px]">이메일 주소</label>
-                                    <input
-                                        type="email"
-                                        value={regEmail}
-                                        onChange={(e) => setRegEmail(e.target.value)}
-                                        placeholder="example@exchange.com"
-                                        required
-                                        className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white outline-none focus:border-[#8a2be2]"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-slate-400 uppercase text-[10px]">임시 비밀번호</label>
-                                    <input
-                                        type="password"
-                                        value={regPassword}
-                                        onChange={(e) => setRegPassword(e.target.value)}
-                                        placeholder="비밀번호 설정"
-                                        required
-                                        className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white outline-none focus:border-[#8a2be2]"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-slate-400 uppercase text-[10px]">보안 등급</label>
-                                    <select
-                                        value={regGrade}
-                                        onChange={(e) => setRegGrade(e.target.value as any)}
-                                        className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white outline-none"
-                                    >
-                                        <option value="STANDARD">STANDARD (일반 등급)</option>
-                                        <option value="VIP">VIP (VIP 우대 등급)</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="px-6 py-4 border-t border-white/5 flex justify-end gap-3 bg-white/2">
-                                <button type="button" onClick={() => setShowRegisterModal(false)} className="px-4 py-2 rounded-lg border border-white/10 text-slate-300 font-bold hover:bg-white/5">취소</button>
-                                <button type="submit" className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#8a2be2] to-[#6366f1] text-white font-bold shadow-lg hover:brightness-110">계정 개설</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            <RegisterUserModal
+                show={showRegisterModal}
+                onClose={() => closeModal('register')}
+                onSuccess={() => handleSuccess('register')}
+            />
 
-            {/* Modal 2: Edit User Grade/Status */}
-            {showEditUserModal && editTargetUser && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in">
-                    <div className="bg-[#0d1426] border border-[#8a2be2]/40 rounded-2xl w-[480px] shadow-2xl overflow-hidden">
-                        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-white/2">
-                            <span className="text-sm font-extrabold text-white">회원 상세 정보 수정</span>
-                            <button onClick={() => setShowEditUserModal(false)} className="text-slate-400 hover:text-white"><X size={18} /></button>
-                        </div>
-                        <form onSubmit={handleUpdateUser}>
-                            <div className="p-6 flex flex-col gap-4 text-xs font-semibold">
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-slate-400 uppercase text-[10px]">회원 이메일</label>
-                                    <input
-                                        type="email"
-                                        value={editTargetUser.email}
-                                        disabled
-                                        className="w-full p-3 bg-slate-950/50 border border-white/5 rounded-lg text-slate-400 outline-none cursor-not-allowed"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-slate-400 uppercase text-[10px]">원장 거래 상태</label>
-                                    <select
-                                        value={editStatus}
-                                        onChange={(e) => setEditStatus(e.target.value as any)}
-                                        className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white outline-none"
-                                    >
-                                        <option value="ACTIVE">ACTIVE (거래 가능)</option>
-                                        <option value="PENDING">PENDING (승인 대기)</option>
-                                        <option value="SUSPENDED">SUSPENDED (거래정지)</option>
-                                    </select>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-slate-400 uppercase text-[10px]">보안 등급</label>
-                                    <select
-                                        value={editGrade}
-                                        onChange={(e) => setEditGrade(e.target.value as any)}
-                                        className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white outline-none"
-                                    >
-                                        <option value="STANDARD">STANDARD (일반 등급)</option>
-                                        <option value="VIP">VIP (VIP 우대 등급)</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="px-6 py-4 border-t border-white/5 flex justify-end gap-3 bg-white/2">
-                                <button type="button" onClick={() => setShowEditUserModal(false)} className="px-4 py-2 rounded-lg border border-white/10 text-slate-300 font-bold hover:bg-white/5">취소</button>
-                                <button type="submit" className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#8a2be2] to-[#6366f1] text-white font-bold shadow-lg hover:brightness-110">정보 변경</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            <EditUserModal
+                show={showEditUserModal}
+                user={selectedUser}
+                onClose={() => closeModal('edit')}
+                onSuccess={() => handleSuccess('edit')}
+            />
 
-            {/* Modal 3: Adjust User Assets */}
-            {showAdjustAssetModal && adjustTargetUser && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in">
-                    <div className="bg-[#0d1426] border border-emerald-500/40 rounded-2xl w-[520px] shadow-2xl overflow-hidden">
-                        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-white/2">
-                            <span className="text-sm font-extrabold text-white">회원 자산 인젝션 및 차감 (자산 관리)</span>
-                            <button onClick={() => setShowAdjustAssetModal(false)} className="text-slate-400 hover:text-white"><X size={18} /></button>
-                        </div>
-                        <form onSubmit={handleAdjustAsset}>
-                            <div className="p-6 flex flex-col gap-4 text-xs font-semibold">
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-slate-400 uppercase text-[10px]">회원 이메일 계정</label>
-                                    <input
-                                        type="text"
-                                        value={adjustTargetUser.email}
-                                        disabled
-                                        className="w-full p-3 bg-slate-950/50 border border-white/5 rounded-lg text-slate-400 outline-none cursor-not-allowed"
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-slate-400 uppercase text-[10px]">통화 (Asset)</label>
-                                        <select
-                                            value={adjustCurrency}
-                                            onChange={(e) => setAdjustCurrency(e.target.value)}
-                                            className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white outline-none"
-                                        >
-                                            <option value="KRW">KRW (대한민국 원화)</option>
-                                            <option value="USD">USD (미국 달러)</option>
-                                            <option value="BTC">BTC (비트코인)</option>
-                                            <option value="ADA">ADA (에이다)</option>
-                                            <option value="JAF">JAF (자바에프)</option>
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-slate-400 uppercase text-[10px]">조작 유형</label>
-                                        <select
-                                            value={adjustType}
-                                            onChange={(e) => setAdjustType(e.target.value as any)}
-                                            className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white outline-none"
-                                        >
-                                            <option value="DEPOSIT">DEPOSIT (자산 추가 지급)</option>
-                                            <option value="WITHDRAWAL">WITHDRAWAL (자산 차감/회수)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-slate-400 uppercase text-[10px]">조작 금액 (Amount)</label>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        value={adjustAmount}
-                                        onChange={(e) => setAdjustAmount(e.target.value)}
-                                        placeholder={adjustType === 'DEPOSIT' ? '지급할 액수 입력 (예: 50000)' : '차감할 액수 입력 (양수로 입력 - 예: 2000)'}
-                                        required
-                                        className="w-full p-3 bg-slate-950 border border-white/10 rounded-lg text-white font-bold outline-none focus:border-emerald-500"
-                                    />
-                                </div>
+            <AdjustAssetModal
+                show={showAdjustAssetModal}
+                user={selectedUser}
+                onClose={() => closeModal('asset')}
+                onSuccess={() => handleSuccess('asset')}
+            />
 
-                                <div className="flex flex-col gap-2 mt-2">
-                                    <label className="text-slate-400 uppercase text-[10px]">최근 입출금 감사 이력</label>
-                                    <div className="max-h-[160px] overflow-y-auto border border-white/5 rounded-xl bg-slate-950/40">
-                                        <table className="w-full text-left text-[11px]">
-                                            <thead className="bg-white/2 text-slate-400 font-bold border-b border-white/5">
-                                                <tr>
-                                                    <th className="px-3 py-2">일시</th>
-                                                    <th className="px-3 py-2">유형</th>
-                                                    <th className="px-3 py-2">통화</th>
-                                                    <th className="px-3 py-2 text-right">금액</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-white/5">
-                                                {userLedgerHistory.length === 0 ? (
-                                                    <tr>
-                                                        <td colSpan={4} className="text-center py-4 text-slate-500">입출금 이력이 존재하지 않습니다.</td>
-                                                    </tr>
-                                                ) : (
-                                                    userLedgerHistory.map((l: any, idx: number) => (
-                                                        <tr key={idx} className="text-slate-300">
-                                                            <td className="px-3 py-2 text-slate-400">{new Date(l.createdAt).toLocaleDateString()}</td>
-                                                            <td className="px-3 py-2">
-                                                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${l.type === 'DEPOSIT' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                                                                    {l.type}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-3 py-2 font-bold">{l.currency}</td>
-                                                            <td className={`px-3 py-2 text-right font-bold font-mono ${l.amount >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                                {parseFloat(l.amount).toLocaleString(undefined, { maximumFractionDigits: 8 })}
-                                                            </td>
-                                                        </tr>
-                                                    ))
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="px-6 py-4 border-t border-white/5 flex justify-end gap-3 bg-white/2">
-                                <button type="button" onClick={() => setShowAdjustAssetModal(false)} className="px-4 py-2 rounded-lg border border-white/10 text-slate-300 font-bold hover:bg-white/5">취소</button>
-                                <button type="submit" className="px-5 py-2 rounded-lg bg-emerald-500 text-white font-bold shadow-lg hover:brightness-110">자산 원장 갱신</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Modal 4: User Trade History */}
-            {showUserTradesModal && tradeTargetUser && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in">
-                    <div className="bg-[#0d1426] border border-[#8a2be2]/40 rounded-2xl w-[780px] shadow-2xl overflow-hidden">
-                        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-white/2">
-                            <span className="text-sm font-extrabold text-white">[{tradeTargetUser.email}] 회원 실시간 거래 체결 내역</span>
-                            <button onClick={() => setShowUserTradesModal(false)} className="text-slate-400 hover:text-white"><X size={18} /></button>
-                        </div>
-                        <div className="p-6 flex flex-col gap-4 text-xs font-semibold">
-                            <div className="max-h-[380px] overflow-y-auto border border-white/5 rounded-xl bg-slate-950/40">
-                                <table className="w-full text-left text-[11px]">
-                                    <thead className="bg-white/2 text-slate-400 font-bold border-b border-white/5">
-                                        <tr className="sticky top-0 bg-slate-950 z-10">
-                                            <th className="px-4 py-3">체결 ID</th>
-                                            <th className="px-4 py-3">심볼 (Symbol)</th>
-                                            <th className="px-4 py-3">구분 (Side)</th>
-                                            <th className="px-4 py-3 text-right">체결 가격</th>
-                                            <th className="px-4 py-3 text-right">체결 수량</th>
-                                            <th className="px-4 py-3 text-right">체결 대금</th>
-                                            <th className="px-4 py-3 text-right">체결 시각</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/5">
-                                        {userTrades.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={7} className="text-center py-6 text-slate-500">체결된 거래 내역이 존재하지 않습니다.</td>
-                                            </tr>
-                                        ) : (
-                                            userTrades.map((t: any) => {
-                                                const isBuy = t.side === 'BUY';
-                                                const scale = getScaleFactor(t.symbol);
-                                                const displayPrice = t.price / scale;
-                                                const displayVolume = t.qty * (displayPrice);
-                                                const unit = t.symbol === 'BTC-USD' ? '$' : '₩';
-
-                                                return (
-                                                    <tr key={t.tradeId} className="text-slate-300">
-                                                        <td className="px-4 py-3 font-mono font-bold text-[#00f2fe]">{t.tradeId}</td>
-                                                        <td className="px-4 py-3 font-bold text-white">{t.symbol}</td>
-                                                        <td className="px-4 py-3">
-                                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold ${isBuy ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                                                                {isBuy ? '매수 (BUY)' : '매도 (SELL)'}
-                                                            </span>
-                                                        </td>
-                                                        <td className={`px-4 py-3 text-right font-bold font-mono ${isBuy ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                            {unit}{displayPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right font-bold font-mono">{t.qty.toLocaleString()}</td>
-                                                        <td className="px-4 py-3 text-right font-bold font-mono text-slate-100">
-                                                            {unit}{displayVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right text-slate-400">{new Date(t.executedAt).toLocaleString()}</td>
-                                                    </tr>
-                                                );
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div className="px-6 py-4 border-t border-white/5 flex justify-end bg-white/2">
-                            <button onClick={() => setShowUserTradesModal(false)} className="px-5 py-2 rounded-lg bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10">닫기</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <UserTradesModal
+                show={showUserTradesModal}
+                user={selectedUser}
+                onClose={() => closeModal('trades')}
+            />
         </div>
     );
 });
