@@ -316,6 +316,11 @@ sequenceDiagram
      - 트랜잭션 커밋 완료 후 색인 부하를 격리하기 위해 `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)`와 `@Async`를 활용하여 비동기로 Elasticsearch 레포지토리에 데이터를 변경 저장/삭제한다.
   4. **초기 벌크 적재 설정**: `ElasticsearchIndexInitializer`에 새 도큐먼트에 대한 벌크 저장 로직을 통합하여 로컬/개발 서버 구동 시 전체 DB 데이터가 자동으로 색인 동기화되도록 한다.
 
+* **분석기(Analyzer) 설정 가이드 (`settings.json`)**:
+  Elasticsearch의 N-gram 기반 실시간 부분 검색을 지원하기 위해 `src/main/resources/elasticsearch/settings.json`에 분석 규칙을 정의한다. JSON 구조상 주석이 불가하여 아래에 정책을 명시한다.
+  - `autocomplete_filter` (`edge_ngram`): 단어를 앞에서부터 1~20글자 단위로 잘라 다수의 토큰을 생성한다. (예: "admin" -> "a", "ad", "adm", "admi", "admin")
+  - `autocomplete_analyzer`: DB 데이터를 ES에 **저장(Index)할 때** 사용된다. 소문자 변환 후 위 필터를 거쳐 잘게 쪼개어 저장함으로써 부분 접두사 검색을 가능하게 한다.
+  - `autocomplete_search_analyzer`: 사용자가 **검색(Search)할 때** 사용된다. 소문자로 변환만 하고 단어를 쪼개지 않아, 엉뚱한 문자 매칭을 방지하고 정확한 검색 의도와 일치하는 결과만 반환하도록 제한한다.
 ---
 
 ## 🛠️ 7. 개발 및 배포 가이드
