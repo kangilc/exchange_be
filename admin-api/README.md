@@ -263,7 +263,7 @@ sequenceDiagram
 ```
 
 #### 2) 실시간 변경사항 비동기 반영 흐름 (CUD Event)
-회원 데이터 변경(가입 승인, 상태 수정, 삭제 등) 발생 시 데이터 일관성을 맞추기 위해 트랜잭션이 성공적으로 커밋된 시점에 비동기로 ES 인덱스를 동기화한다.
+회원 데이터 변경(가입 승인, 상태 수정, 삭제 등) 발생 시 데이터 일관성을 맞추기 위해 트랜잭션이 성공적으로 커밋된 시점에 Kafka 토픽으로 메시지를 발행하고, 이를 비동기로 구독하여 ES 인덱스를 동기화한다.
 
 ```mermaid
 sequenceDiagram
@@ -272,7 +272,9 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant Listener as UserEntityListener (JPA Callback)
     participant Event as Spring eventPublisher
-    participant Handler as UserIndexEventListener (@Async)
+    participant Producer as UserIndexEventListener
+    participant Kafka as Kafka (user-sync-topic)
+    participant Consumer as UserKafkaConsumer
     participant ES as Elasticsearch
 
     Client->>Service: 회원 상태 수정 요청 (CUD)
@@ -289,21 +291,26 @@ sequenceDiagram
     Service-->>Client: API 성공 응답 반환
     deactivate Service
 
-    Note over Handler: 트랜잭션 커밋 완료 후 별도 스레드에서 수신 (@TransactionalEventListener & @Async)
-    Handler->>ES: save() or deleteById() 인덱스 갱신 요청
-    ES-->>Handler: 반영 완료
+    Note over Producer: 트랜잭션 커밋 완료 후 비동기로 수신 (@TransactionalEventListener & @Async)
+    Producer->>Kafka: send(UserSyncMessage DTO)
+    Kafka-->>Producer: ACK 전송 완료
+    
+    Note over Consumer: 백그라운드에서 실시간 구독 (@KafkaListener)
+    Consumer->>ES: save() or deleteById() 인덱스 갱신 요청
+    ES-->>Consumer: 반영 완료
 ```
 
 ### 💡 주요 아키텍처 설계 특징
-* **비동기 격리 (@Async)**: Elasticsearch 색인 요청 중 네트워크 지연이 발생하더라도, 관리자 API 응답 속도에는 전혀 영향을 미치지 않는다.
-* **트랜잭션 일관성 보장 (@TransactionalEventListener)**: DB 트랜잭션이 최종 커밋(`AFTER_COMMIT`)된 경우에만 ES 색인을 시도한다. DB 트랜잭션 롤백 시 ES 동기화 요청도 함께 취소되어 불일치를 예방한다.
-* **에러 전파 차단**: ES 서버 통신 에러가 발생해도 예외를 내부 catch하여 로그를 남기고 종료하므로, 이미 성공적으로 커밋된 DB 트랜잭션과 비즈니스 로직을 보호한다.
+* **비동기 큐잉 및 장애 내성 (Spring Kafka)**: Elasticsearch 직접 호출 시 발생하는 HTTP 통신 지연을 차단하고 Kafka를 사용해 결함을 제어한다. ES 서버 통신 장애가 발생해도 메시지는 Kafka 브로커에 보존되므로 데이터 손실 없이 안전하게 복구할 수 있다.
+* **트랜잭션 일관성 보장 (@TransactionalEventListener)**: DB 트랜잭션이 최종 커밋(`AFTER_COMMIT`)된 경우에만 Kafka 메시지를 전송한다. DB 트랜잭션 롤백 시 Kafka 메시지 발행이 전면 취소되어 불일치를 예방한다.
+* **순환 참조 및 지연 로딩 방지 (DTO 분리)**: JPA 엔티티를 직접 JSON으로 직렬화하지 않고, 색인에 필요한 필드 정보와 삭제 플래그(`isDelete`)만 담은 `UserSyncMessage` DTO를 사용하여 안정적인 직렬화를 수행한다.
 
 * **동작 흐름**:
   1. **초기 동기화**: `ElasticsearchIndexInitializer`가 애플리케이션 구동 시 DB의 전체 유저 데이터를 읽어 Elasticsearch 인덱스에 벌크 색인한다 (`local`, `dev` 프로파일 적용).
   2. **실시간 감지**: JPA 엔티티 이벤트 리스너인 `UserEntityListener`가 회원 등록, 수정, 삭제 상태를 감지하여 `UserIndexedEvent`를 발행한다.
-  3. **비동기 인덱싱**: `UserIndexEventListener`가 트랜잭션 커밋 완료(`AFTER_COMMIT`) 시점에 이벤트를 수신하여 비동기(`@Async`)로 Elasticsearch 인덱스를 동기화한다.
-  4. **검색 및 자동완성 API**:
+  3. **메시지 발행**: `UserIndexEventListener`가 트랜잭션 커밋 완료(`AFTER_COMMIT`) 시점에 이벤트를 수신하여 `UserSyncMessage` DTO로 가공한 후 Kafka `user-sync-topic` 토픽으로 전송한다.
+  4. **비동기 인덱싱**: `UserKafkaConsumer`가 `@KafkaListener`로 토픽을 실시간 구독하여 Elasticsearch 인덱스를 갱신한다.
+  5. **검색 및 자동완성 API**:
      - `GET /admin/users/search`: 이메일 키워드에 해당하는 회원을 검색한다 (`edge_ngram` 분석기를 사용한 Match Query 적용).
      - `GET /admin/users/autocomplete`: 입력된 문자열로 시작하는 최대 10개의 이메일 제안 목록을 검색한다.
 
@@ -311,9 +318,10 @@ sequenceDiagram
   새로운 엔티티 필드를 검색 기능에 포함시키거나 신규 검색 인덱스를 구성하려면 아래 단계를 수행한다.
   1. **도큐먼트 클래스 정의**: `exchange.admin.document` 패키지에 `@Document(indexName = "인덱스명")`을 사용한 도큐먼트 클래스를 추가한다. 필요한 경우 형태소 분석 및 자동완성을 위해 `@Setting(settingPath = "elasticsearch/settings.json")` 및 `@Field` 어노테이션에 분석기를 매핑한다.
   2. **레포지토리 생성**: `exchange.admin.repository.es` 패키지에 `ElasticsearchRepository`를 상속하는 인터페이스를 생성한다.
-  3. **엔티티 이벤트 연계**:
+  3. **엔티티 이벤트 및 카프카 연계**:
      - 대상 JPA 엔티티 클래스에 `@EntityListeners`를 지정하여 저장/수정/삭제 콜백 메서드에서 이벤트를 발행한다.
-     - 트랜잭션 커밋 완료 후 색인 부하를 격리하기 위해 `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)`와 `@Async`를 활용하여 비동기로 Elasticsearch 레포지토리에 데이터를 변경 저장/삭제한다.
+     - 트랜잭션 커밋 완료 후 색인 부하를 격리하기 위해 `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)`와 `KafkaTemplate`을 활용하여 DTO 형태로 Kafka 토픽에 발행한다.
+     - 이를 구독하는 `@KafkaListener` Consumer를 생성하여 Elasticsearch 레포지토리에 데이터를 최종 변경 저장/삭제하도록 구성한다.
   4. **초기 벌크 적재 설정**: `ElasticsearchIndexInitializer`에 새 도큐먼트에 대한 벌크 저장 로직을 통합하여 로컬/개발 서버 구동 시 전체 DB 데이터가 자동으로 색인 동기화되도록 한다.
 
 * **분석기(Analyzer) 설정 가이드 (`settings.json`)**:
@@ -321,6 +329,7 @@ sequenceDiagram
   - `autocomplete_filter` (`edge_ngram`): 단어를 앞에서부터 1~20글자 단위로 잘라 다수의 토큰을 생성한다. (예: "admin" -> "a", "ad", "adm", "admi", "admin")
   - `autocomplete_analyzer`: DB 데이터를 ES에 **저장(Index)할 때** 사용된다. 소문자 변환 후 위 필터를 거쳐 잘게 쪼개어 저장함으로써 부분 접두사 검색을 가능하게 한다.
   - `autocomplete_search_analyzer`: 사용자가 **검색(Search)할 때** 사용된다. 소문자로 변환만 하고 단어를 쪼개지 않아, 엉뚱한 문자 매칭을 방지하고 정확한 검색 의도와 일치하는 결과만 반환하도록 제한한다.
+
 ---
 
 ## 🛠️ 7. 개발 및 배포 가이드

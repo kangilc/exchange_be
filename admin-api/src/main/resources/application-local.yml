@@ -11,6 +11,8 @@ spring:
     open-in-view: false
   flyway:
     locations: classpath:db/migration,classpath:db/seed
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
 
 ethereum:
   rpc-url: ${EVM_RPC_URL:http://localhost:8545}
