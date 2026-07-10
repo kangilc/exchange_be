@@ -1,4 +1,4 @@
-# JavaF 거래소 관리자 API 서비스 (admin-api)
+# JavaF 관리자 API 서비스 (admin-api)
 
 Spring Boot 3 및 Spring Data JPA 기반의 거래소 통합 관리 및 어드민 비즈니스 로직 제공 REST API 서버. 
 
