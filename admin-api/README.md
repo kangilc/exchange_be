@@ -345,9 +345,10 @@ sequenceDiagram
 
 ### 통합 테스트 실행 및 구조
 - 데이터베이스 격리 및 시드 데이터 오염 방지를 위해 DDL 스키마(db/migration)와 시뮬레이션용 시드 데이터(db/seed)의 Flyway 실행 경로를 프로파일별로 분리함.
+- **내장 카프카(Embedded Kafka) 적용**: 로컬 환경의 외부 브로커 의존성을 제거하기 위해, `spring-kafka-test`의 `@EmbeddedKafka`를 `BaseIntegrationTest`에 적용하여 테스트 수행 시에만 메모리에 임시 Kafka를 구동해 이벤트 및 메시지 큐 정합성을 독립적으로 검증함.
 - 테스트 구동 시 DB(exchange_test)가 비어 있는 상태에서 격리 검증을 수행함.
-- 검증 신뢰도와 보고서 가독성을 높이기 위해 도메인별로 8개의 테스트 클래스로 분리하고 총 45개의 세부 테스트 케이스를 구축함.
-  1. `UserAccountIntegrationTest`: 회원 등록, 중복 가입 차단, 정보 수정 및 조회 검증 (8개 테스트)
+- 검증 신뢰도와 보고서 가독성을 높이기 위해 도메인별로 8개의 테스트 클래스로 분리하고 총 46개의 세부 테스트 케이스를 구축함.
+  1. `UserAccountIntegrationTest`: 회원 등록, 중복 가입 차단, 정보 수정 및 조회, Kafka/ES 비동기 동기화 파이프라인 검증 (9개 테스트)
   2. `UserWalletIntegrationTest`: 지갑 생성, 자산 조정, 잔고 부족 차단, 가상자산 소수점 및 대용량 연산 검증 (10개 테스트)
   3. `UserHistoryIntegrationTest`: 감사용 원장 이력 적재 및 MyBatis 연동 상세 조회 페이징 검증 (4개 테스트)
   4. `UserAuthIntegrationTest`: 로그인 자격 증명 처리, 리프레시 토큰 회전(RTR) 및 재사용 공격 차단 검증 (6개 테스트)

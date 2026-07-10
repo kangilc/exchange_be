@@ -149,4 +149,29 @@ class UserAccountIntegrationTest extends BaseIntegrationTest {
         // 결과가 비어있음을 검증
         assertThat(result).isEmpty();
     }
+
+    @Test
+    @Order(9)
+    @DisplayName("9. 회원가입 완료 시 비동기(Kafka)를 통해 Elasticsearch 색인이 트리거되는지 검증")
+    void test09_registerUser_TriggersKafkaAndEsSync() throws Exception {
+        // Given
+        String testEmail = "kafka_sync_verify@example.com";
+        org.mockito.Mockito.reset(userSearchRepository);
+
+        // When
+        // 메서드 자체에 @Transactional이 부여되지 않아 즉시 커밋 완료되며 AFTER_COMMIT 리스너 및 Kafka 발행이 작동함
+        User user = userService.registerUser(testEmail, "pass123", "STANDARD");
+
+        try {
+            // Then: Kafka 메시지 전송 및 Consumer 백그라운드 처리를 위한 대기
+            Thread.sleep(1200);
+
+            // ES Mock 리포지토리에 DTO 정보가 정상 가공되어 save() 호출되었는지 확인
+            org.mockito.Mockito.verify(userSearchRepository, org.mockito.Mockito.atLeastOnce())
+                    .save(org.mockito.Mockito.argThat(doc -> doc.getEmail().equals(testEmail)));
+        } finally {
+            // 테스트로 생성된 가입 데이터 수동 클린업
+            userRepository.deleteById(user.getUserId());
+        }
+    }
 }

@@ -10,9 +10,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import exchange.admin.repository.es.UserSearchRepository;
 
+import org.springframework.kafka.test.context.EmbeddedKafka;
+
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@EmbeddedKafka(partitions = 1, brokerProperties = { "listeners=PLAINTEXT://localhost:9092", "port=9092" })
 public abstract class BaseIntegrationTest {
 
     @MockBean
