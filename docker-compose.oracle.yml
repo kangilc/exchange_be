@@ -11,8 +11,8 @@ services:
       - "5432:5432" # 데이터베이스 접속 포트
     environment:
       - POSTGRES_DB=exchange # 데이터베이스 명칭
-      - POSTGRES_USER=${DB_USER} # 데이터베이스 사용자명
-      - POSTGRES_PASSWORD=${DB_PASSWORD} # 데이터베이스 암호
+      - POSTGRES_USER=${PROD_DB_USER} # 데이터베이스 사용자명
+      - POSTGRES_PASSWORD=${PROD_DB_PASSWORD} # 데이터베이스 암호
       # 스키마 및 시드 데이터는 admin-api의 Flyway 마이그레이션(V1__, V2__ 등)으로 자동 관리됨
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d exchange" ]
@@ -162,7 +162,7 @@ services:
     ports:
       - "3000:3000" # 그라파나 대시보드 접속 포트 (기본 로그인 계정 - admin / admin)
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD} # 기본 관리자 비밀번호 강제 설정
+      - GF_SECURITY_ADMIN_PASSWORD=${PROD_GRAFANA_PASSWORD} # 기본 관리자 비밀번호 강제 설정
       - GF_USERS_ALLOW_SIGN_UP=false # 신규 사용자 회원가입 차단
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning # 데이터소스 및 대시보드 자동 연동 설정
@@ -432,8 +432,8 @@ services:
     environment:
       - KAFKA_BROKER=kafka:9092
       - DB_URL=jdbc:postgresql://postgres:5432/exchange
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_USER=${PROD_DB_USER}
+      - DB_PASSWORD=${PROD_DB_PASSWORD}
       - JAVA_OPTS=-Xms64m -Xmx128m -XX:+UseSerialGC
     restart: on-failure
     deploy:
@@ -464,8 +464,8 @@ services:
       - .env.dev
     environment:
       - DB_URL=jdbc:postgresql://postgres:5432/exchange
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_USER=${PROD_DB_USER}
+      - DB_PASSWORD=${PROD_DB_PASSWORD}
       - SPRING_PROFILES_ACTIVE=dev
       - JAVA_OPTS=-Xms128m -Xmx256m -XX:+UseSerialGC
     restart: on-failure
@@ -482,46 +482,7 @@ services:
       - ./audit/reports:/audit # 호스트의 audit/reports 경로를 마운트
     command: [ "sh", "-c", "tail -f /dev/null" ] # 컨테이너가 죽지 않고 무한 대기하도록 설정
 
-  # frontend-user: React 18 + TS + Vite 기반의 회원 거래소 전용 컨테이너 (포트 5173)
-  frontend-user:
-    build:
-      context: ./frontend-user
-      dockerfile: Dockerfile
-    container_name: frontend-user
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend-user:/app
-      - /app/node_modules
-    environment:
-      - NODE_ENV=development
-    restart: on-failure
-    deploy:
-      resources:
-        limits:
-          memory: 256M
 
-  # frontend-admin: React 18 + TS + Vite 기반의 어드민 콘솔 전용 컨테이너 (포트 5174)
-  frontend-admin:
-    build:
-      context: ./frontend-admin
-      dockerfile: Dockerfile
-    container_name: frontend-admin
-    ports:
-      - "5174:5174"
-    volumes:
-      - ./frontend-admin:/app
-      - /app/node_modules
-    environment:
-      - NODE_ENV=development
-    depends_on:
-      admin-api:
-        condition: service_started # admin-api 컨테이너가 시작되면 frontend-admin을 실행합니다.
-    restart: on-failure
-    deploy:
-      resources:
-        limits:
-          memory: 256M
 
   # =========================================================================
   # 7. 테스트 도구 (Order Generator)
