@@ -93,8 +93,8 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
           # 최신 이미지 다운로드 및 백엔드 인프라 재구동
-          docker compose -f docker-compose.oracle.yml pull
-          docker compose -f docker-compose.oracle.yml up -d
+          docker compose -f docker-compose.oracle.app.yml pull
+          docker compose -f docker-compose.oracle.app.yml up -d
           
           # 사용하지 않는 이전 버전의 도커 이미지 삭제 (용량 확보)
           docker image prune -f

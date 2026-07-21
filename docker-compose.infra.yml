@@ -1,0 +1,227 @@
+services:
+  # =========================================================================
+  # 1. 핵심 데이터베이스 및 로컬 EVM (PostgreSQL & Ganache)
+  # =========================================================================
+
+  # PostgreSQL: 회원 정보, 자산 지갑, 주문 및 체결 내역의 물리적인 영속성을 보장하는 데이터베이스
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432" # 데이터베이스 접속 포트
+    environment:
+      - POSTGRES_DB=exchange # 데이터베이스 명칭
+      - POSTGRES_USER=${DB_USER} # 데이터베이스 사용자명
+      - POSTGRES_PASSWORD=${DB_PASSWORD} # 데이터베이스 암호
+      # 스키마 및 시드 데이터는 admin-api의 Flyway 마이그레이션(V1__, V2__ 등)으로 자동 관리됨
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d exchange" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ganache: 개발 및 테스트용 로컬 가상 EVM 블록체인 네트워크 노드
+  ganache:
+    image: trufflesuite/ganache:v7.9.1
+    container_name: ganache
+    ports:
+      - "8545:8545" # 외부 배포 도구 및 메타마스크 연동을 위해 호스트에 포트 오픈
+    command: [ "--host", "0.0.0.0", "--deterministic", "--networkId", "1337", "--chain.chainId", "1337" ]
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # elasticsearch: 회원 검색 및 추천 검색어 제공을 위한 고성능 검색엔진
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.2
+    container_name: exchange-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+  # =========================================================================
+  # 2. 메시징 인프라 (Zookeeper & Kafka)
+  # =========================================================================
+
+  # ZooKeeper: Kafka 브로커의 메타데이터 관리 및 클러스터 조율을 담당합니다.
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181 # ZooKeeper 클라이언트가 연결할 포트 설정
+    ports:
+      - "2181:2181" # 내부 포트 2181을 호스트 포트 2181로 바인딩
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # Apache Kafka: 매칭 엔진이 발행하는 체결/주문/취소 이벤트를 수집하고 배포하는 고성능 메시지 브로커입니다.
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper # ZooKeeper가 구동된 후에 카프카가 시작되도록 제어
+    ports:
+      - "9092:9092" # 컨테이너 네트워크 내부용 포트
+      - "29092:29092" # 외부 호스트(개발자 머신 등)에서 접근 가능한 포트
+    environment:
+      KAFKA_BROKER_ID: 1 # 카프카 브로커의 고유 ID
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181 # ZooKeeper 접속 정보
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx256m" # JVM 힙 메모리 최소화
+      # 내부 및 외부 클라이언트용 리스너 구성 (PLAINTEXT 및 PLAINTEXT_HOST 프로토콜 분리)
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1 # 개발/테스트 환경이므로 복제 계수(Replication Factor)를 1로 지정
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # =========================================================================
+  # 3. 통합 관측 시스템 (Loki, Promtail, Prometheus, Grafana, cAdvisor, Kafka Exporter)
+  # =========================================================================
+
+  loki:
+    image: grafana/loki:2.9.2
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail
+    volumes:
+      - ./grafana/promtail-config.yml:/etc/promtail/config.yml
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    environment:
+      - DOCKER_API_VERSION=1.44
+    depends_on:
+      - loki
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # Prometheus: 분산된 엔진 및 웹소켓 노드들의 지표(TPS, Latency 등)를 주기적으로 긁어와(Scrape) 저장하는 시계열 DB
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: prometheus
+    ports:
+      - "9090:9090" # 프로메테우스 웹 UI 대시보드 포트
+    volumes:
+      - ./prometheus:/etc/prometheus # 설정 파일 로드를 위한 마운트
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    depends_on:
+      # kafka-exporter가 구동된 후 prometheus를 시작 (scrape 대상 엔진/ws는 prometheus가 자체 재시도하므로 depends_on 불필요)
+      - kafka-exporter
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # Grafana: 프로메테우스와 로키가 수집한 데이터를 기반으로 대시보드를 시각화하는 도구
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: grafana
+    ports:
+      - "3000:3000" # 그라파나 대시보드 접속 포트 (기본 로그인 계정 - admin / admin)
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD} # 기본 관리자 비밀번호 강제 설정
+      - GF_USERS_ALLOW_SIGN_UP=false # 신규 사용자 회원가입 차단
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning # 데이터소스 및 대시보드 자동 연동 설정
+      - ./grafana/dashboards:/etc/grafana/dashboards # 미리 구성된 대시보드 JSON 템일릿 마운트
+    depends_on:
+      - prometheus
+      - loki
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # cadvisor: 각 도커 컨테이너의 실시간 CPU 및 RAM 점유율을 계측하는 구글 오픈소스 도구
+  cadvisor:
+    # v를 제외하고 숫자 태그만 작성 (v0.56.2 -> 0.56.2)
+    image: ghcr.io/google/cadvisor:0.56.2
+    container_name: cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      # 호스트의 /var/lib/docker를 내부의 동일 경로로 단 한 번만 매핑.
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /var/lib/docker:/rootfs/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/machine-id:/etc/machine-id:ro
+    command:
+      - --docker_only=true
+      - --port=8182
+    ports:
+      - "8182:8182"
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.7.0
+    container_name: kafka-exporter
+    command: [ "--kafka.server=kafka:9092" ]
+    ports:
+      - "9308:9308"
+    depends_on:
+      - kafka
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+volumes:
+  esdata:
+    driver: local
+
+networks:
+  default:
+    name: exchange_network
