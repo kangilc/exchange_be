@@ -59,8 +59,7 @@ Desktop.ini
 .env.development.local
 .env.test.local
 .env.production.local
-.env*
-!.env.example
+# .env  <- Commented out to permit tracking of local compose configs for now, customize as needed.
 
 # ==========================================
 # Node.js, NPM & React Environments
