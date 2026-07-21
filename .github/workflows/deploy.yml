@@ -1,0 +1,100 @@
+name: CI/CD Docker Compose Deploy
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # GHCR에 이미지를 푸시하기 위한 권한
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Log in to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set lower case owner name
+      run: |
+        echo "OWNER_LC=${OWNER,,}" >> ${GITHUB_ENV}
+      env:
+        OWNER: '${{ github.repository_owner }}'
+
+    # 1. 공통 엔진 코어 빌드
+    - name: Build and push engine-core
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: engine-core/Dockerfile
+        push: true
+        tags: ghcr.io/${{ env.OWNER_LC }}/exchange-engine-core:latest
+
+    # 2. 공통 카프카 어댑터 빌드
+    - name: Build and push adapter-kafka
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: adapter-kafka/Dockerfile
+        push: true
+        tags: ghcr.io/${{ env.OWNER_LC }}/exchange-adapter-kafka:latest
+
+    # 3. 웹소켓 게이트웨이 빌드
+    - name: Build and push adapter-ws
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: adapter-ws/Dockerfile
+        push: true
+        tags: ghcr.io/${{ env.OWNER_LC }}/exchange-adapter-ws:latest
+
+    # 4. DB 퍼시스터 빌드
+    - name: Build and push db-persister
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: adapter-kafka/DockerfilePersister
+        push: true
+        tags: ghcr.io/${{ env.OWNER_LC }}/exchange-db-persister:latest
+
+    # 5. 어드민 API 빌드
+    - name: Build and push admin-api
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: admin-api/Dockerfile
+        push: true
+        tags: ghcr.io/${{ env.OWNER_LC }}/exchange-admin-api:latest
+
+    # 6. 오라클 VM으로 SSH 배포
+    - name: Deploy to Oracle Cloud via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.ORACLE_VM_IP }}
+        username: ubuntu # 오라클 Ubuntu 이미지의 기본 계정명
+        key: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+        script: |
+          cd /home/ubuntu/exchange_be
+          
+          # GitHub Secrets에서 가져와 실서버용 .env 파일 동적 생성
+          echo "PROD_DB_USER=${{ secrets.PROD_DB_USER }}" > .env
+          echo "PROD_DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}" >> .env
+          echo "PROD_GRAFANA_PASSWORD=${{ secrets.PROD_GRAFANA_PASSWORD }}" >> .env
+          echo "GITHUB_USER=${{ env.OWNER_LC }}" >> .env
+          
+          # GHCR 로그인 (Public 저장소라도 인증 권장)
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # 최신 이미지 다운로드 및 백엔드 인프라 재구동
+          docker compose -f docker-compose.oracle.yml pull
+          docker compose -f docker-compose.oracle.yml up -d
+          
+          # 사용하지 않는 이전 버전의 도커 이미지 삭제 (용량 확보)
+          docker image prune -f
