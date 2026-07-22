@@ -7,6 +7,9 @@
 ---
 
 ## 🆕 최근 업데이트 (Recent Updates)
+- Docker Compose 인프라 및 애플리케이션 그룹 분리 구동 환경 구축.
+  - `docker-compose.infra.yml`과 `docker-compose.app.yml` 최상단에 `name: exchange-infra` 및 `name: exchange-app`을 지정하여 Docker Desktop에서 `exchange_be` 단일 그룹으로 묶이던 현상을 인프라와 앱 그룹으로 깔끔하게 분리함.
+  - 각 모듈을 독자적으로 빌드하고 독립 제어(Up/Down)할 수 있도록 구동 명령어를 현행화함.
 - 회원 목록 서버사이드 페이징(Pageable) 규격 적용 및 프론트엔드 연동 안정화.
   - `UserController.java`의 회원 목록 조회(`getAllUsers`)를 JPA Pageable 구조로 전면 통합하여 Page 객체(`content`, `totalElements` 등)를 일관되게 반환하도록 함.
   - `useExchangeStore.ts`에서 `fetchWithAuth` 공통 응답 언래핑(`data` 필드 자동 추출) 특성에 맞춰 중복으로 `.data`를 추출하던 바인딩 에러를 해결하여 회원 목록 빈 화면 현상을 안정화시켰음.
@@ -60,6 +63,46 @@
   - `StatsMapper` 및 `TradeMapper`의 조인 병목 구간을 CTE(WITH 구문)를 활용한 선 그룹핑 후 조인 방식으로 구조 전면 개편.
   - `TRADES`, `ORDERS`, `LEDGER_JOURNAL`, `USERS` 테이블에 날짜(CREATED_AT) 기준 통계 조회 전용 B-Tree 복합 인덱스 설계 및 적용.
   - XML 매퍼 내 모든 한글 주석을 코드 끝 기준 탭 2번 띄움 정렬 규칙으로 일괄 규격화.
+
+---
+
+## 🐳 시스템 기동 및 Docker Compose 분리 구성 가이드
+
+플랫폼은 인프라(DB, Kafka, ES, 모니터링 등)와 애플리케이션(매칭 엔진, 어댑터, API, UI 등)이 각각 독립적인 Docker Compose 파일로 구성되어 있음. Docker Desktop UI에서 그룹이 분리되도록 각각 `name` 속성이 부여되어 있음.
+
+### 1. 그룹별 Compose 파일 및 구성 요소
+
+* **인프라 그룹 (`docker-compose.infra.yml` / `name: exchange-infra`)**:
+  * **핵심 DB & EVM**: PostgreSQL (`5432`), Ganache (`8545`), Elasticsearch (`9200`)
+  * **메시징 브로커**: ZooKeeper (`2181`), Apache Kafka (`9092` / `29092`)
+  * **통합 관측 인프라**: Loki (`3100`), Promtail, Prometheus (`9090`), Grafana (`3000`), cAdvisor (`8182`), Kafka Exporter (`9308`)
+* **애플리케이션 그룹 (`docker-compose.app.yml` / `name: exchange-app`)**:
+  * **매칭 엔진**: engine-btc, engine-ada, engine-jaf-krw, engine-jaf-usd
+  * **어댑터 & 데몬**: kafka-adapter (btc, ada, jaf-krw, jaf-usd), ws-gateway (`8088`), db-persister
+  * **백엔드 & UI**: admin-api (`8181`), frontend-user (`5173`), frontend-admin (`5174`), audit-volume, order-generator
+
+---
+
+### 2. 단계별 구동 명령어
+
+#### ① 인프라 서비스 구동 (선행 실행)
+```bash
+docker compose -f docker-compose.infra.yml up -d --build
+```
+
+#### ② 애플리케이션 및 매칭 엔진 구동 (인프라 구동 후 실행)
+```bash
+docker compose -f docker-compose.app.yml up -d --build
+```
+
+#### ③ 특정 그룹만 정지 및 삭제
+```bash
+# 애플리케이션 정지
+docker compose -f docker-compose.app.yml down
+
+# 인프라 정지
+docker compose -f docker-compose.infra.yml down
+```
 
 ---
 
